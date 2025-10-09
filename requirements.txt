@@ -5,3 +5,6 @@ ta
 breeze_connect
 numpy
 requests
+yfinance
+pandas-ta
+
