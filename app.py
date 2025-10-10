@@ -27,6 +27,8 @@ if data.empty:
 
 # Ensure datetime index and drop NaNs
 data.index = pd.to_datetime(data.index)
+# added this line manually
+data.columns =data.columns.get_level_values('Price')
 data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 # Calculate indicators
