@@ -105,29 +105,41 @@
             }
         }, 1000);
 
-        // Native Regex Parser handling quotes and embedded commas flawlessly
-        function parseCSVString(text) {
-            let lines = text.split(/\r\n|\n/);
-            let result = [];
-            if(lines.length === 0 || !lines[0]) return result;
+        // Safe loop-based parser that handles commas perfectly
+        function miniCSVParser(text) {
+            let lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+            if (lines.length === 0) return [];
             
-            // Clean extraction pattern
-            let headers = lines[0].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[0].split(',');
-            headers = headers.map(h => h.replace(/^"|"$/g, '').trim());
-
+            // Clean up header row keys
+            let headers = lines[0].split(',').map(h => h.trim());
+            let result = [];
+            
             for (let i = 1; i < lines.length; i++) {
-                let line = lines[i].trim();
-                if (!line) continue;
+                let line = lines[i];
+                let rowValues = [];
+                let insideQuotes = false;
+                let entry = "";
                 
-                let obj = {};
-                // Match items inside quotes vs flat blocks
-                let matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
-                let values = matches.map(v => v.replace(/^"|"$/g, '').trim());
+                // Inspect row character by character to safely handle commas inside quotes
+                for (let j = 0; j < line.length; j++) {
+                    let char = line[j];
+                    if (char === '"') {
+                        insideQuotes = !insideQuotes;
+                    } else if (char === ',' && !insideQuotes) {
+                        rowValues.push(entry.trim());
+                        entry = "";
+                    } else {
+                        entry += char;
+                    }
+                }
+                rowValues.push(entry.trim());
                 
+                // Map values back to their headers
+                let rowObj = {};
                 headers.forEach((header, index) => {
-                    obj[header] = values[index] !== undefined ? values[index] : null;
+                    rowObj[header] = rowValues[index] !== undefined ? rowValues[index] : null;
                 });
-                result.push(obj);
+                result.push(rowObj);
             }
             return result;
         }
@@ -143,7 +155,7 @@
                     return res.text();
                 })
                 .then(csvText => {
-                    cachedDataset = parseCSVString(csvText);
+                    cachedDataset = miniCSVParser(csvText);
                     if(cachedDataset.length > 0) {
                         renderDashboardInterface(cachedDataset);
                     } else {
@@ -172,5 +184,3 @@
                 tableBody.innerHTML += `
                     <tr class="hover:bg-gray-800">
                         <td class="font-mono text-green-400 font-bold" style="padding: 14px; border-bottom: 1px solid #334155;">${row.Ticker || 'N/A'}</td>
-                        <td style="padding: 14px; border-bottom: 1px solid #334155;"><div class="truncate" title="${row.Latest_Headline}">${row.Latest_Headline || 'No feeds loaded.'}</div></td>
-                        <td style="text-align: center; padding: 14px; border-bottom: 1px solid #334155;">${row.Repeat_Count || 1}</td>
