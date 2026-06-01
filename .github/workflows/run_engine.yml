@@ -1,8 +1,8 @@
 name: Data Engine Auto-Refresh
 on:
   schedule:
-    - cron: '0 15 * * 1-5' # Runs automatically Mon-Fri at 3:00 PM UTC
-  workflow_dispatch:      # Allows you to click a button and run it manually
+    - cron: '0 15 * * 1-5' # Runs Mon-Fri at 3:00 PM UTC
+  workflow_dispatch:      # Allows you to trigger it manually via the Actions tab
 
 jobs:
   run-backend:
@@ -11,14 +11,16 @@ jobs:
     - name: Checkout Repository Code
       uses: actions/checkout@v4
 
-    # Use actions/setup-python to launch a mini cloud container execution block
     - name: Initialize Python Runtime
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+        cache: 'pip' # Speeds up future workflow runs by caching installed libraries
 
-    - name: Install Libraries
-      run: pip install pandas
+    - name: Install System Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas yfinance feedparser
 
     - name: Generate Fresh CSV Dataset
       run: python app.py
