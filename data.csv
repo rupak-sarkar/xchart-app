@@ -1,8 +1,8 @@
 Ticker,Latest_Headline,Repeat_Count,Forecast_Score,Forecast_Direction,Actual_Direction,Actual_Return_Pct
-RELIANCE,Stable trade volatility tracked on exchange indices for RELIANCE.,1,11.2,1,1,0.44
-TCS,Stable trade volatility tracked on exchange indices for TCS.,1,51.0,1,1,2.0
-INFY,Stable trade volatility tracked on exchange indices for INFY.,1,100.0,1,1,4.09
-HDFCBANK,Stable trade volatility tracked on exchange indices for HDFCBANK.,1,4.3,1,1,0.17
+RELIANCE,Stable trade volatility tracked on exchange indices for RELIANCE.,1,10.7,1,1,0.42
+TCS,Stable trade volatility tracked on exchange indices for TCS.,1,75.0,1,1,2.94
+INFY,Stable trade volatility tracked on exchange indices for INFY.,1,100.0,1,1,4.49
+HDFCBANK,Stable trade volatility tracked on exchange indices for HDFCBANK.,1,2.6,1,1,0.1
 TATAMOTORS,Stable trade volatility tracked on exchange indices for TATAMOTORS.,1,0.0,1,1,0.0
-SBIN,Stable trade volatility tracked on exchange indices for SBIN.,1,0.3,1,1,0.01
-ICICIBANK,Stable trade volatility tracked on exchange indices for ICICIBANK.,1,-1.5,-1,-1,-0.06
+SBIN,Stable trade volatility tracked on exchange indices for SBIN.,1,-4.6,-1,-1,-0.18
+ICICIBANK,Stable trade volatility tracked on exchange indices for ICICIBANK.,1,-8.2,-1,-1,-0.32
