@@ -61,10 +61,9 @@
     </div>
 
     <script>
-        // Bulletproof dynamic file tracking url constructor
-        const currentUrl = window.location.href.split('?')[0];
-        const baseDirectory = currentUrl.endsWith('/') ? currentUrl : currentUrl + '/';
-        const csvTargetUrl = baseDirectory + 'data.csv?t=' + new Date().getTime();
+        // Direct relative request utilizing location pathname adjustments to prevent split array errors
+        const baseDir = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+        const csvTargetUrl = window.location.origin + baseDir + 'data.csv?v=' + Math.random();
 
         console.log("🎯 Dynamic target path destination configured:", csvTargetUrl);
 
