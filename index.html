@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XChart FinBERT Edge Platform</title>
-    <!-- FIXED: Valid, operational CDN endpoint link for Papa Parse library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; margin: 0; }
         .max-w-7xl { max-width: 80rem; margin: 0 auto; }
-        .header-layout { display: flex; justify-content: space-between; align-items: center; border-b: 1px solid #334155; padding-bottom: 16px; margin-bottom: 32px; }
+        .header-layout { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 32px; }
         .grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 32px; }
         @media (min-width: 768px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         .bg-gray-800 { background-color: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -17,11 +16,11 @@
         .text-3xl { font-size: 2.25rem; font-weight: 800; margin-top: 4px; margin-bottom: 0; }
         .text-gray-400 { color: #94a3b8; font-size: 0.875rem; margin: 0; }
         .uppercase { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; font-weight: 700; }
-        
+
         .search-container { margin-bottom: 16px; display: flex; gap: 12px; width: 100%; }
         .search-input { flex-grow: 1; background-color: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 12px 16px; color: #f8fafc; font-size: 0.95rem; outline: none; transition: border 0.2s; }
         .search-input:focus { border-color: #38bdf8; }
-        
+
         table { width: 100%; text-align: left; font-size: 0.875rem; border-collapse: collapse; }
         th { padding: 14px; text-transform: uppercase; font-size: 0.75rem; background-color: #334155; color: #cbd5e1; font-weight: 700; }
         td { padding: 14px; border-bottom: 1px solid #334155; color: #e2e8f0; }
@@ -31,10 +30,13 @@
         .bg-red-900 { background-color: #7f1d1d; color: #f87171; }
         .bg-gray-700 { background-color: #475569; color: #cbd5e1; }
         .truncate { max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
+
         .refresh-badge { background-color: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
         .pulse-dot { width: 8px; height: 8px; background-color: #34d399; border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52,211,153,0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(52,211,153,0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+
+        /* Row hover effect */
+        tbody tr:hover td { background-color: rgba(56, 189, 248, 0.05); }
     </style>
 </head>
 <body>
@@ -72,7 +74,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h2 style="font-size: 1.25rem; font-weight: 800; color: #f1f5f9; margin: 0;">Active Momentum Monitor</h2>
             </div>
-            
+
             <div class="search-container">
                 <input type="text" id="dashboard-search" class="search-input" placeholder="🔍 Search inside dataset arrays by typing symbol names or headline context keywords..." onkeyup="filterWorkspaceRows()">
             </div>
@@ -94,7 +96,7 @@
     </div>
 
     <script>
-        let cachedDataset = []; 
+        let cachedDataset = [];
         let countdownTime = 60;
 
         const fallbackRawCSV = `Ticker,Latest_Headline,Repeat_Count,Forecast_Score,Forecast_Direction,Actual_Direction,Actual_Return_Pct
@@ -113,25 +115,26 @@ ICICIBANK,Stable trade volatility tracked on exchange indices for ICICIBANK.,1,0
         setInterval(() => {
             countdownTime--;
             document.getElementById('timer-box').innerText = countdownTime + 's';
-            if(countdownTime <= 0) {
+            if (countdownTime <= 0) {
                 countdownTime = 60;
-                fetchDataStream(); 
+                fetchDataStream();
             }
         }, 1000);
 
+        /* ========================================================
+           CORE: Parse raw CSV text using Papa Parse (or fallback)
+           ======================================================== */
         function processRawTextString(csvRawString) {
-            // Safe execution block to handle scenarios where Papa Parse drops out
             if (typeof Papa === 'undefined') {
-                console.error("Papa Parse script is not loaded properly.");
+                console.warn("Papa Parse not loaded — switching to manual CSV parser.");
                 executeManualFallbackParser(csvRawString);
                 return;
             }
-
             Papa.parse(csvRawString, {
                 header: true,
                 skipEmptyLines: 'greedy',
-                dynamicTyping: true, 
-                complete: function(results) {
+                dynamicTyping: true,
+                complete: function (results) {
                     if (results.data && results.data.length > 0) {
                         cachedDataset = results.data.filter(row => row.Ticker);
                         renderDashboard(cachedDataset);
@@ -139,13 +142,16 @@ ICICIBANK,Stable trade volatility tracked on exchange indices for ICICIBANK.,1,0
                         executeEmergencyFallback();
                     }
                 },
-                error: function(pErr) {
-                    console.error("PapaParse error parsing string:", pErr);
+                error: function (pErr) {
+                    console.error("PapaParse error:", pErr);
                     executeEmergencyFallback();
                 }
             });
         }
 
+        /* ========================================================
+           FETCH: Pull data.csv from same directory (GitHub Pages)
+           ======================================================== */
         function fetchDataStream() {
             let basePath = window.location.pathname;
             if (!basePath.endsWith('/')) {
@@ -159,11 +165,11 @@ ICICIBANK,Stable trade volatility tracked on exchange indices for ICICIBANK.,1,0
                     return response.text();
                 })
                 .then(rawCsvText => {
-                    if(!rawCsvText || rawCsvText.trim() === "") throw new Error("Empty Payload");
+                    if (!rawCsvText || rawCsvText.trim() === "") throw new Error("Empty Payload");
                     processRawTextString(rawCsvText);
                 })
                 .catch(err => {
-                    console.warn("Network stream blocked or interrupted. Engaging localized secure text parser fallback layer.");
+                    console.warn("Network stream unavailable — engaging fallback layer.", err.message);
                     executeEmergencyFallback();
                 });
         }
@@ -172,12 +178,142 @@ ICICIBANK,Stable trade volatility tracked on exchange indices for ICICIBANK.,1,0
             processRawTextString(fallbackRawCSV);
         }
 
-        // Emergency non-dependent custom array parsing loop in case CDN links are actively targeted/blocked by local tools
+        /* ========================================================
+           MANUAL CSV PARSER: Zero-dependency backup
+           ======================================================== */
         function executeManualFallbackParser(text) {
             let lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
             if (lines.length === 0) return;
             let headers = lines[0].split(',').map(h => h.trim());
             let result = [];
             for (let i = 1; i < lines.length; i++) {
-                let line = lines[i];
-                let values = line.split(',');
+                let values = lines[i].split(',');
+                if (values.length < headers.length) continue;
+                let obj = {};
+                headers.forEach((h, idx) => {
+                    let val = (values[idx] || '').trim();
+                    // Attempt numeric conversion
+                    let num = Number(val);
+                    obj[h] = isNaN(num) ? val : num;
+                });
+                if (obj.Ticker) result.push(obj);
+            }
+            cachedDataset = result;
+            renderDashboard(cachedDataset);
+        }
+
+        /* ========================================================
+           RENDER: Populate KPI cards + table rows
+           ======================================================== */
+        function renderDashboard(data) {
+            if (!data || data.length === 0) return;
+
+            // --- KPI Calculations ---
+            let totalSignals = data.length;
+            let hits = 0;
+            let bullishForecasts = 0;
+            let bullishHits = 0;
+
+            data.forEach(row => {
+                let forecastDir = Number(row.Forecast_Direction);
+                let actualDir   = Number(row.Actual_Direction);
+
+                // Hit = forecast direction matches actual direction
+                if (forecastDir === actualDir) hits++;
+
+                // Bullish precision = among forecasts where direction = 1, how many actual = 1
+                if (forecastDir === 1) {
+                    bullishForecasts++;
+                    if (actualDir === 1) bullishHits++;
+                }
+            });
+
+            let hitRate = totalSignals > 0 ? ((hits / totalSignals) * 100).toFixed(1) : '0.0';
+            let bullishPrecision = bullishForecasts > 0 ? ((bullishHits / bullishForecasts) * 100).toFixed(1) : 'N/A';
+
+            document.getElementById('hit-rate').textContent        = hitRate + '%';
+            document.getElementById('bullish-precision').textContent = bullishPrecision === 'N/A' ? 'N/A' : bullishPrecision + '%';
+            document.getElementById('total-signals').textContent    = totalSignals;
+
+            // --- Table Rendering ---
+            let tbody = document.getElementById('screener-rows');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                let tr = document.createElement('tr');
+
+                // Ticker cell
+                let tdTicker = document.createElement('td');
+                tdTicker.classList.add('font-mono');
+                tdTicker.style.fontWeight = '700';
+                tdTicker.style.color = '#38bdf8';
+                tdTicker.textContent = row.Ticker || '—';
+
+                // Headline cell
+                let tdHeadline = document.createElement('td');
+                tdHeadline.classList.add('truncate');
+                tdHeadline.textContent = row.Latest_Headline || '—';
+
+                // Velocity (Actual Return %) cell
+                let tdVelocity = document.createElement('td');
+                tdVelocity.style.textAlign = 'center';
+                let returnPct = Number(row.Actual_Return_Pct);
+                let velocitySpan = document.createElement('span');
+                velocitySpan.classList.add('rounded');
+                if (returnPct > 0) {
+                    velocitySpan.classList.add('bg-green-900');
+                    velocitySpan.textContent = '+' + returnPct.toFixed(2) + '%';
+                } else if (returnPct < 0) {
+                    velocitySpan.classList.add('bg-red-900');
+                    velocitySpan.textContent = returnPct.toFixed(2) + '%';
+                } else {
+                    velocitySpan.classList.add('bg-gray-700');
+                    velocitySpan.textContent = '0.00%';
+                }
+                tdVelocity.appendChild(velocitySpan);
+
+                // Forecast Score cell
+                let tdScore = document.createElement('td');
+                tdScore.style.textAlign = 'center';
+                let score = Number(row.Forecast_Score);
+                let scoreSpan = document.createElement('span');
+                scoreSpan.classList.add('rounded');
+                if (score > 0) {
+                    scoreSpan.classList.add('bg-green-900');
+                    scoreSpan.textContent = score.toFixed(2);
+                } else if (score < 0) {
+                    scoreSpan.classList.add('bg-red-900');
+                    scoreSpan.textContent = score.toFixed(2);
+                } else {
+                    scoreSpan.classList.add('bg-gray-700');
+                    scoreSpan.textContent = '0.00';
+                }
+                tdScore.appendChild(scoreSpan);
+
+                tr.appendChild(tdTicker);
+                tr.appendChild(tdHeadline);
+                tr.appendChild(tdVelocity);
+                tr.appendChild(tdScore);
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* ========================================================
+           SEARCH: Filter table rows by ticker or headline text
+           ======================================================== */
+        function filterWorkspaceRows() {
+            let query = document.getElementById('dashboard-search').value.toLowerCase().trim();
+            let rows  = document.getElementById('screener-rows').getElementsByTagName('tr');
+
+            for (let i = 0; i < rows.length; i++) {
+                let cells = rows[i].getElementsByTagName('td');
+                if (cells.length < 2) continue;
+                let ticker   = (cells[0].textContent || '').toLowerCase();
+                let headline = (cells[1].textContent || '').toLowerCase();
+                rows[i].style.display = (ticker.includes(query) || headline.includes(query)) ? '' : 'none';
+            }
+        }
+    </script>
+
+</body>
+</html>
