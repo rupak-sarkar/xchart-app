@@ -1,8 +1,8 @@
 Ticker,Latest_Headline,Repeat_Count,Forecast_Score,Forecast_Direction,Actual_Direction,Actual_Return_Pct
-RELIANCE,Stable trade volatility tracked on exchange indices for RELIANCE.,1,0.0,0,1,0.63
-TCS,Stable trade volatility tracked on exchange indices for TCS.,1,0.0,0,1,3.09
-INFY,Stable trade volatility tracked on exchange indices for INFY.,1,0.0,0,1,4.48
-HDFCBANK,Stable trade volatility tracked on exchange indices for HDFCBANK.,1,0.0,0,1,0.21
-TATAMOTORS,Stable trade volatility tracked on exchange indices for TATAMOTORS.,1,0.0,0,1,0.0
-SBIN,Stable trade volatility tracked on exchange indices for SBIN.,1,0.0,0,-1,-0.19
-ICICIBANK,Stable trade volatility tracked on exchange indices for ICICIBANK.,1,0.0,0,-1,-0.29
+RELIANCE,Dividends; bonuses and stock splits in June 2026: Reliance Industries; HDFC Bank; Infosys; LIC; Tata Steel; Adani Ports; others in focus,1,-2.1,0,0,0.14
+TCS,Infosys; TCS up 2-4%; Nifty IT jumps 3% as strong AI demand boosts Snowflake earnings; outlook,1,91.9,1,1,2.8
+INFY,Infosys (INFY) CFO trims stake with sale of 5;191 shares,1,-17.1,-1,1,4.57
+HDFCBANK,Dividends; bonuses and stock splits in June 2026: Reliance Industries; HDFC Bank; Infosys; LIC; Tata Steel; Adani Ports; others in focus,1,-2.1,0,0,-0.06
+TATAMOTORS,Tata Motors shares adjust to demerger of CV biz: Why you should ignore the 40% plunge,1,0.9,0,0,0.0
+SBIN,SBIN Outlook for the Week (June 01; 2026 – June 05; 2026),1,-10.8,0,-1,-0.87
+ICICIBANK,ICICI Bank Share Price Today; ICICI Bank Stock Price Live NSE/BSE Updates,1,-0.6,0,-1,-1.07
