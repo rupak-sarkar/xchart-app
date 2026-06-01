@@ -16,7 +16,6 @@
         .text-gray-400 { color: #94a3b8; font-size: 0.875rem; margin: 0; }
         .uppercase { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; font-weight: 700; }
         
-        /* Interactive Search Components */
         .search-container { margin-bottom: 16px; display: flex; gap: 12px; width: 100%; }
         .search-input { flex-grow: 1; background-color: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 12px 16px; color: #f8fafc; font-size: 0.95rem; outline: none; transition: border 0.2s; }
         .search-input:focus { border-color: #38bdf8; }
@@ -31,7 +30,6 @@
         .bg-gray-700 { background-color: #475569; color: #cbd5e1; }
         .truncate { max-width: 450px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         
-        /* Auto Refresh Badge Style Rules */
         .refresh-badge { background-color: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
         .pulse-dot { width: 8px; height: 8px; background-color: #34d399; border-radius: 50%; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52,211,153,0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(52,211,153,0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
@@ -73,7 +71,6 @@
                 <h2 style="font-size: 1.25rem; font-weight: 800; color: #f1f5f9; margin: 0;">Active Momentum Monitor</h2>
             </div>
             
-            <!-- Live Search Bar Element -->
             <div class="search-container">
                 <input type="text" id="dashboard-search" class="search-input" placeholder="🔍 Search inside dataset arrays by typing symbol names or headline context keywords..." onkeyup="filterWorkspaceRows()">
             </div>
@@ -95,16 +92,15 @@
     </div>
 
     <script>
-        let cachedDataset = []; // Global memory array holding rows for search tracking filtering
+        let cachedDataset = []; 
         let countdownTime = 60;
 
-        // Auto Refresh System Loop Configuration 
         setInterval(() => {
             countdownTime--;
             document.getElementById('timer-box').innerText = countdownTime + 's';
             if(countdownTime <= 0) {
                 countdownTime = 60;
-                fetchDataStream(); // Silently polls data.csv to parse update files automatically
+                fetchDataStream(); 
             }
         }, 1000);
 
@@ -113,22 +109,20 @@
             if (!basePath.endsWith('/')) { basePath += '/'; }
             const csvTargetUrl = window.location.origin + basePath + 'data.csv?v=' + Math.random();
 
-            console.log("🔄 Background refresh request dispatch targeting URL:", csvTargetUrl);
-
             fetch(csvTargetUrl)
                 .then(res => {
                     if(!res.ok) throw new Error("Dataset read error status tracking block.");
                     return res.text();
                 })
                 .then(csvText => {
-                    const lines = csvText.split(/\r?\n/);
+                    const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
                     if(lines.length <= 1) return;
                     
+                    // Fixed header parsing line targeting array index 0
                     const headers = lines[0].split(',');
                     const parsedRows = [];
                     
                     for(let i = 1; i < lines.length; i++) {
-                        if(!lines[i].trim()) continue;
                         const values = lines[i].split(',');
                         const rowObj = {};
                         headers.forEach((header, idx) => {
@@ -137,7 +131,7 @@
                         parsedRows.push(rowObj);
                     }
                     
-                    cachedDataset = parsedRows; // Fill memory address cache
+                    cachedDataset = parsedRows; 
                     renderDashboardInterface(cachedDataset);
                 })
                 .catch(err => console.error("Network polling engine sync issue:", err));
@@ -162,10 +156,16 @@
                 `;
             });
 
-            // Statistical calculations
             const total = data.length;
             const matches = data.filter(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction)).length;
             const totalBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1).length;
             const realBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1 && intOrZero(r.Actual_Direction) === 1).length;
 
             document.getElementById('hit-rate').innerText = `${((matches / total) * 100).toFixed(1)}%`;
+            document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish / totalBullish) * 100).toFixed(1) : 0}%`;
+            document.getElementById('total-signals').innerText = `${total} Assets`;
+        }
+
+        function filterWorkspaceRows() {
+            const searchKeyword = document.getElementById('dashboard-search').value.toLowerCase();
+            const filteredRows = cachedDataset.filter(row => {
