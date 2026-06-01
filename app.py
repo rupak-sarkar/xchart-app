@@ -38,28 +38,33 @@ TICKERS_FILE = "tickers.csv"
 HISTORY_FILE = "history.csv"
 DATA_FILE = "data.csv"
 
-# Source display labels (used in data.csv for the dashboard)
 SOURCE_LABELS = {
-    "mc_topnews": "Moneycontrol",
-    "mc_business": "Moneycontrol",
-    "mc_markets": "Moneycontrol",
-    "mc_stocks": "Moneycontrol",
-    "et_markets": "Economic Times",
-    "et_stocks": "Economic Times",
+    "mc_topnews": "Moneycontrol", "mc_business": "Moneycontrol",
+    "mc_markets": "Moneycontrol", "mc_stocks": "Moneycontrol",
+    "et_markets": "Economic Times", "et_stocks": "Economic Times",
     "et_news": "Economic Times",
     "ndtv_business": "NDTV Profit",
-    "mint_market": "LiveMint",
-    "mint_companies": "LiveMint",
-    "nse_announce": "NSE Official",
-    "nse_actions": "NSE Official",
-    "yfinance": "Yahoo Finance",
-    "google": "Google News",
+    "mint_market": "LiveMint", "mint_companies": "LiveMint",
+    "nse_announce": "NSE Official", "nse_actions": "NSE Official",
+    "yfinance": "Yahoo Finance", "google": "Google News",
     "fallback": "—",
+}
+
+# Source credibility weights for aggregated scoring
+# Higher weight = more influence on final score
+SOURCE_WEIGHTS = {
+    "mc_topnews": 1.5, "mc_business": 1.3, "mc_markets": 1.2, "mc_stocks": 1.2,
+    "et_markets": 1.4, "et_stocks": 1.3, "et_news": 1.3,
+    "ndtv_business": 1.2,
+    "mint_market": 1.2, "mint_companies": 1.1,
+    "nse_announce": 0.6, "nse_actions": 0.5,   # Low: regulatory filings are mostly neutral noise
+    "yfinance": 1.0, "google": 1.0,
+    "fallback": 0.0,
 }
 
 
 # ============================================================
-# LOAD TICKERS FROM CSV
+# LOAD TICKERS
 # ============================================================
 def load_tickers():
     if os.path.exists(TICKERS_FILE):
@@ -73,16 +78,13 @@ def load_tickers():
             seen = set()
             unique = []
             for t in tickers:
-                if t not in seen:
-                    seen.add(t)
-                    unique.append(t)
+                if t not in seen: seen.add(t); unique.append(t)
             sector_map = {}
             if 'Sector' in df.columns:
                 for _, row in df.iterrows():
-                    ticker = str(row['Ticker']).strip().upper().replace('.NS', '')
-                    sector = str(row.get('Sector', '')).strip()
-                    if ticker and sector:
-                        sector_map[ticker] = sector
+                    tk = str(row['Ticker']).strip().upper().replace('.NS', '')
+                    sec = str(row.get('Sector', '')).strip()
+                    if tk and sec: sector_map[tk] = sec
             print(f"📋 Loaded {len(unique)} tickers from {TICKERS_FILE}")
             return unique, sector_map
         except Exception as e:
@@ -95,18 +97,18 @@ def load_tickers():
 # RSS FEEDS
 # ============================================================
 ALL_FEEDS = {
-    "mc_topnews":       "https://www.moneycontrol.com/rss/MCtopnews.xml",
-    "mc_business":      "https://www.moneycontrol.com/rss/business.xml",
-    "mc_markets":       "https://www.moneycontrol.com/rss/marketreports.xml",
-    "mc_stocks":        "https://www.moneycontrol.com/rss/latestnews.xml",
-    "et_markets":       "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
-    "et_stocks":        "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
-    "et_news":          "https://economictimes.indiatimes.com/markets/stocks/news/rssfeeds/2146843.cms",
-    "ndtv_business":    "https://feeds.feedburner.com/ndtvprofit-latest",
-    "mint_market":      "https://www.livemint.com/rss/market",
-    "mint_companies":   "https://www.livemint.com/rss/companies",
-    "nse_announce":     "https://archives.nseindia.com/content/RSS/Online_announcements.xml",
-    "nse_actions":      "https://nsearchives.nseindia.com/content/RSS/Corporate_action.xml",
+    "mc_topnews":    "https://www.moneycontrol.com/rss/MCtopnews.xml",
+    "mc_business":   "https://www.moneycontrol.com/rss/business.xml",
+    "mc_markets":    "https://www.moneycontrol.com/rss/marketreports.xml",
+    "mc_stocks":     "https://www.moneycontrol.com/rss/latestnews.xml",
+    "et_markets":    "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+    "et_stocks":     "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
+    "et_news":       "https://economictimes.indiatimes.com/markets/stocks/news/rssfeeds/2146843.cms",
+    "ndtv_business": "https://feeds.feedburner.com/ndtvprofit-latest",
+    "mint_market":   "https://www.livemint.com/rss/market",
+    "mint_companies":"https://www.livemint.com/rss/companies",
+    "nse_announce":  "https://archives.nseindia.com/content/RSS/Online_announcements.xml",
+    "nse_actions":   "https://nsearchives.nseindia.com/content/RSS/Corporate_action.xml",
 }
 
 
@@ -165,13 +167,9 @@ COMPANY_ALIASES = {
 
 
 # ============================================================
-# HELPER: Extract published datetime from RSS entry
+# HELPERS
 # ============================================================
 def extract_pub_datetime(entry):
-    """
-    Extracts published datetime from an RSS entry.
-    Returns IST formatted string or empty string.
-    """
     parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if parsed:
         try:
@@ -180,17 +178,10 @@ def extract_pub_datetime(entry):
             return dt_ist.strftime("%d %b %Y %I:%M %p")
         except Exception:
             pass
-    # Fallback: try raw string
     raw = entry.get("published") or entry.get("updated") or ""
-    if raw:
-        # Return cleaned raw string (strip extra whitespace)
-        return raw.strip()[:30]
-    return ""
+    return raw.strip()[:30] if raw else ""
 
 
-# ============================================================
-# RSS FETCH
-# ============================================================
 def fetch_rss_with_headers(url, source_label, timeout=15):
     try:
         response = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout)
@@ -198,15 +189,10 @@ def fetch_rss_with_headers(url, source_label, timeout=15):
         return feedparser.parse(response.content)
     except requests.exceptions.RequestException as e:
         print(f"   ⚠️ {source_label} requests failed: {e}")
-        try:
-            return feedparser.parse(url)
-        except Exception:
-            return None
+        try: return feedparser.parse(url)
+        except Exception: return None
 
 
-# ============================================================
-# TICKER MATCHING
-# ============================================================
 def match_ticker_in_text(text_upper, tickers_list):
     for ticker in sorted(tickers_list, key=len, reverse=True):
         if re.search(r'\b' + re.escape(ticker.upper()) + r'\b', text_upper):
@@ -218,63 +204,134 @@ def match_ticker_in_text(text_upper, tickers_list):
 
 
 # ============================================================
-# PHASE 1: BULK RSS CACHE (now stores source + pub time)
+# FINBERT: Score a single headline
+# ============================================================
+def score_single_headline(headline):
+    """Returns raw compound score (-100 to +100) for one headline."""
+    if not headline or "Stable trade volatility" in headline:
+        return 0.0
+    try:
+        inputs = tokenizer([headline], padding=True, truncation=True,
+                           max_length=512, return_tensors="pt")
+        with torch.no_grad():
+            outputs = model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        return (probs[0][0].item() - probs[0][1].item()) * 100.0
+    except Exception as e:
+        print(f"  ⚠️ NLP crash: {e}")
+        return 0.0
+
+
+def compute_aggregated_score(headline_entries):
+    """
+    Takes a list of {headline, source, weight} dicts.
+    Scores each headline individually via FinBERT.
+    Returns weighted average score and direction.
+
+    Example:
+      MC:  "Coal India Q1 output drops 8%"     → -72.4  × weight 1.5
+      ET:  "Coal India shares rally on dividend"→ +84.2  × weight 1.4
+      NSE: "Board Meeting Outcome"              →  +1.0  × weight 0.6
+      ────────────────────────────────────────────
+      Weighted avg = (-72.4×1.5 + 84.2×1.4 + 1.0×0.6) / (1.5+1.4+0.6)
+                   = (-108.6 + 117.88 + 0.6) / 3.5
+                   = +2.8 → Neutral
+    """
+    if not headline_entries:
+        return 0.0, 0
+
+    total_weight = 0.0
+    weighted_sum = 0.0
+    individual_scores = []
+
+    for entry in headline_entries:
+        raw_score = score_single_headline(entry["headline"])
+        weight = entry.get("weight", 1.0)
+        weighted_sum += raw_score * weight
+        total_weight += weight
+        individual_scores.append({
+            "source": entry["source"],
+            "headline": entry["headline"][:60],
+            "raw_score": round(raw_score, 1),
+            "weight": weight,
+        })
+
+    if total_weight == 0:
+        return 0.0, 0
+
+    compound_score = weighted_sum / total_weight
+
+    if compound_score > 5.0: direction = 1
+    elif compound_score < -5.0: direction = -1
+    else: direction = 0
+
+    return round(compound_score, 1), direction
+
+
+# ============================================================
+# PHASE 1: BUILD MULTI-HEADLINE CACHE
+# Now stores ALL headlines per ticker, not just the first
 # ============================================================
 def build_exchange_news_cache(tickers_list):
-    cache = {}  # ticker -> {headline, source, pub_time}
+    """
+    Returns: {
+      TICKER: [
+        {headline, source, pub_time, weight},
+        {headline, source, pub_time, weight},
+        ...
+      ]
+    }
+    """
+    cache = {}  # ticker -> list of headline entries
+
     for source_key, url in ALL_FEEDS.items():
         print(f"📡 Fetching {source_key}...")
         feed = fetch_rss_with_headers(url, source_key)
         if not feed or not feed.entries:
             print(f"   ⚠️ {source_key}: No entries returned")
             continue
+
         match_count = 0
         for entry in feed.entries:
             title = entry.get("title", "")
             desc = entry.get("description", entry.get("summary", ""))
             full_text = f"{title} {desc}".upper()
             matched_ticker = match_ticker_in_text(full_text, tickers_list)
-            if matched_ticker and title.strip() and matched_ticker not in cache:
+
+            if matched_ticker and title.strip():
                 headline = title.strip().replace(",", ";")
                 pub_time = extract_pub_datetime(entry)
-                cache[matched_ticker] = {
-                    "headline": headline,
-                    "source": source_key,
-                    "pub_time": pub_time,
-                }
-                match_count += 1
+                weight = SOURCE_WEIGHTS.get(source_key, 1.0)
+
+                # Check for duplicate headlines (same ticker, same text)
+                existing = cache.get(matched_ticker, [])
+                is_dupe = any(e["headline"].lower() == headline.lower() for e in existing)
+                if not is_dupe:
+                    if matched_ticker not in cache:
+                        cache[matched_ticker] = []
+                    cache[matched_ticker].append({
+                        "headline": headline,
+                        "source": source_key,
+                        "pub_time": pub_time,
+                        "weight": weight,
+                    })
+                    match_count += 1
+
         print(f"   ✅ {source_key}: {match_count} new matches from {len(feed.entries)} entries")
         time.sleep(0.3)
-    print(f"\n📦 News cache built: {len(cache)}/{len(tickers_list)} tickers")
+
+    # Summary
+    total_tickers = len(cache)
+    total_headlines = sum(len(v) for v in cache.values())
+    multi_count = sum(1 for v in cache.values() if len(v) >= 2)
+    print(f"\n📦 News cache built: {total_tickers}/{len(tickers_list)} tickers | {total_headlines} total headlines")
+    print(f"   📰 Tickers with multiple headlines: {multi_count}")
+
     return cache
 
 
 # ============================================================
-# FINBERT
-# ============================================================
-def compute_finbert_score(headline):
-    if not headline or "Stable trade volatility" in headline:
-        return 0.0, 0
-    try:
-        inputs = tokenizer([headline], padding=True, truncation=True,
-                           max_length=512, return_tensors="pt")
-        with torch.no_grad():
-            outputs = model(**inputs)
-        predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        pos_prob = predictions[0][0].item()
-        neg_prob = predictions[0][1].item()
-        compound_score = (pos_prob - neg_prob) * 100.0
-        if compound_score > 5.0: direction = 1
-        elif compound_score < -5.0: direction = -1
-        else: direction = 0
-        return round(compound_score, 1), direction
-    except Exception as e:
-        print(f"  ⚠️ NLP crash: {e}")
-        return 0.0, 0
-
-
-# ============================================================
-# PER-TICKER FALLBACKS (with pub time extraction)
+# PER-TICKER FALLBACKS
 # ============================================================
 def get_news_from_yfinance(ticker):
     try:
@@ -284,60 +341,79 @@ def get_news_from_yfinance(ticker):
             first = news[0]
             if isinstance(first, dict):
                 headline = first.get("title", first.get("headline", ""))
-                # Extract publish time from yfinance
                 pub_ts = first.get("providerPublishTime") or first.get("publish_time")
                 pub_time = ""
                 if pub_ts:
-                    try:
-                        dt = datetime.fromtimestamp(int(pub_ts), tz=IST)
-                        pub_time = dt.strftime("%d %b %Y %I:%M %p")
-                    except Exception:
-                        pass
-                if headline:
-                    return headline.replace(",", ";"), pub_time
-    except Exception:
-        pass
+                    try: pub_time = datetime.fromtimestamp(int(pub_ts), tz=IST).strftime("%d %b %Y %I:%M %p")
+                    except Exception: pass
+                if headline: return headline.replace(",", ";"), pub_time
+    except Exception: pass
     return None, ""
 
 
 def get_news_from_google_rss(ticker):
     try:
-        encoded_ticker = urllib.parse.quote(ticker)
-        rss_url = (f"https://news.google.com/rss/search?"
-                   f"q={encoded_ticker}+NSE+stock+india&hl=en-IN&gl=IN&ceid=IN:en")
-        feed = fetch_rss_with_headers(rss_url, f"google_{ticker}", timeout=8)
+        encoded = urllib.parse.quote(ticker)
+        url = f"https://news.google.com/rss/search?q={encoded}+NSE+stock+india&hl=en-IN&gl=IN&ceid=IN:en"
+        feed = fetch_rss_with_headers(url, f"google_{ticker}", timeout=8)
         if feed and feed.entries:
             entry = feed.entries[0]
-            headline = entry.title
-            clean = re.sub(r'\s+-\s+[^:\-]+$', '', headline)
+            headline = re.sub(r'\s+-\s+[^:\-]+$', '', entry.title)
             pub_time = extract_pub_datetime(entry)
-            return clean.replace(",", ";"), pub_time
-    except Exception:
-        pass
+            return headline.replace(",", ";"), pub_time
+    except Exception: pass
     return None, ""
 
 
-def get_live_news_headline(ticker, exchange_cache):
+def get_live_news_for_ticker(ticker, exchange_cache):
     """
-    Returns: (headline, source_key, pub_time)
+    Returns: (list_of_headline_entries, primary_source, primary_pub_time)
+    Aggregates ALL available headlines from cache + per-ticker fallbacks.
     """
-    if ticker in exchange_cache:
-        c = exchange_cache[ticker]
-        return c["headline"], c["source"], c["pub_time"]
+    entries = []
 
+    # 1. All headlines from bulk RSS cache
+    if ticker in exchange_cache:
+        entries.extend(exchange_cache[ticker])
+
+    # 2. yfinance (per-ticker)
     headline, pub_time = get_news_from_yfinance(ticker)
     if headline:
-        return headline, "yfinance", pub_time
+        # Check for duplicate
+        is_dupe = any(e["headline"].lower() == headline.lower() for e in entries)
+        if not is_dupe:
+            entries.append({
+                "headline": headline,
+                "source": "yfinance",
+                "pub_time": pub_time,
+                "weight": SOURCE_WEIGHTS.get("yfinance", 1.0),
+            })
 
-    headline, pub_time = get_news_from_google_rss(ticker)
-    if headline:
-        return headline, "google", pub_time
+    # 3. Google News (per-ticker, last resort)
+    if len(entries) < 3:  # Only fetch Google if we have < 3 headlines
+        headline, pub_time = get_news_from_google_rss(ticker)
+        if headline:
+            is_dupe = any(e["headline"].lower() == headline.lower() for e in entries)
+            if not is_dupe:
+                entries.append({
+                    "headline": headline,
+                    "source": "google",
+                    "pub_time": pub_time,
+                    "weight": SOURCE_WEIGHTS.get("google", 1.0),
+                })
 
-    return (
-        f"Stable trade volatility tracked on exchange indices for {ticker}.",
-        "fallback",
-        ""
-    )
+    if entries:
+        # Primary = highest weight entry (shown as main headline)
+        primary = max(entries, key=lambda e: e["weight"])
+        return entries, primary["source"], primary["pub_time"]
+
+    # Fallback
+    return [{
+        "headline": f"Stable trade volatility tracked on exchange indices for {ticker}.",
+        "source": "fallback",
+        "pub_time": "",
+        "weight": 0.0,
+    }], "fallback", ""
 
 
 # ============================================================
@@ -351,8 +427,7 @@ def get_live_price_return(ticker_symbol):
             prev = history['Close'].iloc[-2]
             curr = history['Close'].iloc[-1]
             return round(((curr - prev) / prev) * 100, 2)
-    except Exception:
-        pass
+    except Exception: pass
     return 0.0
 
 
@@ -377,45 +452,27 @@ def calculate_streaks(history_df, today_rows):
         today_dir = row["Forecast_Direction"]
         today_score = row["Forecast_Score"]
         today_return = row["Actual_Return_Pct"]
-
         if not history_df.empty and 'Ticker' in history_df.columns:
-            ticker_hist = history_df[
-                (history_df['Ticker'] == ticker) & (history_df['Date'] != TODAY_IST)
-            ].sort_values('Date', ascending=False)
+            th = history_df[(history_df['Ticker'] == ticker) & (history_df['Date'] != TODAY_IST)].sort_values('Date', ascending=False)
         else:
-            ticker_hist = pd.DataFrame()
-
+            th = pd.DataFrame()
         streak_days = 1
         streak_return = today_return
-        if not ticker_hist.empty:
-            for _, hr in ticker_hist.iterrows():
+        if not th.empty:
+            for _, hr in th.iterrows():
                 if int(hr.get('Forecast_Direction', 0)) == today_dir and today_dir != 0:
                     streak_days += 1
                     streak_return += float(hr.get('Actual_Return_Pct', 0))
-                else:
-                    break
-
-        prev_score = float(ticker_hist.iloc[0].get('Forecast_Score', 0)) if not ticker_hist.empty else None
-
-        if today_dir == 0:
-            momentum = "Neutral"
-        elif streak_days == 1:
-            momentum = "New"
+                else: break
+        prev_score = float(th.iloc[0].get('Forecast_Score', 0)) if not th.empty else None
+        if today_dir == 0: momentum = "Neutral"
+        elif streak_days == 1: momentum = "New"
         elif prev_score is not None:
-            if today_dir == 1:
-                momentum = ("Strong" if streak_days >= 3 else "Building") if today_score >= prev_score else "Fading"
-            elif today_dir == -1:
-                momentum = ("Strong" if streak_days >= 3 else "Building") if today_score <= prev_score else "Fading"
-            else:
-                momentum = "Neutral"
-        else:
-            momentum = "New"
-
-        streaks[ticker] = {
-            "Streak_Days": streak_days if today_dir != 0 else 0,
-            "Streak_Return": round(streak_return, 2),
-            "Momentum": momentum,
-        }
+            if today_dir == 1: momentum = ("Strong" if streak_days >= 3 else "Building") if today_score >= prev_score else "Fading"
+            elif today_dir == -1: momentum = ("Strong" if streak_days >= 3 else "Building") if today_score <= prev_score else "Fading"
+            else: momentum = "Neutral"
+        else: momentum = "New"
+        streaks[ticker] = {"Streak_Days": streak_days if today_dir != 0 else 0, "Streak_Return": round(streak_return, 2), "Momentum": momentum}
     return streaks
 
 
@@ -442,32 +499,42 @@ def execute_sentiment_engine():
 
     print(f"🚀 Running AI Swing Trading Engine — {total} tickers")
     print(f"📅 Date: {TODAY_IST}")
-    print("=" * 80)
+    print("=" * 90)
 
-    # PHASE 1
+    # PHASE 1: Bulk pre-fetch (stores ALL headlines per ticker)
     print("\n📡 PHASE 1: Pre-fetching news from RSS feeds...")
-    print("-" * 80)
+    print("-" * 90)
     exchange_cache = build_exchange_news_cache(tickers_list)
-    print("-" * 80)
+    print("-" * 90)
 
-    # PHASE 2
-    print(f"\n📊 PHASE 2: Processing {total} tickers...")
-    print("-" * 80)
+    # PHASE 2: Process each ticker with aggregated scoring
+    print(f"\n📊 PHASE 2: Processing {total} tickers (multi-headline aggregation)...")
+    print("-" * 90)
 
     processed_rows = []
     source_stats = {}
     hits_all = 0
+    multi_headline_count = 0
 
     for idx, ticker in enumerate(tickers_list, 1):
         print(f"[{idx:3d}/{total}] {ticker:<15s}", end=" ")
 
-        headline, source, pub_time = get_live_news_headline(ticker, exchange_cache)
-        source_stats[source] = source_stats.get(source, 0) + 1
-        if source in ("yfinance", "google"):
+        # Get ALL headlines for this ticker
+        all_entries, primary_source, primary_pub_time = get_live_news_for_ticker(ticker, exchange_cache)
+        source_stats[primary_source] = source_stats.get(primary_source, 0) + 1
+
+        if primary_source in ("yfinance", "google"):
             time.sleep(0.3)
 
+        # Aggregate score across all headlines
+        headline_count = len(all_entries)
+        forecast_score, forecast_dir = compute_aggregated_score(all_entries)
+
+        # Track multi-headline tickers
+        if headline_count >= 2:
+            multi_headline_count += 1
+
         realized_return = get_live_price_return(ticker)
-        forecast_score, forecast_dir = compute_finbert_score(headline)
 
         if realized_return > 0.25: actual_dir = 1
         elif realized_return < -0.25: actual_dir = -1
@@ -476,27 +543,30 @@ def execute_sentiment_engine():
         is_hit = forecast_dir == actual_dir
         if is_hit: hits_all += 1
 
-        # Console output
-        src_short = {
-            "mc_topnews": "💰MC", "mc_business": "💼MC", "mc_markets": "📈MC",
-            "mc_stocks": "📰MC", "et_markets": "📊ET", "et_stocks": "📊ET",
-            "et_news": "📊ET", "ndtv_business": "📺NDTV",
-            "mint_market": "🌿Mint", "mint_companies": "🌿Mint",
-            "nse_announce": "🏛️NSE", "nse_actions": "📋NSE",
-            "yfinance": "📰YF", "google": "🔗GG", "fallback": "⚪FB"
-        }
-        dir_map = {1: "🟢", -1: "🔴", 0: "⚪"}
-        print(f"{src_short.get(source,'❓'):8s} {dir_map.get(forecast_dir,'⚪')} Score:{forecast_score:+6.1f} | Ret:{realized_return:+6.2f}% | {'✅' if is_hit else '❌'}")
+        # Primary headline for display
+        primary_entry = max(all_entries, key=lambda e: e["weight"])
+        display_headline = primary_entry["headline"]
 
-        # Clean pub_time for CSV (remove commas)
-        clean_pub_time = pub_time.replace(",", "") if pub_time else ""
+        # All sources for this ticker
+        unique_sources = list(dict.fromkeys(SOURCE_LABELS.get(e["source"], e["source"]) for e in all_entries if e["source"] != "fallback"))
+        display_sources = " | ".join(unique_sources) if unique_sources else "—"
+
+        # Console
+        src_short = {"mc_topnews":"💰MC","mc_business":"💼MC","mc_markets":"📈MC","mc_stocks":"📰MC",
+                     "et_markets":"📊ET","et_stocks":"📊ET","et_news":"📊ET","ndtv_business":"📺NDTV",
+                     "mint_market":"🌿Mi","mint_companies":"🌿Mi","nse_announce":"🏛️NSE","nse_actions":"📋NSE",
+                     "yfinance":"📰YF","google":"🔗GG","fallback":"⚪FB"}
+        dir_map = {1: "🟢", -1: "🔴", 0: "⚪"}
+        news_tag = f"[{headline_count}h]" if headline_count >= 2 else "    "
+        print(f"{src_short.get(primary_source,'❓'):6s} {news_tag} {dir_map.get(forecast_dir,'⚪')} Score:{forecast_score:+6.1f} | Ret:{realized_return:+6.2f}% | {'✅' if is_hit else '❌'}")
 
         processed_rows.append({
             "Ticker": ticker,
             "Sector": sector_map.get(ticker, ""),
-            "Latest_Headline": headline,
-            "News_Source": SOURCE_LABELS.get(source, source),
-            "News_Time": clean_pub_time,
+            "Latest_Headline": display_headline,
+            "News_Source": display_sources,
+            "News_Time": primary_pub_time.replace(",", "") if primary_pub_time else "",
+            "Headline_Count": headline_count,
             "Forecast_Score": forecast_score,
             "Forecast_Direction": forecast_dir,
             "Actual_Direction": actual_dir,
@@ -505,7 +575,7 @@ def execute_sentiment_engine():
 
     # PHASE 3: Streaks
     print(f"\n📜 PHASE 3: Calculating signal streaks...")
-    print("-" * 80)
+    print("-" * 90)
     history_df = load_history()
     streaks = calculate_streaks(history_df, processed_rows)
 
@@ -528,12 +598,14 @@ def execute_sentiment_engine():
     neut = sum(1 for r in final_rows if r["Forecast_Direction"] == 0)
     hr = (hits_all / total) * 100 if total > 0 else 0
 
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 90)
     print(f"✅ data.csv written — {total} tickers | Date: {TODAY_IST}")
-    print(f"📊 ACCURACY: {hits_all}/{total} = {hr:.1f}%")
-    print(f"📈 SIGNALS:  🟢 {bull}  |  🔴 {bear}  |  ⚪ {neut}")
-    print(f"📰 COVERAGE: {total - fb}/{total} ({(total-fb)/total*100:.0f}%)")
-    print("=" * 80)
+    print(f"")
+    print(f"📊 ACCURACY:  {hits_all}/{total} = {hr:.1f}%")
+    print(f"📈 SIGNALS:   🟢 {bull}  |  🔴 {bear}  |  ⚪ {neut}")
+    print(f"📰 COVERAGE:  {total - fb}/{total} ({(total-fb)/total*100:.0f}%)")
+    print(f"📰 MULTI-HEADLINE TICKERS: {multi_headline_count} (scored with weighted aggregation)")
+    print("=" * 90)
 
 
 if __name__ == "__main__":
