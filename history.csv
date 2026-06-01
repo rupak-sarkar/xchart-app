@@ -1,44 +1,19 @@
-Ticker,Sector,Latest_Headline,Forecast_Score,Forecast_Direction,Actual_Direction,Actual_Return_Pct,Streak_Days,Streak_Return,Momentum,Date,News_Source,News_Time,Headline_Count,Severity,Impact
-EICHERMOT,Auto,Eicher Motors Limited,1.5,0,-1,-1.07,0,-1.07,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-MARUTI,Auto,Maruti Suzuki Share Price Live Updates: Maruti Suzuki's Recent Market Activity,32.0,1,-1,-1.38,1,-1.38,New,2026-06-01,Economic Times | NDTV Profit | NSE Official,01 Jun 2026 08:12 AM,3.0,Bullish,Short-term
-ESCORTS,Auto,Escorts Kubota Limited,-1.0,0,-1,-3.39,0,-3.39,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-BOSCHLTD,Auto Ancillary,Bosch Limited,1.8,0,0,0.22,0,0.22,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-BEL,Defence,Bharat Electronics Limited,1.1,0,-1,-0.86,0,-0.86,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-NEWGEN,IT,Newgen Software Technologies Limited - Ex-Date: 17-Jul-2026,-0.2,0,-1,-0.27,0,-0.27,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-PERSISTENT,IT,US Stock Market: Jobs data; AI earnings to test Wall Street rally amid inflation risks loom,26.7,1,1,4.0,1,4.0,New,2026-06-01,Economic Times | NSE Official,01 Jun 2026 10:15 AM,2.0,Bullish,Both
-RATEGAIN,IT,RATEGAIN TRAVEL TECH Share Price Today Up 5%,91.8,1,1,4.11,1,4.11,New,2026-06-01,Google News,01 Jun 2026 10:04 AM,1.0,Very Bullish,Long-term
-COFORGE,IT,BEL; Waaree; Dixon Tech; Coforge; SBI; Tata Steel; Infosys shares among top MOFSL picks post Q4 results,83.3,1,1,2.77,1,2.77,New,2026-06-01,Google News,01 Jun 2026 10:01 AM,1.0,Very Bullish,Short-term
-HINDCOPPER,Metals,Hindustan Copper Limited,2.1,0,0,0.23,0,0.23,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-COALINDIA,Metals,Coal India shares jump 4% after positive offtake performance boosts market sentiment; stock up 18% YTD,58.0,1,1,3.21,1,3.21,New,2026-06-01,NSE Official | Google News,01 Jun 2026 01:19 PM,2.0,Bullish,Short-term
-TEGA,Metals,Tega Industries among 6 stocks showing bullish RSI upswing,84.0,1,1,2.57,1,2.57,New,2026-06-01,Economic Times,01 Jun 2026 08:32 AM,1.0,Very Bullish,Short-term
-ANGELONE,Financial Services,Angel One Mutual Fund - Angel One Silver ETF,9.6,1,-1,-0.5,1,-0.5,New,2026-06-01,NSE Official,,6.0,Mildly Bullish,Short-term
-MOTILALOFS,Financial Services,Q4 earnings review: Motilal Oswal highlights broad-based beat on estimates; lists 6 sectors that exceeded expectations,4.5,0,-1,-3.16,0,-3.16,Neutral,2026-06-01,Economic Times | NSE Official,01 Jun 2026 01:12 PM,34.0,Neutral,Both
-NUVAMA,Financial Services,Nifty has a positive undertone; but Street waits for a decisive breakout,15.5,1,0,0.15,1,0.15,New,2026-06-01,Economic Times,01 Jun 2026 05:48 AM,1.0,Mildly Bullish,Long-term
-PRUDENT,Financial Services,Prudential Sugar Corporation Limited,5.8,1,1,0.35,1,0.35,New,2026-06-01,NSE Official,,39.0,Mildly Bullish,Short-term
-CRISIL,Financial Services,CRISIL Limited,0.5,0,-1,-0.32,0,-0.32,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-ITC,FMCG,Bitcoin begins June near $73;500 as ETF outflows cross $2 billion and geopolitical risks intensify,57.7,1,-1,-2.53,1,-2.53,New,2026-06-01,Economic Times | NSE Official,01 Jun 2026 12:57 PM,2.0,Bullish,Short-term
-JYOTHYLAB,FMCG,Jyothy Labs Limited - Ex-Date: 29-Jun-2026,0.7,0,-1,-2.52,0,-2.52,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-BIKAJI,FMCG,Bikaji Foods International Limited,2.2,0,1,2.28,0,2.28,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-NBCC,Capital Goods,Market Trading Guide: YES Bank among two stock picks for Monday with up to 10% upside scope,91.7,1,1,4.13,1,4.13,New,2026-06-01,Economic Times,31 May 2026 03:03 PM,1.0,Very Bullish,Short-term
-CUMMINSIND,Industrial,Cummins India Limited (NSE:CUMMINSIND) Just Reported And Analysts Have Been Lifting Their Price Targets,23.3,1,-1,-3.41,1,-3.41,New,2026-06-01,Google News,31 May 2026 08:05 AM,1.0,Mildly Bullish,Short-term
-ELECON,Power,Eimco Elecon (India) Limited,2.4,0,-1,-1.07,0,-1.07,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-PFC,Power,Power Finance Corporation Limited,1.0,0,-1,-1.75,0,-1.75,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-GOLDIAM,Jewellery,Goldiam International Limited,1.1,0,0,0.21,0,0.21,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-MEDANTA,Healthcare,Global Health Limited,2.8,0,-1,-1.7,0,-1.7,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-LINDEINDIA,Chemicals,Linde India Limited,1.2,0,-1,-4.23,0,-4.23,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-EPIGRAL,Chemicals,Epigral Limited - Ex-Date: 01-Jun-2026,0.4,0,0,0.1,0,0.1,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-SBILIFE,Insurance,SBI Life Share Price Live Updates: SBI Life's Performance Snapshot,-1.4,0,-1,-0.96,0,-0.96,Neutral,2026-06-01,Economic Times,01 Jun 2026 08:13 AM,1.0,Neutral,Short-term
-MCX,Diversified,Silver gains Rs 1;100/kg; gold down at Rs 1.54lakh/10 gms amid mixed Iran war signals. Key levels to watch,-42.6,-1,-1,-2.17,1,-2.17,New,2026-06-01,Economic Times | NDTV Profit,01 Jun 2026 09:39 AM,2.0,Bearish,Long-term
-ACUTAAS,Pharma,Acutaas Chemicals among 4 stocks that closed crossing above VWAP,28.2,1,-1,-3.63,1,-3.63,New,2026-06-01,Economic Times,01 Jun 2026 10:19 AM,1.0,Bullish,Short-term
-ALKEM,Pharma,Alkem Laboratories Limited,2.2,0,-1,-3.34,0,-3.34,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-CIPLA,Pharma,Cipla Share Price Live Updates: Cipla's Market Activity,0.8,0,-1,-0.76,0,-0.76,Neutral,2026-06-01,Economic Times | NSE Official,01 Jun 2026 08:13 AM,2.0,Neutral,Short-term
-MARKSANS,Pharma,Marksans Pharma Limited,3.1,0,-1,-3.05,0,-3.05,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-SUPRIYA,Pharma,Trade Spotlight: How should you trade Rain Industries; IFCI; Cemindia Projects; Supriya Lifescience;...,4.2,0,1,8.65,0,8.65,Neutral,2026-06-01,Google News,01 Jun 2026 06:23 AM,1.0,Neutral,Long-term
-TRENT,Retail,Trent nears record date for 1:2 bonus issue: Should you buy shares for bonus reward? Here’s what experts say,2.1,0,-1,-1.58,0,-1.58,Neutral,2026-06-01,Economic Times | NSE Official,01 Jun 2026 07:22 AM,3.0,Neutral,Short-term
-HYUNDAI,Retail,Maruti; M&M May Sales Beat Estimates With Over 20% Growth; Hyundai Misses Forecast,62.4,1,-1,-2.16,1,-2.16,New,2026-06-01,NDTV Profit | NSE Official,01 Jun 2026 04:48 PM,2.0,Very Bullish,Both
-JWL,Jewellery,JUPITER WAGONS LIMITED Share Price Today - Live JWL Stock Price for NSE/BSE,0.9,0,-1,-5.69,0,-5.69,Neutral,2026-06-01,Google News,31 May 2026 09:08 PM,1.0,Neutral,Short-term
-BLS,Industrial,BLS International Services Limited,1.3,0,1,0.38,0,0.38,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-BAJFINANCE,NBFC,Bajaj Finance Limited - Ex-Date: 30-Jun-2026,-0.5,0,-1,-2.11,0,-2.11,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-CHOLAFIN,NBFC,Cholamandalam MS General Insurance Company Limited,-0.2,0,-1,-2.91,0,-2.91,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
-SHRIRAMFIN,NBFC,Shriram Finance Limited,0.3,0,-1,-2.97,0,-2.97,Neutral,2026-06-01,NSE Official,,2.0,Neutral,Short-term
-BAJAJHLDNG,Holdings,Bajaj Holdings & Investment Limited - Ex-Date: 30-Jun-2026,-0.5,0,-1,-0.88,0,-0.88,Neutral,2026-06-01,NSE Official,,1.0,Neutral,Short-term
+Ticker,Sector,Latest_Headline,Forecast_Score,Forecast_Direction,Actual_Direction,Actual_Return_Pct,Streak_Days,Streak_Return,Momentum,Date,News_Source,News_Time,Headline_Count,Severity,Impact,Signal_Quality
+MARUTI,Auto,Maruti Suzuki Share Price Live Updates: Maruti Suzuki's Recent Market Activity,2.9,0,-1,-1.38,0,-1.38,Neutral,2026-06-01,Economic Times | NSE Official,01 Jun 2026 08:12 AM,2.0,Neutral,Short-term,Neutral
+PERSISTENT,IT,US Stock Market: Jobs data; AI earnings to test Wall Street rally amid inflation risks loom,37.4,1,1,4.0,1,4.0,New,2026-06-01,Economic Times | NSE Official,01 Jun 2026 10:15 AM,2.0,Bullish,Both,Moderate
+RATEGAIN,IT,RATEGAIN TRAVEL TECH Share Price Today Up 5%,91.8,1,1,4.11,1,4.11,New,2026-06-01,Google News,01 Jun 2026 10:04 AM,1.0,Very Bullish,Long-term,High Conviction
+COFORGE,IT,BEL; Waaree; Dixon Tech; Coforge; SBI; Tata Steel; Infosys shares among top MOFSL picks post Q4 results,83.3,1,1,2.77,1,2.77,New,2026-06-01,Google News,01 Jun 2026 10:01 AM,1.0,Very Bullish,Short-term,High Conviction
+COALINDIA,Metals,Coal India shares jump 4% after positive offtake performance boosts market sentiment; stock up 18% YTD,92.5,1,1,3.21,1,3.21,New,2026-06-01,NSE Official | Google News,01 Jun 2026 01:19 PM,2.0,Very Bullish,Short-term,High Conviction
+TEGA,Metals,Tega Industries among 6 stocks showing bullish RSI upswing,84.0,1,1,2.57,1,2.57,New,2026-06-01,Economic Times,01 Jun 2026 08:32 AM,1.0,Very Bullish,Short-term,High Conviction
+MOTILALOFS,Financial Services,Q4 earnings review: Motilal Oswal highlights broad-based beat on estimates; lists 6 sectors that exceeded expectations,9.4,1,-1,-3.16,1,-3.16,New,2026-06-01,Economic Times | NSE Official,01 Jun 2026 01:12 PM,34.0,Mildly Bullish,Both,Weak
+NUVAMA,Financial Services,Nifty has a positive undertone; but Street waits for a decisive breakout,15.5,1,0,0.15,1,0.15,New,2026-06-01,Economic Times,01 Jun 2026 05:48 AM,1.0,Mildly Bullish,Long-term,Weak
+ITC,FMCG,Bitcoin begins June near $73;500 as ETF outflows cross $2 billion and geopolitical risks intensify,81.5,1,-1,-2.53,1,-2.53,New,2026-06-01,Economic Times | NSE Official,01 Jun 2026 12:57 PM,2.0,Very Bullish,Short-term,High Conviction
+CUMMINSIND,Industrial,Cummins India Limited (NSE:CUMMINSIND) Just Reported And Analysts Have Been Lifting Their Price Targets,23.3,1,-1,-3.41,1,-3.41,New,2026-06-01,Google News,31 May 2026 08:05 AM,1.0,Mildly Bullish,Short-term,Weak
+SBILIFE,Insurance,SBI Life Share Price Live Updates: SBI Life's Performance Snapshot,-1.4,0,-1,-0.96,0,-0.96,Neutral,2026-06-01,Economic Times,01 Jun 2026 08:13 AM,1.0,Neutral,Short-term,Neutral
+MCX,Diversified,Silver gains Rs 1;100/kg; gold down at Rs 1.54lakh/10 gms amid mixed Iran war signals. Key levels to watch,-88.7,-1,-1,-2.17,1,-2.17,New,2026-06-01,Economic Times,01 Jun 2026 09:39 AM,1.0,Very Bearish,Long-term,High Conviction
+ACUTAAS,Pharma,Acutaas Chemicals among 4 stocks that closed crossing above VWAP,28.2,1,-1,-3.63,1,-3.63,New,2026-06-01,Economic Times,01 Jun 2026 10:19 AM,1.0,Bullish,Short-term,Moderate
+CIPLA,Pharma,Cipla Share Price Live Updates: Cipla's Market Activity,1.2,0,-1,-0.76,0,-0.76,Neutral,2026-06-01,Economic Times | NSE Official,01 Jun 2026 08:13 AM,2.0,Neutral,Short-term,Neutral
+SUPRIYA,Pharma,Trade Spotlight: How should you trade Rain Industries; IFCI; Cemindia Projects; Supriya Lifescience;...,4.2,0,1,8.65,0,8.65,Neutral,2026-06-01,Google News,01 Jun 2026 06:23 AM,1.0,Neutral,Long-term,Neutral
+TRENT,Retail,Trent nears record date for 1:2 bonus issue: Should you buy shares for bonus reward? Here’s what experts say,2.5,0,-1,-1.58,0,-1.58,Neutral,2026-06-01,Economic Times | NSE Official,01 Jun 2026 07:22 AM,3.0,Neutral,Short-term,Neutral
+HYUNDAI,Retail,Maruti; M&M May Sales Beat Estimates With Over 20% Growth; Hyundai Misses Forecast,92.1,1,-1,-2.16,1,-2.16,New,2026-06-01,NDTV Profit | NSE Official,01 Jun 2026 04:48 PM,2.0,Very Bullish,Both,High Conviction
+JWL,Jewellery,JUPITER WAGONS LIMITED Share Price Today - Live JWL Stock Price for NSE/BSE,0.9,0,-1,-5.69,0,-5.69,Neutral,2026-06-01,Google News,31 May 2026 09:08 PM,1.0,Neutral,Short-term,Neutral
