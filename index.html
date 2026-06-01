@@ -4,77 +4,94 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XChart Analytics Dashboard</title>
-    <!-- Stable Global Enterprise CDNs -->
-    <script src="https://cloudflare.com"></script>
-    <script src="https://cloudflare.com"></script>
-    <script src="https://cloudflare.com"></script>
+    <!-- Embedded inline styles to avoid external CSS reliance -->
+    <style>
+        body { background-color: #111827; color: #f3f4f6; font-family: sans-serif; padding: 24px; margin: 0; }
+        .max-w-7xl { max-width: 80rem; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 32px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .bg-gray-800 { background-color: #1f2937; padding: 24px; id: content; border-radius: 8px; border: 1px solid #374151; }
+        .text-green-400 { color: #34d399; } .text-blue-400 { color: #60a5fa; } .text-purple-400 { color: #c084fc; }
+        .text-3xl { font-size: 1.875rem; font-weight: 700; margin-top: 4px; margin-bottom: 0; }
+        .text-gray-400 { color: #9ca3af; font-size: 0.875rem; margin: 0; }
+        .uppercase { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; font-weight: 600; }
+        table { width: 100%; text-align: left; font-size: 0.875rem; border-collapse: collapse; }
+        th { padding: 12px; text-transform: uppercase; font-size: 0.75rem; background-color: #374151; color: #d1d5db; }
+        td { padding: 12px; border-bottom: 1px solid #374151; color: #d1d5db; }
+        .font-mono { font-family: monospace; }
+        .rounded { border-radius: 4px; text-align: center; font-weight: 600; }
+        .bg-green-900 { background-color: #064e3b; color: #a7f3d0; }
+        .bg-red-900 { background-color: #7f1d1d; color: #fca5a5; }
+        .truncate { max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+    
+    <!-- Local secure path routing to bypass firewall/ISP blocks -->
+    <script src="./papaparse.min.js"></script>
+    <script src="./plotly.min.js"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
+<body>
 
-    <div class="max-w-7xl mx-auto">
-        <header class="mb-8 border-b border-gray-800 pb-4">
-            <h1 class="text-3xl font-bold text-green-400">📊 XChart JavaScript Dashboard</h1>
-            <p class="text-gray-400 text-sm mt-1">Serverless Analytics Platform Powered by GitHub Pages</p>
+    <div class="max-w-7xl">
+        <header style="margin-bottom: 32px; border-bottom: 1px solid #374151; padding-bottom: 16px;">
+            <h1 style="font-size: 1.875rem; font-weight: 700; color: #34d399; margin: 0;">📊 XChart JavaScript Dashboard</h1>
+            <p style="color: #9ca3af; font-size: 0.875rem; margin: 4px 0 0 0;">Serverless Analytics Platform Powered by GitHub Pages</p>
         </header>
 
         <!-- Metrics Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Model Accuracy (Hit Rate)</p>
-                <h3 id="hit-rate" class="text-3xl font-bold text-green-400 mt-1">Calculating...</h3>
+        <div class="grid">
+            <div class="bg-gray-800">
+                <p class="text-gray-400 uppercase">Model Accuracy (Hit Rate)</p>
+                <h3 id="hit-rate" class="text-3xl text-green-400">Calculating...</h3>
             </div>
-            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Bullish Precision</p>
-                <h3 id="bullish-precision" class="text-3xl font-bold text-blue-400 mt-1">Calculating...</h3>
+            <div class="bg-gray-800">
+                <p class="text-gray-400 uppercase">Bullish Precision</p>
+                <h3 id="bullish-precision" class="text-3xl text-blue-400">Calculating...</h3>
             </div>
-            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
-                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Signals Logs</p>
-                <h3 id="total-signals" class="text-3xl font-bold text-purple-400 mt-1">Calculating...</h3>
+            <div class="bg-gray-800">
+                <p class="text-gray-400 uppercase">Total Signals Logs</p>
+                <h3 id="total-signals" class="text-3xl text-purple-400">Calculating...</h3>
             </div>
         </div>
 
         <!-- Live Table -->
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-8 overflow-x-auto">
-            <h2 class="text-xl font-bold text-gray-200 mb-4">Active Momentum Monitor</h2>
-            <table class="w-full text-left text-sm">
-                <thead class="text-xs uppercase bg-gray-700 text-gray-300">
+        <div class="bg-gray-800" style="overflow-x: auto; margin-bottom: 32px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #f3f4f6; margin-top: 0; margin-bottom: 16px;">Active Momentum Monitor</h2>
+            <table>
+                <thead>
                     <tr>
-                        <th class="p-3">Ticker</th>
-                        <th class="p-3">Latest Headline</th>
-                        <th class="p-3 text-center">Velocity</th>
-                        <th class="p-3 text-center">Score</th>
+                        <th>Ticker</th>
+                        <th>Latest Headline</th>
+                        <th style="text-align: center;">Velocity</th>
+                        <th style="text-align: center;">Score</th>
                     </tr>
                 </thead>
-                <tbody id="screener-rows" class="divide-y divide-gray-700">
-                    <tr><td colspan="4" class="p-4 text-center text-gray-500">Loading metrics network feed...</td></tr>
+                <tbody id="screener-rows">
+                    <tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 16px;">Loading metrics network feed...</td></tr>
                 </tbody>
             </table>
         </div>
 
         <!-- Performance Graph -->
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
-            <h2 class="text-xl font-bold text-gray-200 mb-4">Live Performance Matrix</h2>
-            <div id="accuracy-chart" class="w-full h-96 flex items-center justify-center text-gray-500">
+        <div class="bg-gray-800">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #f3f4f6; margin-top: 0; margin-bottom: 16px;">Live Performance Matrix</h2>
+            <div id="accuracy-chart" style="width: 100%; height: 384px; display: flex; align-items: center; justify-content: center; color: #9ca3af;">
                 Rendering market chart data...
             </div>
         </div>
     </div>
 
     <script>
-        // Direct relative request utilizing location pathname adjustments to prevent split array errors
-        const baseDir = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
-        const csvTargetUrl = window.location.origin + baseDir + 'data.csv?v=' + Math.random();
-
-        console.log("🎯 Dynamic target path destination configured:", csvTargetUrl);
+        // Target your repository root data file locally
+        const csvTargetUrl = './data.csv?v=' + Math.random();
 
         fetch(csvTargetUrl)
             .then(res => {
-                if(!res.ok) throw new Error("Dataset file could not be read. Status: " + res.status);
+                if(!res.ok) throw new Error("Dataset file could not be read.");
                 return res.text();
             })
             .then(csvData => {
                 if (typeof Papa === 'undefined') {
-                    throw new Error("PapaParse script library blocked by network.");
+                    throw new Error("Local PapaParse script file is missing.");
                 }
                 Papa.parse(csvData, {
                     header: true,
@@ -88,7 +105,7 @@
             .catch(err => {
                 console.error(err);
                 document.getElementById('screener-rows').innerHTML = `
-                    <tr><td colspan="4" class="p-4 text-center text-red-400 font-semibold">⚠️ Failed to connect to server dataset. Verify data.csv is fully pushed.</td></tr>
+                    <tr><td colspan="4" style="text-align: center; color: #f87171; font-weight: 600; padding: 16px;">⚠️ Error loading dataset file. Double check data.csv presence.</td></tr>
                 `;
             });
 
@@ -97,20 +114,20 @@
             tableBody.innerHTML = ""; 
             
             if(!data || data.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">The generated data.csv file is empty.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 16px;">The generated data.csv file is empty.</td></tr>`;
                 return;
             }
 
             data.forEach(row => {
                 let scoreValue = row.Forecast_Score ? parseFloat(row.Forecast_Score) : 0;
-                let badgeColor = scoreValue > 15 ? 'bg-green-900 text-green-300' : (scoreValue < -15 ? 'bg-red-900 text-red-300' : 'text-gray-300');
+                let badgeColor = scoreValue > 15 ? 'bg-green-900' : (scoreValue < -15 ? 'bg-red-900' : '');
                 
                 tableBody.innerHTML += `
-                    <tr class="hover:bg-gray-700 transition">
-                        <td class="p-3 font-mono text-green-400 font-bold">${row.Ticker || 'N/A'}</td>
-                        <td class="p-3 text-gray-300 max-w-md">${row.Latest_Headline || 'No news feed logged.'}</td>
-                        <td class="p-3 text-center">${row.Repeat_Count || 1}</td>
-                        <td class="p-3 text-center ${badgeColor} font-semibold">${scoreValue.toFixed(1)}</td>
+                    <tr class="hover:bg-gray-700">
+                        <td class="font-mono text-green-400" style="font-weight: 700;">${row.Ticker || 'N/A'}</td>
+                        <td><div class="truncate">${row.Latest_Headline || 'No news feed logged.'}</div></td>
+                        <td style="text-align: center;">${row.Repeat_Count || 1}</td>
+                        <td style="text-align: center;"><div class="rounded ${badgeColor}">${scoreValue.toFixed(1)}</div></td>
                     </tr>
                 `;
             });
@@ -149,7 +166,7 @@
                 document.getElementById('accuracy-chart').innerHTML = "";
                 Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
             } else {
-                document.getElementById('accuracy-chart').innerHTML = "<p class='text-red-400'>Plotly chart engine blocked by your local network.</p>";
+                document.getElementById('accuracy-chart').innerHTML = "<p style='color: #f87171;'>Plotly rendering engine failed to initialize.</p>";
             }
         }
 
