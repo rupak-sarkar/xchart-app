@@ -4,15 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XChart Analytics Dashboard</title>
-    <script src="https://jsdelivr.net"></script>
+    <!-- Stable Mirror CDNs (Bypassing jsdelivr blocks) -->
     <script src="https://cloudflare.com"></script>
-    <script src="https://plot.ly"></script>
+    <script src="https://cloudflare.com"></script>
+    <script src="https://cloudflare.com"></script>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen p-6">
 
     <div class="max-w-7xl mx-auto">
         <header class="mb-8 border-b border-gray-800 pb-4">
-            <h1 class="text-3xl font-bold text-emerald-400">📊 XChart JavaScript Dashboard</h1>
+            <h1 class="text-3xl font-bold text-green-400">📊 XChart JavaScript Dashboard</h1>
             <p class="text-gray-400 text-sm mt-1">Serverless Analytics Platform Powered by GitHub Pages</p>
         </header>
 
@@ -20,7 +21,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
                 <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Model Accuracy (Hit Rate)</p>
-                <h3 id="hit-rate" class="text-3xl font-bold text-emerald-400 mt-1">Calculating...</h3>
+                <h3 id="hit-rate" class="text-3xl font-bold text-green-400 mt-1">Calculating...</h3>
             </div>
             <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
                 <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Bullish Precision</p>
@@ -60,10 +61,8 @@
     </div>
 
     <script>
-        // Dynamically detects if hosted inside subfolder root or local machine domain 
-        const pathArray = window.location.pathname.split('/');
-        const repoName = pathArray[1] && !window.location.hostname.includes('localhost') ? '/' + pathArray[1] : '';
-        const csvTargetUrl = window.location.origin + repoName + '/data.csv?t=' + new Date().getTime();
+        // Target current working directory path for data retrieval
+        const csvTargetUrl = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/data.csv?t=' + new Date().getTime();
 
         console.log("Fetching target network location:", csvTargetUrl);
 
@@ -73,6 +72,9 @@
                 return res.text();
             })
             .then(csvData => {
+                if (typeof Papa === 'undefined') {
+                    throw new Error("PapaParse script library blocked by network.");
+                }
                 Papa.parse(csvData, {
                     header: true,
                     dynamicTyping: true,
@@ -85,7 +87,7 @@
             .catch(err => {
                 console.error(err);
                 document.getElementById('screener-rows').innerHTML = `
-                    <tr><td colspan="4" class="p-4 text-center text-rose-400 font-semibold">⚠️ Failed to load dataset. Data.csv path resolution routing mismatch.</td></tr>
+                    <tr><td colspan="4" class="p-4 text-center text-red-400 font-semibold">⚠️ Failed to connect to server dataset. Verify data.csv is fully pushed.</td></tr>
                 `;
             });
 
@@ -98,22 +100,20 @@
                 return;
             }
 
-            // Populate all parsed rows directly into the screen viewer
             data.forEach(row => {
                 let scoreValue = row.Forecast_Score ? parseFloat(row.Forecast_Score) : 0;
-                let badgeColor = scoreValue > 15 ? 'bg-emerald-950 text-emerald-300' : (scoreValue < -15 ? 'bg-rose-950 text-rose-300' : 'text-gray-300');
+                let badgeColor = scoreValue > 15 ? 'bg-green-900 text-green-300' : (scoreValue < -15 ? 'bg-red-900 text-red-300' : 'text-gray-300');
                 
                 tableBody.innerHTML += `
-                    <tr class="hover:bg-gray-700/50 transition">
-                        <td class="p-3 font-mono text-emerald-400 font-bold">${row.Ticker || 'N/A'}</td>
-                        <td class="p-3 text-gray-300 truncate max-w-md">${row.Latest_Headline || 'No news feed logged.'}</td>
+                    <tr class="hover:bg-gray-700 transition">
+                        <td class="p-3 font-mono text-green-400 font-bold">${row.Ticker || 'N/A'}</td>
+                        <td class="p-3 text-gray-300 max-w-md">${row.Latest_Headline || 'No news feed logged.'}</td>
                         <td class="p-3 text-center">${row.Repeat_Count || 1}</td>
-                        <td class="p-3 text-center rounded ${badgeColor} font-semibold">${scoreValue.toFixed(1)}</td>
+                        <td class="p-3 text-center ${badgeColor} font-semibold">${scoreValue.toFixed(1)}</td>
                     </tr>
                 `;
             });
 
-            // Summary KPI Stats Calculations
             const total = data.length;
             const matches = data.filter(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction)).length;
             const totalBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1).length;
@@ -123,30 +123,33 @@
             document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish / totalBullish) * 100).toFixed(1) : 0}%`;
             document.getElementById('total-signals').innerText = `${total} items`;
 
-            // Render Chart
-            const trace = {
-                x: data.map(r => r.Forecast_Score),
-                y: data.map(r => r.Actual_Return_Pct),
-                mode: 'markers',
-                type: 'scatter',
-                text: data.map(r => r.Ticker),
-                marker: {
-                    size: 14,
-                    color: data.map(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction) ? '#10B981' : '#EF4444'),
-                    line: { color: '#1F2937', width: 2 }
-                }
-            };
+            if (typeof Plotly !== 'undefined') {
+                const trace = {
+                    x: data.map(r => r.Forecast_Score),
+                    y: data.map(r => r.Actual_Return_Pct),
+                    mode: 'markers',
+                    type: 'scatter',
+                    text: data.map(r => r.Ticker),
+                    marker: {
+                        size: 14,
+                        color: data.map(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction) ? '#10B981' : '#EF4444'),
+                        line: { color: '#1F2937', width: 2 }
+                    }
+                };
 
-            const layout = {
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                xaxis: { title: 'Forecast Score', gridcolor: '#374151', color: '#9CA3AF' },
-                yaxis: { title: 'Realized Return %', gridcolor: '#374151', color: '#9CA3AF' },
-                margin: { t: 20, r: 20, b: 40, l: 40 }
-            };
+                const layout = {
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    xaxis: { title: 'Forecast Score', gridcolor: '#374151', color: '#9CA3AF' },
+                    yaxis: { title: 'Realized Return %', gridcolor: '#374151', color: '#9CA3AF' },
+                    margin: { t: 20, r: 20, b: 40, l: 40 }
+                };
 
-            document.getElementById('accuracy-chart').innerHTML = "";
-            Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
+                document.getElementById('accuracy-chart').innerHTML = "";
+                Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
+            } else {
+                document.getElementById('accuracy-chart').innerHTML = "<p class='text-red-400'>Plotly chart engine blocked by your local network.</p>";
+            }
         }
 
         function intOrZero(val) {
