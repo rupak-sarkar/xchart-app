@@ -54,8 +54,12 @@ SOURCE_WEIGHTS = {
     "yfinance": 1.0, "google": 1.0,
 }
 
+# Sources that are regulatory filings (not actionable news)
+REGULATORY_SOURCES = {"nse_announce", "nse_actions"}
+
+
 # ============================================================
-# IMPACT CLASSIFICATION KEYWORDS
+# IMPACT KEYWORDS
 # ============================================================
 SHORT_TERM_KEYWORDS = [
     "quarterly", "q1", "q2", "q3", "q4", "results", "earnings", "profit",
@@ -81,13 +85,8 @@ LONG_TERM_KEYWORDS = [
     "esg", "sustainability", "carbon", "green energy", "renewable",
 ]
 
-# ============================================================
-# SEVERITY SCALE (based on aggregated FinBERT score)
-# ============================================================
+
 def classify_severity(score):
-    """
-    Maps compound score (-100 to +100) to severity label.
-    """
     if score >= 60:    return "Very Bullish"
     elif score >= 25:  return "Bullish"
     elif score >= 5:   return "Mildly Bullish"
@@ -97,25 +96,14 @@ def classify_severity(score):
     else:              return "Very Bearish"
 
 
-def classify_impact(headline_entries):
-    """
-    Classifies impact as Short-term, Long-term, or Both
-    by scanning all headlines for keyword matches.
-    """
-    combined_text = " ".join(e["headline"] for e in headline_entries).lower()
-
-    short_hits = sum(1 for kw in SHORT_TERM_KEYWORDS if kw in combined_text)
-    long_hits = sum(1 for kw in LONG_TERM_KEYWORDS if kw in combined_text)
-
-    if short_hits > 0 and long_hits > 0:
-        return "Both"
-    elif long_hits > 0:
-        return "Long-term"
-    elif short_hits > 0:
-        return "Short-term"
-    else:
-        # Default: single-day news without clear keywords → short-term
-        return "Short-term"
+def classify_impact(entries):
+    combined = " ".join(e["headline"] for e in entries).lower()
+    short = sum(1 for kw in SHORT_TERM_KEYWORDS if kw in combined)
+    long = sum(1 for kw in LONG_TERM_KEYWORDS if kw in combined)
+    if short > 0 and long > 0: return "Both"
+    elif long > 0: return "Long-term"
+    elif short > 0: return "Short-term"
+    else: return "Short-term"
 
 
 # ============================================================
@@ -201,27 +189,18 @@ COMPANY_ALIASES = {
 # DATE HELPERS
 # ============================================================
 def extract_pub_date_and_time(entry):
-    """
-    Returns (date_obj, formatted_time_str) from RSS entry.
-    date_obj = date in IST for freshness check.
-    formatted_time_str = display string like "01 Jun 2026 03:15 PM"
-    """
     parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if parsed:
         try:
             dt_utc = datetime(*parsed[:6], tzinfo=timezone.utc)
             dt_ist = dt_utc.astimezone(IST)
             return dt_ist.date(), dt_ist.strftime("%d %b %Y %I:%M %p")
-        except Exception:
-            pass
-    # If no parseable date, return None (will be treated as "today" since it's in today's RSS)
+        except Exception: pass
     return None, ""
 
 
 def is_fresh(pub_date):
-    """Returns True if pub_date is today or yesterday (or unparseable → benefit of doubt)."""
-    if pub_date is None:
-        return True  # No date available → assume fresh (it's in today's RSS feed)
+    if pub_date is None: return True
     return pub_date >= YESTERDAY_DATE
 
 
@@ -250,16 +229,10 @@ def match_ticker_in_text(text_upper, tickers_list):
 
 
 # ============================================================
-# PHASE 1: BUILD CACHE (only today + yesterday news)
+# PHASE 1: BUILD CACHE (today + yesterday only)
 # ============================================================
 def build_news_cache(tickers_list):
-    """
-    Fetches ALL RSS feeds. Stores ALL matching headlines per ticker.
-    ONLY keeps news from today or yesterday.
-    """
-    cache = {}
-    total_scanned = 0
-    total_fresh = 0
+    cache = {}  # ticker -> list of entries
     total_stale = 0
 
     for source_key, url in ALL_FEEDS.items():
@@ -268,44 +241,26 @@ def build_news_cache(tickers_list):
         if not feed or not feed.entries:
             print(f"   ⚠️ {source_key}: No entries")
             continue
-
-        match_count = 0
-        stale_count = 0
+        match_count = 0; stale_count = 0
         for entry in feed.entries:
             title = entry.get("title", "")
             desc = entry.get("description", entry.get("summary", ""))
             full_text = f"{title} {desc}".upper()
-
             matched_ticker = match_ticker_in_text(full_text, tickers_list)
-            if not matched_ticker or not title.strip():
-                continue
-
-            total_scanned += 1
-
-            # Date freshness check
+            if not matched_ticker or not title.strip(): continue
             pub_date, pub_time_str = extract_pub_date_and_time(entry)
             if not is_fresh(pub_date):
-                stale_count += 1
-                total_stale += 1
-                continue
-
-            total_fresh += 1
+                stale_count += 1; total_stale += 1; continue
             headline = title.strip().replace(",", ";")
             weight = SOURCE_WEIGHTS.get(source_key, 1.0)
-
-            # Deduplicate
             existing = cache.get(matched_ticker, [])
             if not any(e["headline"].lower() == headline.lower() for e in existing):
-                if matched_ticker not in cache:
-                    cache[matched_ticker] = []
+                if matched_ticker not in cache: cache[matched_ticker] = []
                 cache[matched_ticker].append({
-                    "headline": headline,
-                    "source": source_key,
-                    "pub_time": pub_time_str,
-                    "weight": weight,
+                    "headline": headline, "source": source_key,
+                    "pub_time": pub_time_str, "weight": weight,
                 })
                 match_count += 1
-
         stale_note = f" ({stale_count} stale filtered)" if stale_count else ""
         print(f"   ✅ {source_key}: {match_count} fresh matches from {len(feed.entries)} entries{stale_note}")
         time.sleep(0.3)
@@ -313,13 +268,11 @@ def build_news_cache(tickers_list):
     total_tickers = len(cache)
     total_headlines = sum(len(v) for v in cache.values())
     multi = sum(1 for v in cache.values() if len(v) >= 2)
-
-    print(f"\n📦 Fresh news cache (today + yesterday only):")
+    print(f"\n📦 Fresh news cache:")
     print(f"   Tickers with news:    {total_tickers}/{len(tickers_list)}")
     print(f"   Total headlines:      {total_headlines}")
     print(f"   Multi-headline:       {multi}")
-    print(f"   Stale news filtered:  {total_stale}")
-
+    print(f"   Stale filtered:       {total_stale}")
     return cache
 
 
@@ -327,31 +280,24 @@ def build_news_cache(tickers_list):
 # FINBERT SCORING
 # ============================================================
 def score_single_headline(headline):
-    if not headline:
-        return 0.0
+    if not headline: return 0.0
     try:
         inputs = tokenizer([headline], padding=True, truncation=True, max_length=512, return_tensors="pt")
-        with torch.no_grad():
-            outputs = model(**inputs)
+        with torch.no_grad(): outputs = model(**inputs)
         probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
         return (probs[0][0].item() - probs[0][1].item()) * 100.0
     except Exception as e:
-        print(f"  ⚠️ NLP crash: {e}")
-        return 0.0
+        print(f"  ⚠️ NLP crash: {e}"); return 0.0
 
 
 def compute_aggregated_score(entries):
-    if not entries:
-        return 0.0, 0
-    total_w = 0.0
-    weighted_sum = 0.0
+    if not entries: return 0.0, 0
+    total_w = 0.0; weighted_sum = 0.0
     for e in entries:
         raw = score_single_headline(e["headline"])
         w = e.get("weight", 1.0)
-        weighted_sum += raw * w
-        total_w += w
-    if total_w == 0:
-        return 0.0, 0
+        weighted_sum += raw * w; total_w += w
+    if total_w == 0: return 0.0, 0
     score = weighted_sum / total_w
     if score > 5.0: d = 1
     elif score < -5.0: d = -1
@@ -360,7 +306,7 @@ def compute_aggregated_score(entries):
 
 
 # ============================================================
-# PER-TICKER FALLBACKS (with freshness filtering)
+# PER-TICKER FALLBACKS (fresh only)
 # ============================================================
 def get_yfinance_news(ticker):
     try:
@@ -372,13 +318,11 @@ def get_yfinance_news(ticker):
                 headline = item.get("title", item.get("headline", ""))
                 if not headline: continue
                 pub_ts = item.get("providerPublishTime") or item.get("publish_time")
-                pub_time_str = ""
-                pub_date = None
+                pub_time_str = ""; pub_date = None
                 if pub_ts:
                     try:
                         dt = datetime.fromtimestamp(int(pub_ts), tz=IST)
-                        pub_date = dt.date()
-                        pub_time_str = dt.strftime("%d %b %Y %I:%M %p")
+                        pub_date = dt.date(); pub_time_str = dt.strftime("%d %b %Y %I:%M %p")
                     except: pass
                 if is_fresh(pub_date):
                     return headline.replace(",", ";"), pub_time_str
@@ -391,7 +335,7 @@ def get_google_news(ticker):
         url = f"https://news.google.com/rss/search?q={urllib.parse.quote(ticker)}+NSE+stock+india&hl=en-IN&gl=IN&ceid=IN:en"
         feed = fetch_rss_with_headers(url, f"gg_{ticker}", timeout=8)
         if feed and feed.entries:
-            for entry in feed.entries[:3]:  # Check top 3 results
+            for entry in feed.entries[:3]:
                 pub_date, pub_time_str = extract_pub_date_and_time(entry)
                 if is_fresh(pub_date):
                     headline = re.sub(r'\s+-\s+[^:\-]+$', '', entry.title)
@@ -400,14 +344,29 @@ def get_google_news(ticker):
     return None, ""
 
 
+def has_actionable_news(entries):
+    """
+    Returns True if ticker has at least one headline from a NON-regulatory source.
+    NSE filings alone (Board Meeting Intimation, Reg 30 Disclosure) are not actionable.
+    If ALL entries are from NSE Official → not actionable.
+    If at least ONE entry is from ET/MC/Google/NDTV/Mint/yfinance → actionable.
+    """
+    for e in entries:
+        if e["source"] not in REGULATORY_SOURCES:
+            return True
+    return False
+
+
 def get_all_fresh_news(ticker, cache):
     """
-    Collects all FRESH (today/yesterday) headlines from all sources.
-    Returns (entries_list, primary_source, primary_pub_time) or None if no news.
+    Collects all FRESH headlines. Classifies as:
+      - actionable (has real news from non-NSE sources)
+      - regulatory_only (only NSE filings)
+      - no_news (nothing at all)
     """
     entries = []
 
-    # 1. Bulk cache (already freshness-filtered)
+    # 1. Bulk cache
     if ticker in cache:
         entries.extend(cache[ticker])
 
@@ -416,21 +375,19 @@ def get_all_fresh_news(ticker, cache):
     if hl and not any(e["headline"].lower() == hl.lower() for e in entries):
         entries.append({"headline": hl, "source": "yfinance", "pub_time": pt, "weight": 1.0})
 
-    # 3. Google (only if < 3 headlines so far)
+    # 3. Google (only if < 3 headlines)
     if len(entries) < 3:
         hl, pt = get_google_news(ticker)
         if hl and not any(e["headline"].lower() == hl.lower() for e in entries):
             entries.append({"headline": hl, "source": "google", "pub_time": pt, "weight": 1.0})
 
     if not entries:
-        return None  # NO fresh news — ticker will be skipped
+        return None, "no_news"
 
-    primary = max(entries, key=lambda e: e["weight"])
-    return {
-        "entries": entries,
-        "primary_source": primary["source"],
-        "primary_pub_time": primary["pub_time"],
-    }
+    if not has_actionable_news(entries):
+        return entries, "regulatory_only"
+
+    return entries, "actionable"
 
 
 # ============================================================
@@ -508,100 +465,122 @@ def execute_sentiment_engine():
     print(f"📅 Date: {TODAY_IST} | Fresh window: {YESTERDAY_DATE} → {TODAY_DATE}")
     print("=" * 95)
 
-    # PHASE 1: Bulk fetch (only fresh news)
+    # PHASE 1
     print("\n📡 PHASE 1: Pre-fetching news (today + yesterday only)...")
     print("-" * 95)
     news_cache = build_news_cache(tickers_list)
     print("-" * 95)
 
-    # PHASE 2: Process ONLY tickers with fresh news
-    print(f"\n📊 PHASE 2: Scoring tickers with fresh news...")
+    # PHASE 2: Classify and score
+    print(f"\n📊 PHASE 2: Classifying & scoring tickers...")
     print("-" * 95)
 
-    scored_rows = []
-    skipped_rows = []
+    scored_rows = []        # Actionable news → scored by FinBERT
+    regulatory_rows = []    # NSE-only filings → listed but not scored
+    no_news_rows = []       # No fresh news → skipped entirely
     source_stats = {}
-    hits = 0
+    hits_all = 0
+    hits_directional = 0
+    total_directional = 0
 
     for idx, ticker in enumerate(tickers_list, 1):
-        result = get_all_fresh_news(ticker, news_cache)
+        entries, classification = get_all_fresh_news(ticker, news_cache)
+        ret = get_live_price_return(ticker)
 
-        if result is None:
-            # NO fresh news → skip scoring, add to skipped
-            skipped_rows.append({
-                "Ticker": ticker,
-                "Sector": sector_map.get(ticker, ""),
-                "Latest_Headline": "",
-                "News_Source": "",
-                "News_Time": "",
-                "Headline_Count": 0,
-                "Forecast_Score": 0.0,
-                "Forecast_Direction": 0,
-                "Actual_Direction": 0,
-                "Actual_Return_Pct": get_live_price_return(ticker),
-                "Severity": "No News",
-                "Impact": "",
-                "Streak_Days": 0,
-                "Streak_Return": 0.0,
-                "Momentum": "",
+        if ret > 0.25: actual_dir = 1
+        elif ret < -0.25: actual_dir = -1
+        else: actual_dir = 0
+
+        # --- NO NEWS ---
+        if classification == "no_news":
+            no_news_rows.append({
+                "Ticker": ticker, "Sector": sector_map.get(ticker, ""),
+                "Latest_Headline": "", "News_Source": "", "News_Time": "",
+                "Headline_Count": 0, "Forecast_Score": 0.0,
+                "Forecast_Direction": 0, "Actual_Direction": actual_dir,
+                "Actual_Return_Pct": ret, "Severity": "No News",
+                "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0,
+                "Momentum": "", "Signal_Quality": "No News",
             })
             continue
 
-        entries = result["entries"]
-        primary_src = result["primary_source"]
-        primary_time = result["primary_pub_time"]
+        # --- REGULATORY ONLY (NSE filings, no real news) ---
+        if classification == "regulatory_only":
+            primary = entries[0]
+            all_src = list(dict.fromkeys(SOURCE_LABELS.get(e["source"], e["source"]) for e in entries))
+            regulatory_rows.append({
+                "Ticker": ticker, "Sector": sector_map.get(ticker, ""),
+                "Latest_Headline": primary["headline"],
+                "News_Source": " | ".join(all_src),
+                "News_Time": primary["pub_time"].replace(",", "") if primary["pub_time"] else "",
+                "Headline_Count": len(entries), "Forecast_Score": 0.0,
+                "Forecast_Direction": 0, "Actual_Direction": actual_dir,
+                "Actual_Return_Pct": ret, "Severity": "Filing Only",
+                "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0,
+                "Momentum": "", "Signal_Quality": "Filing Only",
+            })
+            continue
+
+        # --- ACTIONABLE NEWS → Score with FinBERT ---
+        primary_src = max(entries, key=lambda e: e["weight"])["source"]
+        primary_time = max(entries, key=lambda e: e["weight"])["pub_time"]
         source_stats[primary_src] = source_stats.get(primary_src, 0) + 1
 
         if primary_src in ("yfinance", "google"):
             time.sleep(0.3)
 
-        # Aggregated FinBERT scoring
-        score, direction = compute_aggregated_score(entries)
-        ret = get_live_price_return(ticker)
+        # Filter: only pass non-regulatory entries to FinBERT
+        # (If ticker has NSE + ET, only score the ET headline, not the NSE filing)
+        scoreable_entries = [e for e in entries if e["source"] not in REGULATORY_SOURCES]
+        if not scoreable_entries:
+            scoreable_entries = entries  # Fallback: shouldn't happen, but safety net
 
-        if ret > 0.25: actual = 1
-        elif ret < -0.25: actual = -1
-        else: actual = 0
-
-        is_hit = direction == actual
-        if is_hit: hits += 1
-
-        # Severity & Impact
+        score, direction = compute_aggregated_score(scoreable_entries)
         severity = classify_severity(score)
         impact = classify_impact(entries)
+
+        is_hit = direction == actual_dir
+        if is_hit: hits_all += 1
+        if direction != 0:
+            total_directional += 1
+            if is_hit: hits_directional += 1
+
+        # Signal quality tier
+        abs_score = abs(score)
+        if abs_score >= 60: quality = "High Conviction"
+        elif abs_score >= 25: quality = "Moderate"
+        elif abs_score >= 5: quality = "Weak"
+        else: quality = "Neutral"
 
         # Sources display
         unique_src = list(dict.fromkeys(SOURCE_LABELS.get(e["source"], e["source"]) for e in entries))
         src_display = " | ".join(unique_src)
 
-        # Primary headline
-        primary = max(entries, key=lambda e: e["weight"])
+        primary_entry = max(entries, key=lambda e: e["weight"])
 
         # Console
-        hc = len(entries)
-        src_short = {"mc_topnews":"💰MC","mc_business":"💼MC","mc_markets":"📈MC","mc_stocks":"📰MC",
-                     "et_markets":"📊ET","et_stocks":"📊ET","et_news":"📊ET","ndtv_business":"📺ND",
-                     "mint_market":"🌿Mi","mint_companies":"🌿Mi","nse_announce":"🏛️NS","nse_actions":"📋NS",
-                     "yfinance":"📰YF","google":"🔗GG"}
+        hc = len(scoreable_entries)
+        src_short = {"mc_topnews":"💰MC","mc_business":"💼MC","mc_markets":"📈MC",
+                     "mc_stocks":"📰MC","et_markets":"📊ET","et_stocks":"📊ET",
+                     "et_news":"📊ET","ndtv_business":"📺ND","mint_market":"🌿Mi",
+                     "mint_companies":"🌿Mi","yfinance":"📰YF","google":"🔗GG"}
         dir_map = {1:"🟢",-1:"🔴",0:"⚪"}
         htag = f"[{hc}h]" if hc>=2 else "    "
-        sev_short = severity[:8]
+        sev_s = severity[:10]
+        q_emoji = "🔥" if quality == "High Conviction" else "📊" if quality == "Moderate" else "📉" if quality == "Weak" else "⚪"
 
-        print(f"[{len(scored_rows)+1:3d}] {ticker:<14s} {src_short.get(primary_src,'❓'):6s} {htag} {dir_map.get(direction,'⚪')} {sev_short:10s} | Score:{score:+6.1f} | Ret:{ret:+6.2f}% | {impact:10s} | {'✅' if is_hit else '❌'}")
+        print(f"[{len(scored_rows)+1:3d}] {ticker:<14s} {src_short.get(primary_src,'❓'):6s} {htag} {dir_map.get(direction,'⚪')} {sev_s:12s} {q_emoji} | Score:{score:+6.1f} | Ret:{ret:+6.2f}% | {impact:10s} | {'✅' if is_hit else '❌'}")
 
         scored_rows.append({
-            "Ticker": ticker,
-            "Sector": sector_map.get(ticker, ""),
-            "Latest_Headline": primary["headline"],
+            "Ticker": ticker, "Sector": sector_map.get(ticker, ""),
+            "Latest_Headline": primary_entry["headline"],
             "News_Source": src_display,
             "News_Time": primary_time.replace(",", "") if primary_time else "",
-            "Headline_Count": hc,
-            "Forecast_Score": score,
-            "Forecast_Direction": direction,
-            "Actual_Direction": actual,
-            "Actual_Return_Pct": ret,
-            "Severity": severity,
-            "Impact": impact,
+            "Headline_Count": len(entries),
+            "Forecast_Score": score, "Forecast_Direction": direction,
+            "Actual_Direction": actual_dir, "Actual_Return_Pct": ret,
+            "Severity": severity, "Impact": impact,
+            "Signal_Quality": quality,
         })
 
     # PHASE 3: Streaks (only for scored tickers)
@@ -610,59 +589,63 @@ def execute_sentiment_engine():
     history_df = load_history()
     streaks = calculate_streaks(history_df, scored_rows)
 
-    final_rows = []
+    final_scored = []
     for row in scored_rows:
         s = streaks.get(row["Ticker"], {})
         row["Streak_Days"] = s.get("Streak_Days", 0)
         row["Streak_Return"] = s.get("Streak_Return", 0.0)
         row["Momentum"] = s.get("Momentum", "Neutral")
-        final_rows.append(row)
+        final_scored.append(row)
 
-    # Combine: scored first, then skipped (no news) at the bottom
-    all_rows = final_rows + skipped_rows
+    # Combine: scored first → regulatory → no news (bottom)
+    all_rows = final_scored + regulatory_rows + no_news_rows
     df = pd.DataFrame(all_rows)
     df.to_csv(DATA_FILE, index=False)
 
-    # Save only scored tickers to history (skipped have no signal)
+    # Only scored tickers go to history
     save_to_history(scored_rows)
 
     # ============================================================
     # SUMMARY
     # ============================================================
     scored_count = len(scored_rows)
-    skipped_count = len(skipped_rows)
+    reg_count = len(regulatory_rows)
+    skip_count = len(no_news_rows)
     bull = sum(1 for r in scored_rows if r["Forecast_Direction"]==1)
     bear = sum(1 for r in scored_rows if r["Forecast_Direction"]==-1)
     neut = sum(1 for r in scored_rows if r["Forecast_Direction"]==0)
-    hr = (hits/scored_count)*100 if scored_count>0 else 0
 
-    # Severity breakdown
+    hr_all = (hits_all/scored_count)*100 if scored_count>0 else 0
+    hr_dir = (hits_directional/total_directional)*100 if total_directional>0 else 0
+
+    # High conviction
+    hc_tickers = [r for r in scored_rows if r["Signal_Quality"] == "High Conviction"]
+    hc_hits = sum(1 for r in hc_tickers if r["Forecast_Direction"] == r["Actual_Direction"])
+    hc_rate = (hc_hits/len(hc_tickers))*100 if hc_tickers else 0
+
     sev_counts = {}
-    for r in scored_rows:
-        s = r["Severity"]
-        sev_counts[s] = sev_counts.get(s, 0) + 1
-
-    # Impact breakdown
+    for r in scored_rows: sev_counts[r["Severity"]] = sev_counts.get(r["Severity"], 0) + 1
     imp_counts = {}
-    for r in scored_rows:
-        i = r["Impact"]
-        imp_counts[i] = imp_counts.get(i, 0) + 1
+    for r in scored_rows: imp_counts[r["Impact"]] = imp_counts.get(r["Impact"], 0) + 1
 
     print("\n" + "=" * 95)
     print(f"✅ data.csv written | Date: {TODAY_IST}")
     print(f"")
-    print(f"📊 SCORING:     {scored_count} tickers scored | {skipped_count} skipped (no fresh news)")
-    print(f"📊 ACCURACY:    {hits}/{scored_count} = {hr:.1f}%  (measured only on tickers with news)")
-    print(f"📈 SIGNALS:     🟢 Bullish: {bull}  |  🔴 Bearish: {bear}  |  ⚪ Neutral: {neut}")
+    print(f"📊 TICKERS:       {scored_count} scored | {reg_count} regulatory-only | {skip_count} no news")
     print(f"")
-    print(f"🎯 SEVERITY BREAKDOWN:")
+    print(f"📊 ACCURACY:")
+    print(f"   Overall (scored):         {hits_all}/{scored_count} = {hr_all:.1f}%")
+    print(f"   Directional (bull+bear):  {hits_directional}/{total_directional} = {hr_dir:.1f}%  ← TRUE MODEL ACCURACY")
+    print(f"   High Conviction (|s|>60): {hc_hits}/{len(hc_tickers)} = {hc_rate:.1f}%  ← BEST ENTRY SIGNALS")
+    print(f"")
+    print(f"📈 SIGNALS:  🟢 Bullish: {bull}  |  🔴 Bearish: {bear}  |  ⚪ Neutral: {neut}")
+    print(f"")
+    print(f"🎯 SEVERITY:")
     for s in ["Very Bullish","Bullish","Mildly Bullish","Neutral","Mildly Bearish","Bearish","Very Bearish"]:
         c = sev_counts.get(s, 0)
-        if c > 0:
-            bar = "█" * c
-            print(f"   {s:18s} {c:3d}  {bar}")
+        if c > 0: print(f"   {s:18s} {c:3d}  {'█'*c}")
     print(f"")
-    print(f"⏱️  IMPACT BREAKDOWN:")
+    print(f"⏱️  IMPACT:")
     for i in ["Short-term","Long-term","Both"]:
         c = imp_counts.get(i, 0)
         if c > 0: print(f"   {i:18s} {c:3d}")
