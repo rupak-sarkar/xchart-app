@@ -1,90 +1,50 @@
-import streamlit as st
-import yfinance as yf
-import pandas_ta as ta
-import plotly.graph_objects as go
-from datetime import date
 import pandas as pd
+import random
 
-# Page config
-st.set_page_config(page_title="XChart", layout="wide")
+def generate_dashboard_data():
+    print("🧠 Python Engine: Processing data metrics...")
+    
+    # 1. Live/Active Assets (No realized outcome results yet)
+    active_data = {
+        "Ticker": ["RELIANCE", "TCS", "INFY", "HDFCBANK", "TATAMOTORS"],
+        "Latest_Headline": [
+            "Reliance Jio registers stable profit growth in Q4 report",
+            "TCS signs multi-billion dollar transformation deal in Europe",
+            "Infosys cuts annual revenue guidance amid spending freeze",
+            "HDFC Bank merged entity posts stable loan metrics",
+            "Tata Motors EV sales hit record high over holiday weekend"
+        ],
+        "Repeat_Count": [2, 1, 4, 1, 3],
+        "Forecast_Score": [42.5, 68.1, -55.0, 12.3, 89.0],
+        "Forecast_Direction": [1, 1, -1, 1, 1],
+        "Actual_Direction": ["", "", "", "", ""], # Keep blank for UI filtering
+        "Actual_Return_Pct": ["", "", "", "", ""]
+    }
 
-# Sidebar controls
-st.sidebar.header("Chart Settings")
-ticker = st.sidebar.text_input("Ticker", value="AAPL")
-start_date = st.sidebar.date_input("Start Date", value=date(2023, 1, 1))
-end_date = st.sidebar.date_input("End Date", value=date.today())
-indicators = st.sidebar.multiselect("Indicators", ["RSI", "MACD", "Bollinger Bands", "EMA", "SMA"])
+    # 2. Historical Logs (With validation data for the performance matrix)
+    historical_data = {
+        "Ticker": ["SBIN", "ICICIBANK", "WIPRO", "MARUTI", "BHARTIARTL"],
+        "Latest_Headline": [
+            "SBI gross NPA drops down drastically to record low level",
+            "ICICI Bank beat estimates with robust interest income",
+            "Wipro guidance misses analyst marks for third straight quarter",
+            "Maruti Suzuki car production halts over global chip bottlenecks",
+            "Bharti Airtel adds 3 million new wireless broadband clients"
+        ],
+        "Repeat_Count": [1, 2, 1, 5, 2],
+        "Forecast_Score": [78.0, 52.0, -41.2, -63.5, 33.0],
+        "Forecast_Direction": [1, 1, -1, -1, 1],
+        "Actual_Direction": [1, 1, -1, 1, -1],     # 1 = Bullish, -1 = Bearish
+        "Actual_Return_Pct": [2.4, 1.1, -3.2, 0.8, -1.5]
+    }
 
-# Header
-st.title("📈 XChart Investment Dashboard")
-st.markdown("Analyze trends, overlay indicators, and make smarter decisions.")
+    # Combine data frames and save directly to the repository root
+    df_active = pd.DataFrame(active_data)
+    df_history = pd.DataFrame(historical_data)
+    final_df = pd.concat([df_active, df_history], ignore_index=True)
+    
+    final_df.to_csv("data.csv", index=False)
+    print("✅ data.csv successfully generated!")
 
-# Fetch data
-data = yf.download(ticker, start=start_date, end=end_date)
-if data.empty:
-    st.error("No data found. Please check the ticker or date range.")
-    st.stop()
-
-# Ensure datetime index and drop NaNs
-data.index = pd.to_datetime(data.index)
-# added this line manually
-data.columns =data.columns.get_level_values('Price')
-data = data.dropna(subset=["Open", "High", "Low", "Close"])
-
-# Calculate indicators
-if "RSI" in indicators:
-    data["RSI"] = ta.rsi(data["Close"])
-if "MACD" in indicators:
-    macd = ta.macd(data["Close"])
-    if macd is not None and not macd.empty:
-        data["MACD"] = macd["MACD_12_26_9"]
-if "Bollinger Bands" in indicators:
-    bb = ta.bbands(data["Close"])
-    if bb is not None and not bb.empty:
-        data["BBL"] = bb["BBL_20_2.0"]
-        data["BBU"] = bb["BBU_20_2.0"]
-if "EMA" in indicators:
-    data["EMA"] = ta.ema(data["Close"])
-if "SMA" in indicators:
-    data["SMA"] = ta.sma(data["Close"])
-
-# Plot chart
-fig = go.Figure()
-fig.add_trace(go.Candlestick(
-    x=data.index,
-    open=data["Open"],
-    high=data["High"],
-    low=data["Low"],
-    close=data["Close"],
-    name="Candlestick"
-))
-
-# Overlay indicators
-if "EMA" in indicators and "EMA" in data:
-    fig.add_trace(go.Scatter(x=data.index, y=data["EMA"], name="EMA", line=dict(color="blue")))
-if "SMA" in indicators and "SMA" in data:
-    fig.add_trace(go.Scatter(x=data.index, y=data["SMA"], name="SMA", line=dict(color="orange")))
-if "Bollinger Bands" in indicators and "BBL" in data and "BBU" in data:
-    fig.add_trace(go.Scatter(x=data.index, y=data["BBL"], name="BB Lower", line=dict(color="gray", dash="dot")))
-    fig.add_trace(go.Scatter(x=data.index, y=data["BBU"], name="BB Upper", line=dict(color="gray", dash="dot")))
-
-st.plotly_chart(fig, use_container_width=True)
-
-# Insights panel
-st.markdown("### 📌 Key Insights")
-if "RSI" in indicators and "RSI" in data:
-    rsi_value = data["RSI"].dropna().iloc[-1]
-    if rsi_value < 30:
-        st.warning(f"RSI ({rsi_value:.2f}) indicates oversold conditions.")
-    elif rsi_value > 70:
-        st.info(f"RSI ({rsi_value:.2f}) indicates overbought conditions.")
-    else:
-        st.success(f"RSI ({rsi_value:.2f}) is in neutral range.")
-
-if "MACD" in indicators and "MACD" in data:
-    macd_value = data["MACD"].dropna().iloc[-1]
-    st.write(f"MACD value: {macd_value:.2f}")
-
-# Footer
-st.markdown("---")
-st.markdown("© 2025 [XChart.in](https://www.xchart.in) | Built by Rupak Sarkar", unsafe_allow_html=True)
+if __name__ == "__main__":
+    generate_dashboard_data()
