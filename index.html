@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XChart Analytics Dashboard</title>
-    <!-- Stable Mirror CDNs (Bypassing jsdelivr blocks) -->
+    <!-- Stable Global Enterprise CDNs -->
     <script src="https://cloudflare.com"></script>
     <script src="https://cloudflare.com"></script>
     <script src="https://cloudflare.com"></script>
@@ -61,14 +61,16 @@
     </div>
 
     <script>
-        // Target current working directory path for data retrieval
-        const csvTargetUrl = window.location.origin + window.location.pathname.replace(/\/$/, '') + '/data.csv?t=' + new Date().getTime();
+        // Bulletproof dynamic file tracking url constructor
+        const currentUrl = window.location.href.split('?')[0];
+        const baseDirectory = currentUrl.endsWith('/') ? currentUrl : currentUrl + '/';
+        const csvTargetUrl = baseDirectory + 'data.csv?t=' + new Date().getTime();
 
-        console.log("Fetching target network location:", csvTargetUrl);
+        console.log("🎯 Dynamic target path destination configured:", csvTargetUrl);
 
         fetch(csvTargetUrl)
             .then(res => {
-                if(!res.ok) throw new Error("Dataset file could not be read.");
+                if(!res.ok) throw new Error("Dataset file could not be read. Status: " + res.status);
                 return res.text();
             })
             .then(csvData => {
