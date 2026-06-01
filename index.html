@@ -110,59 +110,63 @@
             }
         }, 1000);
 
-        function fetchDataStream() {
-            // Get the current directory path setup specifically for GitHub subdirectories
-            let basePath = window.location.pathname;
-            if (!basePath.endsWith('/')) { 
-                // Chop off filename if it ends in index.html to get directory root
-                basePath = basePath.substring(0, basePath.lastIndexOf('/') + 1); 
-            }
+        function getCleanCsvUrl() {
+            // Forces clean relative resolution bypassing browser engine extension hooks
+            const loc = window.location;
+            let currentPath = loc.pathname;
             
-            // Build absolute URL targeting your GitHub Pages folder + Cache Buster (?v=random)
-            const csvTargetUrl = window.location.origin + basePath + 'data.csv?v=' + Math.random();
+            if (!currentPath.endsWith('/')) {
+                currentPath = currentPath.substring(0, currentPath.lastIndexOf('/') + 1);
+            }
+            return loc.origin + currentPath + 'data.csv?v=' + Math.random();
+        }
 
-            console.log("Fetching target CSV location:", csvTargetUrl);
+        function fetchDataStream() {
+            const csvTargetUrl = getCleanCsvUrl();
+            console.log("Resolving direct asset map stream address: ", csvTargetUrl);
 
-            // Fetch text raw to isolate PapaParse away from async browser extension listeners
-            fetch(csvTargetUrl)
+            // Fetching raw layout text handles background channel drops safely
+            fetch(csvTargetUrl, { cache: "no-store" })
                 .then(response => {
                     if (!response.ok) {
-                        if(response.status === 404) {
-                            throw new Error("GitHub deployment is rebuilding. data.csv is temporarily missing from the server. Waiting for compile...");
-                        }
-                        throw new Error(`HTTP Error Status: ${response.status}`);
+                        throw new Error(`Server returned HTTP validation error state: ${response.status}`);
                     }
                     return response.text();
                 })
-                .then(csvRawString => {
-                    Papa.parse(csvRawString, {
+                .then(rawCsvText => {
+                    if(!rawCsvText || rawCsvText.trim() === "") {
+                        throw new Error("Target file read completed successfully but text content is empty.");
+                    }
+
+                    // Directly parsing text strings completely avoids internal browser listener drops
+                    Papa.parse(rawCsvText, {
                         header: true,
-                        skipEmptyLines: true,
+                        skipEmptyLines: 'greedy',
                         dynamicTyping: true, 
                         complete: function(results) {
                             if (results.data && results.data.length > 0) {
-                                cachedDataset = results.data;
+                                cachedDataset = results.data.filter(row => row.Ticker);
                                 renderDashboard(cachedDataset);
                             } else {
-                                showTableMessage("⚠️ CSV parsed successfully, but rows are completely empty. Please verify data content formatting.");
+                                displayStreamAlert("⚠️ File format is correct but no matching data rows were discovered.");
                             }
                         },
-                        error: function(parseError) {
-                            console.error("Papa Parse process failure:", parseError);
-                            showTableMessage("❌ Processing Layout Error: Structural text matrix mismatch.");
+                        error: function(pErr) {
+                            console.error("PapaParse failed parsing string text:", pErr);
+                            displayStreamAlert("❌ Parsing Process Failure: Text layout is malformed.");
                         }
                     });
                 })
-                .catch(networkError => {
-                    console.error("Network Fetch Failure:", networkError);
-                    showTableMessage(`🔄 Syncing with GitHub Deployment: ${networkError.message}`);
+                .catch(err => {
+                    console.error("Network Stream Pipeline Exception: ", err);
+                    displayStreamAlert(`🔄 Live Tracking Pipeline Blocked. Retrying... (${err.message})`);
                 });
         }
 
-        function showTableMessage(message) {
+        function displayStreamAlert(msg) {
             document.getElementById('screener-rows').innerHTML = `
                 <tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 20px;">
-                ${message}
+                ${msg}
                 </td></tr>`;
         }
 
