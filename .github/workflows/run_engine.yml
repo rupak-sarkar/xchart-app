@@ -19,13 +19,18 @@ jobs:
     - name: Install Dependencies
       run: pip install pandas yfinance feedparser
 
+    - name: Download JavaScript Libraries via Curl
+      run: |
+        curl -sL https://cloudflare.com -o papaparse.min.js
+        curl -sL https://cloudflare.com -o plotly.min.js
+
     - name: Generate Fresh CSV Dataset
       run: python app.py
 
-    - name: Push Data Back to Repository
+    - name: Push Data and Dependencies Back to Repository
       run: |
         git config --global user.name "GitHub Actions Automation"
         git config --global user.email "actions@github.com"
-        git add data.csv
-        git commit -m "Auto-updated data.csv metrics [skip ci]" || exit 0
+        git add data.csv papaparse.min.js plotly.min.js
+        git commit -m "Data engine auto-refresh and script updates" || exit 0
         git push
