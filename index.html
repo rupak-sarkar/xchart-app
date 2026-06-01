@@ -1,60 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XChart Analytics Dashboard</title>
+    <!-- Stable Visual Anchors CSS Styling Rules -->
+    <style>
+        body { background-color: #111827; color: #f3f4f6; font-family: sans-serif; padding: 24px; margin: 0; }
+        .max-w-7xl { max-width: 80rem; margin: 0 auto; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 32px; }
+        @media (min-width: 768px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .bg-gray-800 { background-color: #1f2937; padding: 24px; border-radius: 8px; border: 1px solid #374151; }
+        .text-green-400 { color: #34d399; } .text-blue-400 { color: #60a5fa; } .text-purple-400 { color: #c084fc; }
+        .text-3xl { font-size: 1.875rem; font-weight: 700; margin-top: 4px; margin-bottom: 0; }
+        .text-gray-400 { color: #9ca3af; font-size: 0.875rem; margin: 0; }
+        .uppercase { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; font-weight: 600; }
+        table { width: 100%; text-align: left; font-size: 0.875rem; border-collapse: collapse; }
+        th { padding: 12px; text-transform: uppercase; font-size: 0.75rem; background-color: #374151; color: #d1d5db; }
+        td { padding: 12px; border-bottom: 1px solid #374151; color: #d1d5db; }
+        .font-mono { font-family: monospace; }
+        .rounded { border-radius: 4px; text-align: center; font-weight: 600; padding: 4px 8px; display: inline-block; }
+        .bg-green-900 { background-color: #064e3b; color: #a7f3d0; }
+        .bg-red-900 { background-color: #7f1d1d; color: #fca5a5; }
+        .bg-gray-700 { background-color: #4b5563; color: #f3f4f6; }
+        .truncate { max-width: 400px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    </style>
+</head>
+<body>
+
+    <div class="max-w-7xl">
+        <header style="margin-bottom: 32px; border-bottom: 1px solid #374151; padding-bottom: 16px;">
+            <h1 style="font-size: 1.875rem; font-weight: 700; color: #34d399; margin: 0;">📊 XChart JavaScript Dashboard</h1>
+            <p style="color: #9ca3af; font-size: 0.875rem; margin: 4px 0 0 0;">Serverless Analytics Platform Powered by GitHub Pages</p>
+        </header>
+
+        <!-- Metrics Grid -->
+        <div class="grid">
+            <div class="bg-gray-800">
+                <p class="text-gray-400 uppercase">Model Accuracy (Hit Rate)</p>
+                <h3 id="hit-rate" class="text-3xl text-green-400">Calculating...</h3>
+            </div>
+            <div class="bg-gray-800">
+                <p class="text-gray-400 uppercase">Bullish Precision</p>
+                <h3 id="bullish-precision" class="text-3xl text-blue-400">Calculating...</h3>
+            </div>
+            <div class="bg-gray-800">
+                <p class="text-gray-400 uppercase">Total Signals Logs</p>
+                <h3 id="total-signals" class="text-3xl text-purple-400">Calculating...</h3>
+            </div>
+        </div>
+
+        <!-- Live Table -->
+        <div class="bg-gray-800" style="overflow-x: auto; margin-bottom: 32px;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #f3f4f6; margin-top: 0; margin-bottom: 16px;">Active Momentum Monitor</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Latest Headline</th>
+                        <th style="text-align: center;">Velocity</th>
+                        <th style="text-align: center;">Score</th>
+                    </tr>
+                </thead>
+                <tbody id="screener-rows">
+                    <tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 16px;">Loading metrics network feed...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <script>
-        // Dynamically build the path to target the exact repo directory
+        // Formulate target location directory path structures cleanly
         let basePath = window.location.pathname;
-        if (!basePath.endsWith('/')) {
-            basePath += '/';
-        }
+        if (!basePath.endsWith('/')) { basePath += '/'; }
         const csvTargetUrl = window.location.origin + basePath + 'data.csv?v=' + Math.random();
-        console.log("🎯 Corrected Target Path:", csvTargetUrl);
+
+        console.log("🎯 Accessing Data Matrix Target Path:", csvTargetUrl);
 
         fetch(csvTargetUrl)
             .then(res => {
-                if(!res.ok) throw new Error("Dataset file could not be read. Status: " + res.status);
+                if(!res.ok) throw new Error("Dataset file missing. Status code: " + res.status);
                 return res.text();
             })
-            .then(csvData => {
-                if (typeof Papa === 'undefined') {
-                    throw new Error("Local PapaParse script file is missing.");
+            .then(csvText => {
+                // Inline Native Data Parser bypassing dependency load blocks completely
+                const lines = csvText.split(/\r?\n/);
+                if(lines.length <= 1) { throw new Error("Dataset structure is empty."); }
+                
+                const headers = lines[0].split(',');
+                const parsedRows = [];
+                
+                for(let i = 1; i < lines.length; i++) {
+                    if(!lines[i].trim()) continue;
+                    
+                    // Simple split array builder
+                    const values = lines[i].split(',');
+                    const rowObj = {};
+                    headers.forEach((header, idx) => {
+                        rowObj[header.trim()] = values[idx] ? values[idx].trim() : null;
+                    });
+                    parsedRows.push(rowObj);
                 }
-                Papa.parse(csvData, {
-                    header: true,
-                    dynamicTyping: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        processDashboard(results.data);
-                    }
-                });
+                
+                processDashboard(parsedRows);
             })
             .catch(err => {
                 console.error(err);
-                document.getElementById('screener-rows').innerHTML = `
-                    <tr><td colspan="4" style="text-align: center; color: #f87171; font-weight: 600; padding: 16px;">⚠️ Error loading dataset file. Double check data.csv presence.</td></tr>
-                `;
+                const tableBody = document.getElementById('screener-rows');
+                if(tableBody) {
+                    tableBody.innerHTML = `
+                        <tr><td colspan="4" style="text-align: center; color: #f87171; font-weight: 600; padding: 16px;">⚠️ Error loading dataset file. Verify python data generation output channel.</td></tr>
+                    `;
+                }
             });
 
         function processDashboard(data) {
             const tableBody = document.getElementById('screener-rows');
+            if(!tableBody) return;
             tableBody.innerHTML = ""; 
-            
-            if(!data || data.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #9ca3af; padding: 16px;">The generated data.csv file is empty.</td></tr>`;
-                return;
-            }
 
             data.forEach(row => {
                 let scoreValue = row.Forecast_Score ? parseFloat(row.Forecast_Score) : 0;
-                let badgeColor = scoreValue > 15 ? 'bg-green-900' : (scoreValue < -15 ? 'bg-red-900' : '');
+                let badgeColor = scoreValue > 15 ? 'bg-green-900' : (scoreValue < -15 ? 'bg-red-900' : 'bg-gray-700');
                 
                 tableBody.innerHTML += `
                     <tr class="hover:bg-gray-700">
                         <td class="font-mono text-green-400" style="font-weight: 700; padding: 12px; border-bottom: 1px solid #374151;">${row.Ticker || 'N/A'}</td>
                         <td style="padding: 12px; border-bottom: 1px solid #374151;"><div class="truncate">${row.Latest_Headline || 'No news feed logged.'}</div></td>
                         <td style="text-align: center; padding: 12px; border-bottom: 1px solid #374151;">${row.Repeat_Count || 1}</td>
-                        <td style="text-align: center; padding: 12px; border-bottom: 1px solid #374151;"><div class="rounded ${badgeColor}" style="padding: 4px;">${scoreValue.toFixed(1)}</div></td>
+                        <td style="text-align: center; padding: 12px; border-bottom: 1px solid #374151;"><div class="rounded ${badgeColor}">${scoreValue.toFixed(1)}</div></td>
                     </tr>
                 `;
             });
 
+            // Tracking Metric Summaries 
             const total = data.length;
             const matches = data.filter(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction)).length;
             const totalBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1).length;
@@ -63,34 +142,6 @@
             document.getElementById('hit-rate').innerText = `${((matches / total) * 100).toFixed(1)}%`;
             document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish / totalBullish) * 100).toFixed(1) : 0}%`;
             document.getElementById('total-signals').innerText = `${total} items`;
-
-            if (typeof Plotly !== 'undefined') {
-                const trace = {
-                    x: data.map(r => r.Forecast_Score),
-                    y: data.map(r => r.Actual_Return_Pct),
-                    mode: 'markers',
-                    type: 'scatter',
-                    text: data.map(r => r.Ticker),
-                    marker: {
-                        size: 14,
-                        color: data.map(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction) ? '#10B981' : '#EF4444'),
-                        line: { color: '#1F2937', width: 2 }
-                    }
-                };
-
-                const layout = {
-                    paper_bgcolor: 'rgba(0,0,0,0)',
-                    plot_bgcolor: 'rgba(0,0,0,0)',
-                    xaxis: { title: 'Forecast Score', gridcolor: '#374151', color: '#9CA3AF' },
-                    yaxis: { title: 'Realized Return %', gridcolor: '#374151', color: '#9CA3AF' },
-                    margin: { t: 20, r: 20, b: 40, l: 40 }
-                };
-
-                document.getElementById('accuracy-chart').innerHTML = "";
-                Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
-            } else {
-                document.getElementById('accuracy-chart').innerHTML = "<p style='color: #f87171;'>Plotly rendering engine failed to initialize.</p>";
-            }
         }
 
         function intOrZero(val) {
@@ -98,3 +149,5 @@
             return isNaN(parsed) ? 0 : parsed;
         }
     </script>
+</body>
+</html>
