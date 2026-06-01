@@ -4,347 +4,347 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XChart FinBERT Edge Platform</title>
+    <title>XChart FinBERT Swing Trading Engine</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        * { box-sizing: border-box; }
-        body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; margin: 0; }
-        .max-w-7xl { max-width: 80rem; margin: 0 auto; }
-        .header-layout { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 16px; margin-bottom: 32px; flex-wrap: wrap; gap: 12px; }
-        .grid { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 32px; }
-        @media (min-width: 768px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-        .bg-gray-800 { background-color: #1e293b; padding: 24px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .text-green-400 { color: #34d399; } .text-blue-400 { color: #38bdf8; } .text-purple-400 { color: #c084fc; } .text-yellow-400 { color: #facc15; }
-        .text-3xl { font-size: 2.25rem; font-weight: 800; margin-top: 4px; margin-bottom: 0; }
-        .text-gray-400 { color: #94a3b8; font-size: 0.875rem; margin: 0; }
-        .uppercase { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.75rem; font-weight: 700; }
+        *{box-sizing:border-box}
+        body{background:#0f172a;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;margin:0}
+        .mx{max-width:88rem;margin:0 auto}
+        .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:14px;margin-bottom:24px;flex-wrap:wrap;gap:10px}
+        .grid{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:24px}
+        @media(min-width:768px){.grid{grid-template-columns:repeat(4,1fr)}}
+        .card{background:#1e293b;padding:18px;border-radius:12px;border:1px solid #334155}
+        .cl{color:#94a3b8;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin:0}
+        .cv{font-size:2rem;font-weight:800;margin:4px 0 0}
+        .green{color:#34d399}.blue{color:#38bdf8}.yellow{color:#facc15}.purple{color:#c084fc}.red{color:#f87171}.orange{color:#fb923c}
 
-        .search-container { margin-bottom: 16px; display: flex; gap: 12px; width: 100%; flex-wrap: wrap; }
-        .search-input { flex-grow: 1; min-width: 200px; background-color: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 12px 16px; color: #f8fafc; font-size: 0.95rem; outline: none; transition: border 0.2s; }
-        .search-input:focus { border-color: #38bdf8; }
-        .filter-select { background-color: #0f172a; border: 1px solid #475569; border-radius: 8px; padding: 12px 16px; color: #f8fafc; font-size: 0.875rem; outline: none; cursor: pointer; }
-        .filter-select:focus { border-color: #38bdf8; }
+        /* Streak Panels */
+        .sgrid{display:grid;grid-template-columns:1fr;gap:18px;margin-bottom:24px}
+        @media(min-width:768px){.sgrid{grid-template-columns:1fr 1fr}}
+        .sp{background:#1e293b;padding:18px;border-radius:12px;border:1px solid #334155}
+        .sp h3{margin:0 0 10px;font-size:.95rem;font-weight:700}
+        .si{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;border-radius:8px;margin-bottom:5px;font-size:.82rem}
+        .si:hover{background:rgba(56,189,248,.06)}
+        .st{font-family:monospace;font-weight:700;min-width:110px;color:#38bdf8}
+        .sm{color:#94a3b8;font-size:.78rem}
+        .mb{padding:2px 8px;border-radius:4px;font-size:.68rem;font-weight:700;text-transform:uppercase}
+        .ms{background:#064e3b;color:#34d399}.mbu{background:#1e3a5f;color:#38bdf8}.mn{background:#3f3f46;color:#e4e4e7}.mf{background:#7f1d1d;color:#fca5a5}
 
-        table { width: 100%; text-align: left; font-size: 0.875rem; border-collapse: collapse; }
-        th { padding: 14px; text-transform: uppercase; font-size: 0.75rem; background-color: #334155; color: #cbd5e1; font-weight: 700; cursor: pointer; user-select: none; white-space: nowrap; }
-        th:hover { color: #38bdf8; }
-        th .sort-arrow { font-size: 0.65rem; margin-left: 4px; opacity: 0.5; }
-        td { padding: 14px; border-bottom: 1px solid #334155; color: #e2e8f0; }
-        tbody tr:hover td { background-color: rgba(56, 189, 248, 0.05); }
-        .font-mono { font-family: monospace; font-size: 0.95rem; }
-        .rounded { border-radius: 6px; text-align: center; font-weight: 700; padding: 6px 10px; display: inline-block; min-width: 60px; }
-        .bg-green-900 { background-color: #064e3b; color: #34d399; }
-        .bg-red-900 { background-color: #7f1d1d; color: #f87171; }
-        .bg-gray-700 { background-color: #475569; color: #cbd5e1; }
-        .truncate { max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* Ticker Manager */
+        .tm{background:#1e293b;padding:18px;border-radius:12px;border:1px solid #334155;margin-bottom:24px}
+        .tm h3{margin:0 0 12px;font-size:1rem;font-weight:700;color:#f1f5f9}
+        .tm-bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+        .tm-input{flex-grow:1;min-width:160px;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:10px 14px;color:#f8fafc;font-size:.9rem;outline:none;text-transform:uppercase}
+        .tm-input:focus{border-color:#38bdf8}
+        .tm-input-sector{width:140px;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:10px 14px;color:#f8fafc;font-size:.85rem;outline:none}
+        .tm-btn{padding:10px 20px;border-radius:8px;border:none;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .15s}
+        .btn-add{background:#064e3b;color:#34d399}.btn-add:hover{background:#065f46}
+        .btn-dl{background:#1e3a5f;color:#38bdf8}.btn-dl:hover{background:#1e4d8f}
+        .btn-reset{background:#3f3f46;color:#cbd5e1}.btn-reset:hover{background:#52525b}
+        .tm-tags{display:flex;flex-wrap:wrap;gap:6px;max-height:300px;overflow-y:auto;padding:4px 0}
+        .tag{display:inline-flex;align-items:center;gap:6px;background:#334155;border-radius:6px;padding:5px 10px;font-size:.78rem;font-family:monospace;font-weight:600;color:#e2e8f0}
+        .tag-sector{font-size:.65rem;color:#94a3b8;font-family:sans-serif;font-weight:400}
+        .tag-x{background:none;border:none;color:#f87171;cursor:pointer;font-size:.9rem;font-weight:700;padding:0 2px;line-height:1}.tag-x:hover{color:#fca5a5}
+        .tm-count{color:#64748b;font-size:.78rem;margin-top:10px}
+        .tm-note{color:#475569;font-size:.72rem;margin-top:8px;font-style:italic}
 
-        .refresh-badge { background-color: #1e293b; border: 1px solid #334155; border-radius: 20px; padding: 6px 14px; font-size: 0.8rem; font-weight: 600; color: #94a3b8; display: flex; align-items: center; gap: 6px; }
-        .pulse-dot { width: 8px; height: 8px; background-color: #34d399; border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse {
-            0%  { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52,211,153,0.7); }
-            70% { transform: scale(1);    box-shadow: 0 0 0 6px rgba(52,211,153,0); }
-            100%{ transform: scale(0.95); box-shadow: 0 0 0 0 rgba(52,211,153,0); }
-        }
-
-        .footer-text { text-align: center; color: #475569; font-size: 0.75rem; padding: 16px 0; }
-        .row-count { color: #64748b; font-size: 0.8rem; margin-top: 8px; }
+        /* Table */
+        .tc{background:#1e293b;padding:18px;border-radius:12px;border:1px solid #334155;overflow-x:auto;margin-bottom:24px}
+        .sc{margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap}
+        .si2{flex-grow:1;min-width:180px;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:10px 14px;color:#f8fafc;font-size:.88rem;outline:none}
+        .si2:focus{border-color:#38bdf8}
+        .fs{background:#0f172a;border:1px solid #475569;border-radius:8px;padding:10px 14px;color:#f8fafc;font-size:.82rem;outline:none;cursor:pointer}
+        table{width:100%;text-align:left;font-size:.8rem;border-collapse:collapse}
+        th{padding:10px;text-transform:uppercase;font-size:.68rem;background:#334155;color:#cbd5e1;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap}
+        th:hover{color:#38bdf8}
+        td{padding:10px;border-bottom:1px solid #1e293b;color:#e2e8f0}
+        tbody tr{border-bottom:1px solid #334155}tbody tr:hover td{background:rgba(56,189,248,.04)}
+        .fm{font-family:monospace;font-size:.88rem}
+        .bd{border-radius:6px;text-align:center;font-weight:700;padding:3px 8px;display:inline-block;min-width:50px;font-size:.78rem}
+        .bg{background:#064e3b;color:#34d399}.br{background:#7f1d1d;color:#f87171}.bgy{background:#475569;color:#cbd5e1}
+        .tr{max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .rc{color:#64748b;font-size:.78rem;margin-top:8px}
+        .ft{text-align:center;color:#475569;font-size:.72rem;padding:10px 0}
+        .es{text-align:center;color:#64748b;padding:20px;font-size:.88rem}
     </style>
 </head>
 <body>
+<div class="mx">
 
-    <div class="max-w-7xl">
-        <header class="header-layout">
-            <div>
-                <h1 style="font-size: 2rem; font-weight: 800; color: #38bdf8; margin: 0;">&#128737; FinBERT Swing Trading Engine</h1>
-                <p style="color: #94a3b8; font-size: 0.875rem; margin: 4px 0 0 0;">AI Sentiment Tracker &bull; 172 NSE Tickers &bull; Serverless on GitHub Pages</p>
-            </div>
-            <div class="refresh-badge">
-                <div class="pulse-dot"></div>
-                <span>Auto-refreshing in: <span id="timer-box" class="text-blue-400">60s</span></span>
-            </div>
-        </header>
-
-        <!-- Metrics Grid — 4 cards for swing trading -->
-        <div class="grid">
-            <div class="bg-gray-800">
-                <p class="text-gray-400 uppercase">Model Hit Rate</p>
-                <h3 id="hit-rate" class="text-3xl text-green-400">Syncing...</h3>
-            </div>
-            <div class="bg-gray-800">
-                <p class="text-gray-400 uppercase">Bullish Precision</p>
-                <h3 id="bullish-precision" class="text-3xl text-blue-400">Syncing...</h3>
-            </div>
-            <div class="bg-gray-800">
-                <p class="text-gray-400 uppercase">Bearish Precision</p>
-                <h3 id="bearish-precision" class="text-3xl text-yellow-400">Syncing...</h3>
-            </div>
-            <div class="bg-gray-800">
-                <p class="text-gray-400 uppercase">Total Signals</p>
-                <h3 id="total-signals" class="text-3xl text-purple-400">Syncing...</h3>
-            </div>
+    <!-- HEADER -->
+    <header class="hdr">
+        <div>
+            <h1 style="font-size:1.6rem;font-weight:800;color:#38bdf8;margin:0">&#128737; FinBERT Swing Trading Engine</h1>
+            <p style="color:#94a3b8;font-size:.78rem;margin:4px 0 0">AI Sentiment + Streak Tracker &bull; Updated 3x daily via GitHub Actions</p>
         </div>
+        <div style="color:#64748b;font-size:.78rem" id="last-update">Loading...</div>
+    </header>
 
-        <!-- Live Table -->
-        <div class="bg-gray-800" style="overflow-x: auto; margin-bottom: 32px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-                <h2 style="font-size: 1.25rem; font-weight: 800; color: #f1f5f9; margin: 0;">Active Momentum Monitor</h2>
-            </div>
-
-            <div class="search-container">
-                <input type="text" id="dashboard-search" class="search-input"
-                       placeholder="&#128269; Search by ticker or headline keyword..."
-                       onkeyup="applyFilters()">
-                <select id="direction-filter" class="filter-select" onchange="applyFilters()">
-                    <option value="all">All Signals</option>
-                    <option value="1">&#128994; Bullish Only</option>
-                    <option value="-1">&#128308; Bearish Only</option>
-                    <option value="0">&#9898; Neutral Only</option>
-                    <option value="hit">&#9989; Hits Only</option>
-                    <option value="miss">&#10060; Misses Only</option>
-                </select>
-            </div>
-
-            <table id="main-table">
-                <thead>
-                    <tr>
-                        <th onclick="sortTable(0, 'string')">Ticker <span class="sort-arrow">&#9650;&#9660;</span></th>
-                        <th>FinBERT Headline</th>
-                        <th onclick="sortTable(2, 'number')" style="text-align: center;">Return % <span class="sort-arrow">&#9650;&#9660;</span></th>
-                        <th onclick="sortTable(3, 'number')" style="text-align: center;">Score <span class="sort-arrow">&#9650;&#9660;</span></th>
-                        <th onclick="sortTable(4, 'string')" style="text-align: center;">Signal <span class="sort-arrow">&#9650;&#9660;</span></th>
-                    </tr>
-                </thead>
-                <tbody id="screener-rows">
-                    <tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 20px;">Establishing connection to backend matrix stream...</td></tr>
-                </tbody>
-            </table>
-            <p id="row-count" class="row-count"></p>
-        </div>
-
-        <p class="footer-text">Powered by FinBERT &bull; Auto-updated via GitHub Actions &bull; Data refreshed daily at 4:30 PM IST</p>
+    <!-- KPIs -->
+    <div class="grid">
+        <div class="card"><p class="cl">Model Hit Rate</p><h3 id="hit-rate" class="cv green">—</h3></div>
+        <div class="card"><p class="cl">Bullish Precision</p><h3 id="bull-prec" class="cv blue">—</h3></div>
+        <div class="card"><p class="cl">Bearish Precision</p><h3 id="bear-prec" class="cv yellow">—</h3></div>
+        <div class="card"><p class="cl">Active Streaks (2+ days)</p><h3 id="act-str" class="cv purple">—</h3></div>
     </div>
 
-    <script>
-        let cachedDataset = [];
-        let countdownTime = 60;
-        let currentSortCol = -1;
-        let currentSortAsc = true;
+    <!-- STREAK PANELS -->
+    <div class="sgrid">
+        <div class="sp"><h3 style="color:#34d399">&#128994; Top Bullish Streaks</h3><div id="bull-str"><p class="es">Builds over consecutive trading days</p></div></div>
+        <div class="sp"><h3 style="color:#f87171">&#128308; Top Bearish Streaks</h3><div id="bear-str"><p class="es">Builds over consecutive trading days</p></div></div>
+    </div>
 
-        const fallbackRawCSV = `Ticker,Latest_Headline,Repeat_Count,Forecast_Score,Forecast_Direction,Actual_Direction,Actual_Return_Pct
-RELIANCE,Stable trade volatility tracked on exchange indices for RELIANCE.,1,0.0,0,0,0.10
-TCS,Stable trade volatility tracked on exchange indices for TCS.,1,0.0,0,1,3.09
-INFY,Stable trade volatility tracked on exchange indices for INFY.,1,0.0,0,1,4.48`;
+    <!-- TICKER MANAGER -->
+    <div class="tm">
+        <h3>&#9881; Ticker Manager <span style="font-weight:400;font-size:.78rem;color:#64748b">&mdash; Add or remove tickers, then download updated CSV</span></h3>
+        <div class="tm-bar">
+            <input type="text" id="new-ticker" class="tm-input" placeholder="Enter NSE ticker (e.g. RELIANCE)" onkeydown="if(event.key==='Enter')addTicker()">
+            <input type="text" id="new-sector" class="tm-input-sector" placeholder="Sector (optional)">
+            <button class="tm-btn btn-add" onclick="addTicker()">+ Add Ticker</button>
+            <button class="tm-btn btn-dl" onclick="downloadTickersCSV()">&#11015; Download tickers.csv</button>
+            <button class="tm-btn btn-reset" onclick="resetTickers()">&#8635; Reset to Server</button>
+        </div>
+        <div id="ticker-tags" class="tm-tags"></div>
+        <p id="ticker-count" class="tm-count"></p>
+        <p class="tm-note">&#9432; Changes are local until you commit the downloaded tickers.csv to your GitHub repo. The next pipeline run will pick up the new list.</p>
+    </div>
 
-        document.addEventListener("DOMContentLoaded", () => { fetchDataStream(); });
+    <!-- TABLE -->
+    <div class="tc">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+            <h2 style="font-size:1.05rem;font-weight:800;color:#f1f5f9;margin:0">Signal Monitor</h2>
+        </div>
+        <div class="sc">
+            <input type="text" id="dash-search" class="si2" placeholder="&#128269; Search by ticker or headline..." onkeyup="applyFilters()">
+            <select id="dir-filter" class="fs" onchange="applyFilters()">
+                <option value="all">All Signals</option>
+                <option value="1">&#128994; Bullish</option>
+                <option value="-1">&#128308; Bearish</option>
+                <option value="0">&#9898; Neutral</option>
+                <option value="streak">&#128293; Active Streaks</option>
+                <option value="hit">&#9989; Hits</option>
+                <option value="miss">&#10060; Misses</option>
+            </select>
+        </div>
+        <table>
+            <thead><tr>
+                <th onclick="sortT(0,'s')">Ticker</th>
+                <th>Headline</th>
+                <th onclick="sortT(2,'n')" style="text-align:center">Ret %</th>
+                <th onclick="sortT(3,'n')" style="text-align:center">Score</th>
+                <th onclick="sortT(4,'s')" style="text-align:center">Signal</th>
+                <th onclick="sortT(5,'n')" style="text-align:center">Streak</th>
+                <th onclick="sortT(6,'s')" style="text-align:center">Momentum</th>
+                <th onclick="sortT(7,'n')" style="text-align:center">Cumul %</th>
+            </tr></thead>
+            <tbody id="rows"><tr><td colspan="8" class="es">Loading data...</td></tr></tbody>
+        </table>
+        <p id="row-count" class="rc"></p>
+    </div>
+    <p class="ft">Powered by FinBERT &bull; Ticker list managed via tickers.csv &bull; Data via GitHub Actions</p>
+</div>
 
-        setInterval(() => {
-            countdownTime--;
-            document.getElementById('timer-box').innerText = countdownTime + 's';
-            if (countdownTime <= 0) { countdownTime = 60; fetchDataStream(); }
-        }, 1000);
+<script>
+let cachedData=[], tickerList=[], sortCol=-1, sortAsc=true;
 
-        /* ============ CSV PARSING ============ */
-        function processRawTextString(csvRawString) {
-            if (typeof Papa === 'undefined') {
-                executeManualFallbackParser(csvRawString);
-                return;
-            }
-            Papa.parse(csvRawString, {
-                header: true, skipEmptyLines: 'greedy', dynamicTyping: true,
-                complete: function(r) {
-                    if (r.data && r.data.length > 0) {
-                        cachedDataset = r.data.filter(row => row.Ticker);
-                        renderDashboard(cachedDataset);
-                    } else { executeEmergencyFallback(); }
-                },
-                error: function() { executeEmergencyFallback(); }
-            });
+document.addEventListener("DOMContentLoaded",()=>{fetchData();loadTickerCSV()});
+
+/* ============ DATA FETCH ============ */
+function bp(){let p=window.location.pathname;if(!p.endsWith('/'))p=p.substring(0,p.lastIndexOf('/')+1);return window.location.origin+p}
+
+function fetchData(){
+    fetch(bp()+'data.csv?v='+Math.random(),{cache:"no-store"})
+    .then(r=>{if(!r.ok)throw new Error('');return r.text()})
+    .then(t=>{if(!t||!t.trim())throw new Error('');parseCSV(t)})
+    .catch(()=>{})
+}
+
+function loadTickerCSV(){
+    fetch(bp()+'tickers.csv?v='+Math.random(),{cache:"no-store"})
+    .then(r=>{if(!r.ok)throw new Error('');return r.text()})
+    .then(t=>{
+        if(typeof Papa!=='undefined'){
+            Papa.parse(t,{header:true,skipEmptyLines:'greedy',complete:r=>{
+                tickerList=r.data.filter(x=>x.Ticker&&x.Ticker.trim()).map(x=>({
+                    Ticker:x.Ticker.trim().toUpperCase().replace('.NS',''),
+                    Sector:(x.Sector||'').trim()
+                }));
+                renderTickerTags();
+            }});
         }
+    }).catch(()=>{})
+}
 
-        /* ============ DATA FETCH ============ */
-        function fetchDataStream() {
-            let basePath = window.location.pathname;
-            if (!basePath.endsWith('/')) basePath = basePath.substring(0, basePath.lastIndexOf('/') + 1);
-            const url = window.location.origin + basePath + 'data.csv?v=' + Math.random();
+function parseCSV(text){
+    if(typeof Papa!=='undefined'){
+        Papa.parse(text,{header:true,skipEmptyLines:'greedy',dynamicTyping:true,
+            complete:r=>{if(r.data&&r.data.length>0){cachedData=r.data.filter(x=>x.Ticker);renderAll(cachedData)}}
+        });
+    }
+}
 
-            fetch(url, { cache: "no-store" })
-                .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
-                .then(t => { if (!t || !t.trim()) throw new Error("Empty"); processRawTextString(t); })
-                .catch(() => { executeEmergencyFallback(); });
-        }
+/* ============ RENDER ============ */
+function renderAll(data){
+    if(!data||!data.length)return;
+    document.getElementById('last-update').textContent='Last load: '+new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
 
-        function executeEmergencyFallback() { processRawTextString(fallbackRawCSV); }
+    let total=data.length,hits=0,bF=0,bH=0,beF=0,beH=0,actStr=0;
+    data.forEach(r=>{
+        let fd=+r.Forecast_Direction,ad=+r.Actual_Direction,sk=+(r.Streak_Days||0);
+        if(fd===ad)hits++;
+        if(fd===1){bF++;if(ad===1)bH++}
+        if(fd===-1){beF++;if(ad===-1)beH++}
+        if(sk>=2)actStr++;
+    });
+    document.getElementById('hit-rate').textContent=(total>0?((hits/total)*100).toFixed(1):'0')+'%';
+    document.getElementById('bull-prec').textContent=bF>0?((bH/bF)*100).toFixed(1)+'%':'N/A';
+    document.getElementById('bear-prec').textContent=beF>0?((beH/beF)*100).toFixed(1)+'%':'N/A';
+    document.getElementById('act-str').textContent=actStr;
 
-        /* ============ MANUAL CSV PARSER ============ */
-        function executeManualFallbackParser(text) {
-            let lines = text.split(/\r?\n/).filter(l => l.trim());
-            if (!lines.length) return;
-            let headers = lines[0].split(',').map(h => h.trim());
-            let result = [];
-            for (let i = 1; i < lines.length; i++) {
-                let vals = lines[i].split(',');
-                if (vals.length < headers.length) continue;
-                let obj = {};
-                headers.forEach((h, idx) => { let v = (vals[idx]||'').trim(); let n = Number(v); obj[h] = isNaN(n) ? v : n; });
-                if (obj.Ticker) result.push(obj);
-            }
-            cachedDataset = result;
-            renderDashboard(cachedDataset);
-        }
+    renderStreaks(data);renderTable(data);
+}
 
-        /* ============ RENDER DASHBOARD ============ */
-        function renderDashboard(data) {
-            if (!data || !data.length) return;
+function renderStreaks(data){
+    let bull=data.filter(r=>+r.Forecast_Direction===1&&+(r.Streak_Days||0)>=2).sort((a,b)=>+b.Streak_Days-+a.Streak_Days).slice(0,8);
+    let bear=data.filter(r=>+r.Forecast_Direction===-1&&+(r.Streak_Days||0)>=2).sort((a,b)=>+b.Streak_Days-+a.Streak_Days).slice(0,8);
+    document.getElementById('bull-str').innerHTML=bull.length?bull.map(r=>sHTML(r,'bg')).join(''):'<p class="es">No active bullish streaks yet</p>';
+    document.getElementById('bear-str').innerHTML=bear.length?bear.map(r=>sHTML(r,'br')).join(''):'<p class="es">No active bearish streaks yet</p>';
+}
 
-            let total = data.length, hits = 0;
-            let bullF = 0, bullH = 0, bearF = 0, bearH = 0;
+function sHTML(r,cls){
+    let d=+(r.Streak_Days||0),c=+(r.Streak_Return||0),m=r.Momentum||'New';
+    let mc=m==='Strong'?'ms':m==='Building'?'mbu':m==='Fading'?'mf':'mn';
+    return `<div class="si"><span class="st">${r.Ticker}</span><span class="bd ${cls}">${d}d</span><span class="sm">Cumul: ${c>=0?'+':''}${c.toFixed(2)}%</span><span class="mb ${mc}">${m}</span></div>`;
+}
 
-            data.forEach(row => {
-                let fd = Number(row.Forecast_Direction), ad = Number(row.Actual_Direction);
-                if (fd === ad) hits++;
-                if (fd === 1)  { bullF++; if (ad === 1) bullH++; }
-                if (fd === -1) { bearF++; if (ad === -1) bearH++; }
-            });
+function renderTable(data){
+    let tb=document.getElementById('rows');tb.innerHTML='';
+    data.forEach(r=>{
+        let tr=document.createElement('tr');
+        let fd=+r.Forecast_Direction,ad=+r.Actual_Direction,ret=+r.Actual_Return_Pct,sc=+r.Forecast_Score;
+        let sk=+(r.Streak_Days||0),cu=+(r.Streak_Return||0),mo=r.Momentum||'Neutral';
+        tr.dataset.fd=fd;tr.dataset.ad=ad;tr.dataset.hit=(fd===ad)?'1':'0';tr.dataset.sk=sk;
 
-            document.getElementById('hit-rate').textContent = (total > 0 ? ((hits/total)*100).toFixed(1) : '0.0') + '%';
-            document.getElementById('bullish-precision').textContent = bullF > 0 ? ((bullH/bullF)*100).toFixed(1) + '%' : 'N/A';
-            document.getElementById('bearish-precision').textContent = bearF > 0 ? ((bearH/bearF)*100).toFixed(1) + '%' : 'N/A';
-            document.getElementById('total-signals').textContent = total;
+        let t1=ce('td');t1.className='fm';t1.style.fontWeight='700';t1.style.color='#38bdf8';t1.textContent=r.Ticker||'—';
+        let t2=ce('td');t2.className='tr';t2.textContent=r.Latest_Headline||'—';
 
-            renderTableRows(data);
-        }
+        let t3=ce('td');t3.style.textAlign='center';t3.dataset.value=ret;
+        let s3=ce('span');s3.className='bd '+(ret>0?'bg':ret<0?'br':'bgy');s3.textContent=(ret>0?'+':'')+ret.toFixed(2)+'%';t3.appendChild(s3);
 
-        function renderTableRows(data) {
-            let tbody = document.getElementById('screener-rows');
-            tbody.innerHTML = '';
+        let t4=ce('td');t4.style.textAlign='center';t4.dataset.value=sc;
+        let s4=ce('span');s4.className='bd '+(sc>0?'bg':sc<0?'br':'bgy');s4.textContent=(sc>0?'+':'')+sc.toFixed(1);t4.appendChild(s4);
 
-            data.forEach(row => {
-                let tr = document.createElement('tr');
-                let fd = Number(row.Forecast_Direction), ad = Number(row.Actual_Direction);
-                let ret = Number(row.Actual_Return_Pct), score = Number(row.Forecast_Score);
+        let t5=ce('td');t5.style.textAlign='center';
+        let s5=ce('span');s5.className='bd '+(fd===1?'bg':fd===-1?'br':'bgy');s5.textContent=fd===1?'Bullish':fd===-1?'Bearish':'Neutral';t5.appendChild(s5);
 
-                // Store data attributes for filtering
-                tr.dataset.forecastDir = fd;
-                tr.dataset.actualDir = ad;
-                tr.dataset.isHit = (fd === ad) ? '1' : '0';
+        let t6=ce('td');t6.style.textAlign='center';t6.dataset.value=sk;
+        if(sk>=2){let s6=ce('span');s6.className='bd '+(fd===1?'bg':fd===-1?'br':'bgy');s6.textContent=sk+'d';t6.appendChild(s6)}
+        else{t6.style.color='#64748b';t6.textContent=sk>0?'1d':'—'}
 
-                // Ticker
-                let td1 = document.createElement('td');
-                td1.classList.add('font-mono');
-                td1.style.fontWeight = '700';
-                td1.style.color = '#38bdf8';
-                td1.textContent = row.Ticker || '\u2014';
+        let t7=ce('td');t7.style.textAlign='center';
+        if(mo!=='Neutral'){let s7=ce('span');s7.className='mb '+(mo==='Strong'?'ms':mo==='Building'?'mbu':mo==='Fading'?'mf':'mn');s7.textContent=mo;t7.appendChild(s7)}
+        else{t7.style.color='#64748b';t7.textContent='—'}
 
-                // Headline
-                let td2 = document.createElement('td');
-                td2.classList.add('truncate');
-                td2.textContent = row.Latest_Headline || '\u2014';
+        let t8=ce('td');t8.style.textAlign='center';t8.dataset.value=cu;
+        if(sk>=2){t8.style.fontWeight='700';t8.style.fontFamily='monospace';t8.style.color=cu>=0?'#34d399':'#f87171';t8.textContent=(cu>=0?'+':'')+cu.toFixed(2)+'%'}
+        else{t8.style.color='#64748b';t8.textContent='—'}
 
-                // Return %
-                let td3 = document.createElement('td');
-                td3.style.textAlign = 'center';
-                td3.dataset.value = ret;
-                let sp3 = document.createElement('span');
-                sp3.classList.add('rounded');
-                if (ret > 0)      { sp3.classList.add('bg-green-900'); sp3.textContent = '+' + ret.toFixed(2) + '%'; }
-                else if (ret < 0) { sp3.classList.add('bg-red-900');   sp3.textContent = ret.toFixed(2) + '%'; }
-                else              { sp3.classList.add('bg-gray-700');   sp3.textContent = '0.00%'; }
-                td3.appendChild(sp3);
+        [t1,t2,t3,t4,t5,t6,t7,t8].forEach(c=>tr.appendChild(c));
+        tb.appendChild(tr);
+    });
+    updRC();
+}
 
-                // Score
-                let td4 = document.createElement('td');
-                td4.style.textAlign = 'center';
-                td4.dataset.value = score;
-                let sp4 = document.createElement('span');
-                sp4.classList.add('rounded');
-                if (score > 0)      { sp4.classList.add('bg-green-900'); sp4.textContent = '+' + score.toFixed(1); }
-                else if (score < 0) { sp4.classList.add('bg-red-900');   sp4.textContent = score.toFixed(1); }
-                else                { sp4.classList.add('bg-gray-700');   sp4.textContent = '0.0'; }
-                td4.appendChild(sp4);
+function ce(t){return document.createElement(t)}
 
-                // Signal (direction match indicator)
-                let td5 = document.createElement('td');
-                td5.style.textAlign = 'center';
-                let sp5 = document.createElement('span');
-                sp5.classList.add('rounded');
-                if (fd === 1)       { sp5.classList.add('bg-green-900'); sp5.textContent = 'Bullish'; }
-                else if (fd === -1) { sp5.classList.add('bg-red-900');   sp5.textContent = 'Bearish'; }
-                else                { sp5.classList.add('bg-gray-700');   sp5.textContent = 'Neutral'; }
-                td5.appendChild(sp5);
+/* ============ TICKER MANAGER ============ */
+function renderTickerTags(){
+    let c=document.getElementById('ticker-tags');c.innerHTML='';
+    tickerList.forEach((t,i)=>{
+        let d=document.createElement('div');d.className='tag';
+        d.innerHTML=`${t.Ticker} ${t.Sector?'<span class="tag-sector">('+t.Sector+')</span>':''}<button class="tag-x" onclick="removeTicker(${i})" title="Remove ${t.Ticker}">&times;</button>`;
+        c.appendChild(d);
+    });
+    document.getElementById('ticker-count').textContent=`${tickerList.length} tickers in watchlist`;
+}
 
-                tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-                tr.appendChild(td4); tr.appendChild(td5);
-                tbody.appendChild(tr);
-            });
+function addTicker(){
+    let inp=document.getElementById('new-ticker');
+    let secInp=document.getElementById('new-sector');
+    let ticker=inp.value.trim().toUpperCase().replace('.NS','');
+    let sector=secInp.value.trim();
+    if(!ticker){inp.focus();return}
+    if(tickerList.some(t=>t.Ticker===ticker)){
+        inp.value='';inp.style.borderColor='#f87171';
+        setTimeout(()=>inp.style.borderColor='#475569',1500);
+        return;
+    }
+    tickerList.push({Ticker:ticker,Sector:sector});
+    tickerList.sort((a,b)=>a.Ticker.localeCompare(b.Ticker));
+    renderTickerTags();
+    inp.value='';secInp.value='';inp.focus();
+}
 
-            updateRowCount();
-        }
+function removeTicker(idx){
+    tickerList.splice(idx,1);
+    renderTickerTags();
+}
 
-        /* ============ SEARCH + FILTER ============ */
-        function applyFilters() {
-            let query = document.getElementById('dashboard-search').value.toLowerCase().trim();
-            let filter = document.getElementById('direction-filter').value;
-            let rows = document.getElementById('screener-rows').getElementsByTagName('tr');
+function resetTickers(){
+    loadTickerCSV();
+}
 
-            for (let i = 0; i < rows.length; i++) {
-                let cells = rows[i].getElementsByTagName('td');
-                if (cells.length < 2) continue;
+function downloadTickersCSV(){
+    let csv='Ticker,Sector\n';
+    tickerList.forEach(t=>{csv+=t.Ticker+','+(t.Sector||'')+'\n'});
+    let blob=new Blob([csv],{type:'text/csv'});
+    let url=URL.createObjectURL(blob);
+    let a=document.createElement('a');
+    a.href=url;a.download='tickers.csv';a.click();
+    URL.revokeObjectURL(url);
+}
 
-                let ticker = (cells[0].textContent || '').toLowerCase();
-                let headline = (cells[1].textContent || '').toLowerCase();
-                let matchesSearch = !query || ticker.includes(query) || headline.includes(query);
+/* ============ FILTER + SORT ============ */
+function applyFilters(){
+    let q=document.getElementById('dash-search').value.toLowerCase().trim();
+    let f=document.getElementById('dir-filter').value;
+    let rows=document.getElementById('rows').getElementsByTagName('tr');
+    for(let i=0;i<rows.length;i++){
+        let cells=rows[i].getElementsByTagName('td');
+        if(cells.length<2)continue;
+        let tk=(cells[0].textContent||'').toLowerCase(),hl=(cells[1].textContent||'').toLowerCase();
+        let ms=!q||tk.includes(q)||hl.includes(q);
+        let mf=true;
+        if(f==='1')mf=rows[i].dataset.fd==='1';
+        else if(f==='-1')mf=rows[i].dataset.fd==='-1';
+        else if(f==='0')mf=rows[i].dataset.fd==='0';
+        else if(f==='streak')mf=+rows[i].dataset.sk>=2;
+        else if(f==='hit')mf=rows[i].dataset.hit==='1';
+        else if(f==='miss')mf=rows[i].dataset.hit==='0';
+        rows[i].style.display=(ms&&mf)?'':'none';
+    }
+    updRC();
+}
 
-                let matchesFilter = true;
-                if (filter === '1')    matchesFilter = rows[i].dataset.forecastDir === '1';
-                else if (filter === '-1') matchesFilter = rows[i].dataset.forecastDir === '-1';
-                else if (filter === '0')  matchesFilter = rows[i].dataset.forecastDir === '0';
-                else if (filter === 'hit')  matchesFilter = rows[i].dataset.isHit === '1';
-                else if (filter === 'miss') matchesFilter = rows[i].dataset.isHit === '0';
+function updRC(){
+    let rows=document.getElementById('rows').getElementsByTagName('tr');let v=0;
+    for(let i=0;i<rows.length;i++)if(rows[i].style.display!=='none'&&rows[i].getElementsByTagName('td').length>1)v++;
+    document.getElementById('row-count').textContent=`Showing ${v} of ${cachedData.length} tickers`;
+}
 
-                rows[i].style.display = (matchesSearch && matchesFilter) ? '' : 'none';
-            }
-            updateRowCount();
-        }
-
-        function updateRowCount() {
-            let rows = document.getElementById('screener-rows').getElementsByTagName('tr');
-            let visible = 0;
-            for (let i = 0; i < rows.length; i++) {
-                if (rows[i].style.display !== 'none' && rows[i].getElementsByTagName('td').length > 1) visible++;
-            }
-            document.getElementById('row-count').textContent = `Showing ${visible} of ${cachedDataset.length} tickers`;
-        }
-
-        /* ============ COLUMN SORTING ============ */
-        function sortTable(colIdx, type) {
-            if (currentSortCol === colIdx) { currentSortAsc = !currentSortAsc; }
-            else { currentSortCol = colIdx; currentSortAsc = true; }
-
-            let tbody = document.getElementById('screener-rows');
-            let rowsArr = Array.from(tbody.getElementsByTagName('tr'));
-
-            rowsArr.sort((a, b) => {
-                let cellA = a.getElementsByTagName('td')[colIdx];
-                let cellB = b.getElementsByTagName('td')[colIdx];
-                if (!cellA || !cellB) return 0;
-
-                let valA, valB;
-                if (type === 'number') {
-                    valA = parseFloat(cellA.dataset.value || cellA.textContent.replace(/[^0-9.\-]/g, '')) || 0;
-                    valB = parseFloat(cellB.dataset.value || cellB.textContent.replace(/[^0-9.\-]/g, '')) || 0;
-                } else {
-                    valA = cellA.textContent.trim().toLowerCase();
-                    valB = cellB.textContent.trim().toLowerCase();
-                }
-
-                if (valA < valB) return currentSortAsc ? -1 : 1;
-                if (valA > valB) return currentSortAsc ? 1 : -1;
-                return 0;
-            });
-
-            rowsArr.forEach(row => tbody.appendChild(row));
-        }
-    </script>
-
+function sortT(ci,ty){
+    if(sortCol===ci)sortAsc=!sortAsc;else{sortCol=ci;sortAsc=true}
+    let tb=document.getElementById('rows');
+    let arr=Array.from(tb.getElementsByTagName('tr'));
+    arr.sort((a,b)=>{
+        let cA=a.getElementsByTagName('td')[ci],cB=b.getElementsByTagName('td')[ci];
+        if(!cA||!cB)return 0;let vA,vB;
+        if(ty==='n'){vA=parseFloat(cA.dataset.value||cA.textContent.replace(/[^0-9.\-]/g,''))||0;vB=parseFloat(cB.dataset.value||cB.textContent.replace(/[^0-9.\-]/g,''))||0}
+        else{vA=cA.textContent.trim().toLowerCase();vB=cB.textContent.trim().toLowerCase()}
+        if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0;
+    });
+    arr.forEach(r=>tb.appendChild(r));
+}
+</script>
 </body>
 </html>
