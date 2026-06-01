@@ -1,21 +1,17 @@
 Ticker,Sector,Latest_Headline,News_Source,News_Time,Headline_Count,Forecast_Score,Forecast_Direction,Actual_Direction,Actual_Return_Pct,Severity,Impact,Signal_Quality,Streak_Days,Streak_Return,Momentum
-MARUTI,Auto,Maruti Suzuki Share Price Live Updates: Maruti Suzuki's Recent Market Activity,Economic Times | NSE Official,01 Jun 2026 08:12 AM,2,2.9,0,-1,-1.38,Neutral,Short-term,Neutral,0,-1.38,Neutral
-PERSISTENT,IT,US Stock Market: Jobs data; AI earnings to test Wall Street rally amid inflation risks loom,Economic Times | NSE Official,01 Jun 2026 10:15 AM,2,37.4,1,1,4.0,Bullish,Both,Moderate,1,4.0,New
+MARUTI,Auto,May Auto Sales Live Updates: Eicher Motors' VECV Misses Estimates; Maruti Suzuki Sales Jump 35%,NDTV Profit | LiveMint | NSE Official,01 Jun 2026 07:41 PM,3,73.5,1,-1,-1.38,Very Bullish,Both,High Conviction,1,-1.38,New
+PERSISTENT,IT,Ahead of Market: 10 things that will decide stock market action on Tuesday,Economic Times | NSE Official,01 Jun 2026 09:17 PM,3,18.0,1,1,4.0,Mildly Bullish,Both,Weak,1,4.0,New
 RATEGAIN,IT,RATEGAIN TRAVEL TECH Share Price Today Up 5%,Google News,01 Jun 2026 10:04 AM,1,91.8,1,1,4.11,Very Bullish,Long-term,High Conviction,1,4.11,New
 COFORGE,IT,BEL; Waaree; Dixon Tech; Coforge; SBI; Tata Steel; Infosys shares among top MOFSL picks post Q4 results,Google News,01 Jun 2026 10:01 AM,1,83.3,1,1,2.77,Very Bullish,Short-term,High Conviction,1,2.77,New
-COALINDIA,Metals,Coal India shares jump 4% after positive offtake performance boosts market sentiment; stock up 18% YTD,NSE Official | Google News,01 Jun 2026 01:19 PM,2,92.5,1,1,3.21,Very Bullish,Short-term,High Conviction,1,3.21,New
 TEGA,Metals,Tega Industries among 6 stocks showing bullish RSI upswing,Economic Times,01 Jun 2026 08:32 AM,1,84.0,1,1,2.57,Very Bullish,Short-term,High Conviction,1,2.57,New
-MOTILALOFS,Financial Services,Q4 earnings review: Motilal Oswal highlights broad-based beat on estimates; lists 6 sectors that exceeded expectations,Economic Times | NSE Official,01 Jun 2026 01:12 PM,34,9.4,1,-1,-3.16,Mildly Bullish,Both,Weak,1,-3.16,New
+MOTILALOFS,Financial Services,Q4 earnings review: Motilal Oswal highlights broad-based beat on estimates; lists 6 sectors that exceeded expectations,Economic Times | NSE Official,01 Jun 2026 01:12 PM,35,9.6,1,-1,-3.16,Mildly Bullish,Both,Weak,1,-3.16,New
 NUVAMA,Financial Services,Nifty has a positive undertone; but Street waits for a decisive breakout,Economic Times,01 Jun 2026 05:48 AM,1,15.5,1,0,0.15,Mildly Bullish,Long-term,Weak,1,0.15,New
 ITC,FMCG,Bitcoin begins June near $73;500 as ETF outflows cross $2 billion and geopolitical risks intensify,Economic Times | NSE Official,01 Jun 2026 12:57 PM,2,81.5,1,-1,-2.53,Very Bullish,Short-term,High Conviction,1,-2.53,New
 CUMMINSIND,Industrial,Cummins India Limited (NSE:CUMMINSIND) Just Reported And Analysts Have Been Lifting Their Price Targets,Google News,31 May 2026 08:05 AM,1,23.3,1,-1,-3.41,Mildly Bullish,Short-term,Weak,1,-3.41,New
-SBILIFE,Insurance,SBI Life Share Price Live Updates: SBI Life's Performance Snapshot,Economic Times,01 Jun 2026 08:13 AM,1,-1.4,0,-1,-0.96,Neutral,Short-term,Neutral,0,-0.96,Neutral
-MCX,Diversified,Silver gains Rs 1;100/kg; gold down at Rs 1.54lakh/10 gms amid mixed Iran war signals. Key levels to watch,Economic Times,01 Jun 2026 09:39 AM,1,-88.7,-1,-1,-2.17,Very Bearish,Long-term,High Conviction,1,-2.17,New
+SBILIFE,Insurance,SBI Life Share Price Highlights: SBI Life Stock Price History,Economic Times,01 Jun 2026 08:13 AM,1,-1.3,0,-1,-0.96,Neutral,Short-term,Neutral,0,-0.96,Neutral
 ACUTAAS,Pharma,Acutaas Chemicals among 4 stocks that closed crossing above VWAP,Economic Times,01 Jun 2026 10:19 AM,1,28.2,1,-1,-3.63,Bullish,Short-term,Moderate,1,-3.63,New
-CIPLA,Pharma,Cipla Share Price Live Updates: Cipla's Market Activity,Economic Times | NSE Official,01 Jun 2026 08:13 AM,2,1.2,0,-1,-0.76,Neutral,Short-term,Neutral,0,-0.76,Neutral
 SUPRIYA,Pharma,Trade Spotlight: How should you trade Rain Industries; IFCI; Cemindia Projects; Supriya Lifescience;...,Google News,01 Jun 2026 06:23 AM,1,4.2,0,1,8.65,Neutral,Long-term,Neutral,0,8.65,Neutral
 TRENT,Retail,Trent nears record date for 1:2 bonus issue: Should you buy shares for bonus reward? Here’s what experts say,Economic Times | NSE Official,01 Jun 2026 07:22 AM,3,2.5,0,-1,-1.58,Neutral,Short-term,Neutral,0,-1.58,Neutral
-HYUNDAI,Retail,Maruti; M&M May Sales Beat Estimates With Over 20% Growth; Hyundai Misses Forecast,NDTV Profit | NSE Official,01 Jun 2026 04:48 PM,2,92.1,1,-1,-2.16,Very Bullish,Both,High Conviction,1,-2.16,New
 JWL,Jewellery,JUPITER WAGONS LIMITED Share Price Today - Live JWL Stock Price for NSE/BSE,Google News,31 May 2026 09:08 PM,1,0.9,0,-1,-5.69,Neutral,Short-term,Neutral,0,-5.69,Neutral
 EICHERMOT,Auto,Eicher Motors Limited,NSE Official,,1,0.0,0,-1,-1.07,Filing Only,,Filing Only,0,0.0,
 ESCORTS,Auto,Escorts Kubota Limited,NSE Official,,1,0.0,0,-1,-3.39,Filing Only,,Filing Only,0,0.0,
@@ -24,23 +20,33 @@ ENDURANCE,Auto Ancillary,Endurance Technologies Limited,NSE Official,,1,0.0,0,1,
 BEL,Defence,Bharat Electronics Limited,NSE Official,,1,0.0,0,-1,-0.86,Filing Only,,Filing Only,0,0.0,
 NEWGEN,IT,Newgen Software Technologies Limited - Ex-Date: 17-Jul-2026,NSE Official,,1,0.0,0,-1,-0.27,Filing Only,,Filing Only,0,0.0,
 HINDCOPPER,Metals,Hindustan Copper Limited,NSE Official,,1,0.0,0,0,0.23,Filing Only,,Filing Only,0,0.0,
+COALINDIA,Metals,Coal India Limited,NSE Official,,1,0.0,0,1,3.21,Filing Only,,Filing Only,0,0.0,
 ANGELONE,Financial Services,Angel One Mutual Fund - Angel One Silver ETF,NSE Official,,6,0.0,0,-1,-0.5,Filing Only,,Filing Only,0,0.0,
 PRUDENT,Financial Services,Prudential Sugar Corporation Limited,NSE Official,,39,0.0,0,1,0.35,Filing Only,,Filing Only,0,0.0,
 CRISIL,Financial Services,CRISIL Limited,NSE Official,,1,0.0,0,-1,-0.32,Filing Only,,Filing Only,0,0.0,
+CARERATING,Financial Services,CARE Ratings Limited,NSE Official,,1,0.0,0,-1,-1.07,Filing Only,,Filing Only,0,0.0,
 JYOTHYLAB,FMCG,Jyothy Labs Limited - Ex-Date: 29-Jun-2026,NSE Official,,1,0.0,0,-1,-2.52,Filing Only,,Filing Only,0,0.0,
 BIKAJI,FMCG,Bikaji Foods International Limited,NSE Official,,1,0.0,0,1,2.28,Filing Only,,Filing Only,0,0.0,
+KEI,Electricals,KEI Industries Limited,NSE Official,,1,0.0,0,-1,-1.78,Filing Only,,Filing Only,0,0.0,
+KIRLOSBROS,Industrial,Kirloskar Oil Engines Limited,NSE Official,,1,0.0,0,-1,-0.55,Filing Only,,Filing Only,0,0.0,
 ELECON,Power,Eimco Elecon (India) Limited,NSE Official,,2,0.0,0,-1,-1.07,Filing Only,,Filing Only,0,0.0,
 PFC,Power,Power Finance Corporation Limited,NSE Official,,1,0.0,0,-1,-1.75,Filing Only,,Filing Only,0,0.0,
 GOLDIAM,Jewellery,Goldiam International Limited,NSE Official,,1,0.0,0,0,0.21,Filing Only,,Filing Only,0,0.0,
 MEDANTA,Healthcare,Global Health Limited,NSE Official,,1,0.0,0,-1,-1.7,Filing Only,,Filing Only,0,0.0,
+BLUESTARCO,Consumer Durables,Blue Star Limited,NSE Official,,1,0.0,0,-1,-2.78,Filing Only,,Filing Only,0,0.0,
 LINDEINDIA,Chemicals,Linde India Limited,NSE Official,,1,0.0,0,-1,-4.23,Filing Only,,Filing Only,0,0.0,
 EPIGRAL,Chemicals,Epigral Limited - Ex-Date: 01-Jun-2026,NSE Official,,1,0.0,0,0,0.1,Filing Only,,Filing Only,0,0.0,
 ALKEM,Pharma,Alkem Laboratories Limited,NSE Official,,1,0.0,0,-1,-3.34,Filing Only,,Filing Only,0,0.0,
+CIPLA,Pharma,Cipla Limited - Ex-Date: 05-Jun-2026,NSE Official,,1,0.0,0,-1,-0.76,Filing Only,,Filing Only,0,0.0,
 MARKSANS,Pharma,Marksans Pharma Limited,NSE Official,,1,0.0,0,-1,-3.05,Filing Only,,Filing Only,0,0.0,
+TORNTPHARM,Pharma,Torrent Pharmaceuticals Limited,NSE Official,,1,0.0,0,-1,-1.37,Filing Only,,Filing Only,0,0.0,
+HYUNDAI,Retail,Hyundai Motor India Limited,NSE Official,,1,0.0,0,-1,-2.16,Filing Only,,Filing Only,0,0.0,
+MARATHON,Real Estate,Marathon Nextgen Realty Limited,NSE Official,,1,0.0,0,-1,-2.63,Filing Only,,Filing Only,0,0.0,
 BLS,Industrial,BLS International Services Limited,NSE Official,,1,0.0,0,1,0.38,Filing Only,,Filing Only,0,0.0,
 BAJFINANCE,NBFC,Bajaj Finance Limited - Ex-Date: 30-Jun-2026,NSE Official,,1,0.0,0,-1,-2.11,Filing Only,,Filing Only,0,0.0,
-CHOLAFIN,NBFC,Cholamandalam MS General Insurance Company Limited,NSE Official,,1,0.0,0,-1,-2.91,Filing Only,,Filing Only,0,0.0,
+CHOLAFIN,NBFC,Cholamandalam Investment and Finance Company Limited,NSE Official,,2,0.0,0,-1,-2.91,Filing Only,,Filing Only,0,0.0,
 SHRIRAMFIN,NBFC,Shriram Finance Limited,NSE Official,,2,0.0,0,-1,-2.97,Filing Only,,Filing Only,0,0.0,
+SUNDARMFIN,NBFC,Sundaram Finance Limited,NSE Official,,1,0.0,0,1,0.57,Filing Only,,Filing Only,0,0.0,
 BAJAJHLDNG,Holdings,Bajaj Holdings & Investment Limited - Ex-Date: 30-Jun-2026,NSE Official,,1,0.0,0,-1,-0.88,Filing Only,,Filing Only,0,0.0,
 HEROMOTOCO,Auto,,,,0,0.0,0,-1,-1.69,No News,,No News,0,0.0,
 BANCOINDIA,Auto Ancillary,,,,0,0.0,0,-1,-0.26,No News,,No News,0,0.0,
@@ -76,7 +82,6 @@ HDFCAMC,Financial Services,,,,0,0.0,0,-1,-2.6,No News,,No News,0,0.0,
 NAM-INDIA,Financial Services,,,,0,0.0,0,-1,-0.66,No News,,No News,0,0.0,
 360ONE,Financial Services,,,,0,0.0,0,-1,-2.33,No News,,No News,0,0.0,
 IIFLCAPS,Financial Services,,,,0,0.0,0,-1,-0.79,No News,,No News,0,0.0,
-CARERATING,Financial Services,,,,0,0.0,0,-1,-1.07,No News,,No News,0,0.0,
 ICRA,Financial Services,,,,0,0.0,0,-1,-2.07,No News,,No News,0,0.0,
 GMBREW,FMCG,,,,0,0.0,0,-1,-2.63,No News,,No News,0,0.0,
 PICCADIL,FMCG,,,,0,0.0,0,-1,-0.62,No News,,No News,0,0.0,
@@ -84,7 +89,6 @@ SDBL,FMCG,,,,0,0.0,0,-1,-11.96,No News,,No News,0,0.0,
 BECTORFOOD,FMCG,,,,0,0.0,0,1,1.26,No News,,No News,0,0.0,
 DODLA,FMCG,,,,0,0.0,0,1,1.96,No News,,No News,0,0.0,
 LTFOODS,FMCG,,,,0,0.0,0,-1,-2.69,No News,,No News,0,0.0,
-KEI,Electricals,,,,0,0.0,0,-1,-1.78,No News,,No News,0,0.0,
 POLYCAB,Electricals,,,,0,0.0,0,0,0.03,No News,,No News,0,0.0,
 HSCL,Capital Goods,,,,0,0.0,0,-1,-0.5,No News,,No News,0,0.0,
 AIAENG,Capital Goods,,,,0,0.0,0,1,0.42,No News,,No News,0,0.0,
@@ -102,7 +106,6 @@ APLAPOLLO,Capital Goods,,,,0,0.0,0,-1,-2.34,No News,,No News,0,0.0,
 MAHSEAMLES,Capital Goods,,,,0,0.0,0,-1,-1.08,No News,,No News,0,0.0,
 WELCORP,Capital Goods,,,,0,0.0,0,0,0.05,No News,,No News,0,0.0,
 INGERRAND,Industrial,,,,0,0.0,0,-1,-11.14,No News,,No News,0,0.0,
-KIRLOSBROS,Industrial,,,,0,0.0,0,-1,-0.55,No News,,No News,0,0.0,
 KIRLPNU,Industrial,,,,0,0.0,0,-1,-1.33,No News,,No News,0,0.0,
 SHAKTIPUMP,Industrial,,,,0,0.0,0,-1,-2.2,No News,,No News,0,0.0,
 GRAUWEIL,Industrial,,,,0,0.0,0,-1,-1.89,No News,,No News,0,0.0,
@@ -119,7 +122,6 @@ INDRAMEDCO,Healthcare,,,,0,0.0,0,-1,-1.63,No News,,No News,0,0.0,
 KOVAI,Healthcare,,,,0,0.0,0,0,0.17,No News,,No News,0,0.0,
 TAJGVK,Hotels,,,,0,0.0,0,-1,-1.16,No News,,No News,0,0.0,
 TRAVELFOOD,Hotels,,,,0,0.0,0,1,1.67,No News,,No News,0,0.0,
-BLUESTARCO,Consumer Durables,,,,0,0.0,0,-1,-2.78,No News,,No News,0,0.0,
 LGEINDIA,Consumer Durables,,,,0,0.0,0,1,0.99,No News,,No News,0,0.0,
 VISHNU,Chemicals,,,,0,0.0,0,1,7.02,No News,,No News,0,0.0,
 TCI,Logistics,,,,0,0.0,0,0,-0.04,No News,,No News,0,0.0,
@@ -135,6 +137,7 @@ SHILCTECH,Diversified,,,,0,0.0,0,1,0.54,No News,,No News,0,0.0,
 WAAREERTL,Diversified,,,,0,0.0,0,0,-0.18,No News,,No News,0,0.0,
 NESCO,Diversified,,,,0,0.0,0,-1,-2.57,No News,,No News,0,0.0,
 VESUVIUS,Diversified,,,,0,0.0,0,1,1.28,No News,,No News,0,0.0,
+MCX,Diversified,,,,0,0.0,0,-1,-2.17,No News,,No News,0,0.0,
 COROMANDEL,Diversified,,,,0,0.0,0,1,1.94,No News,,No News,0,0.0,
 ORKLAINDIA,Diversified,,,,0,0.0,0,-1,-0.61,No News,,No News,0,0.0,
 HBLENGINE,Diversified,,,,0,0.0,0,-1,-2.97,No News,,No News,0,0.0,
@@ -145,7 +148,6 @@ ALIVUS,Pharma,,,,0,0.0,0,-1,-0.71,No News,,No News,0,0.0,
 CAPLIPOINT,Pharma,,,,0,0.0,0,-1,-1.26,No News,,No News,0,0.0,
 INNOVACAP,Pharma,,,,0,0.0,0,1,1.22,No News,,No News,0,0.0,
 JBCHEPHARM,Pharma,,,,0,0.0,0,-1,-1.25,No News,,No News,0,0.0,
-TORNTPHARM,Pharma,,,,0,0.0,0,-1,-1.37,No News,,No News,0,0.0,
 SAFARI,Retail,,,,0,0.0,0,1,6.87,No News,,No News,0,0.0,
 DOMS,Retail,,,,0,0.0,0,-1,-0.65,No News,,No News,0,0.0,
 GRWRHITECH,Plastics,,,,0,0.0,0,-1,-4.98,No News,,No News,0,0.0,
@@ -155,7 +157,6 @@ STYLAMIND,Plastics,,,,0,0.0,0,1,4.48,No News,,No News,0,0.0,
 ARVSMART,Real Estate,,,,0,0.0,0,-1,-3.06,No News,,No News,0,0.0,
 GANESHHOU,Real Estate,,,,0,0.0,0,1,0.4,No News,,No News,0,0.0,
 LODHA,Real Estate,,,,0,0.0,0,-1,-4.81,No News,,No News,0,0.0,
-MARATHON,Real Estate,,,,0,0.0,0,-1,-2.63,No News,,No News,0,0.0,
 INDIASHLTR,Real Estate,,,,0,0.0,0,-1,-1.12,No News,,No News,0,0.0,
 NUCLEUS,Software,,,,0,0.0,0,-1,-4.93,No News,,No News,0,0.0,
 EIEL,Industrial,,,,0,0.0,0,-1,-2.51,No News,,No News,0,0.0,
@@ -167,6 +168,5 @@ CHOLAHLDNG,NBFC,,,,0,0.0,0,-1,-3.83,No News,,No News,0,0.0,
 HUDCO,NBFC,,,,0,0.0,0,-1,-0.37,No News,,No News,0,0.0,
 HOMEFIRST,NBFC,,,,0,0.0,0,1,1.02,No News,,No News,0,0.0,
 MUTHOOTFIN,NBFC,,,,0,0.0,0,-1,-2.89,No News,,No News,0,0.0,
-SUNDARMFIN,NBFC,,,,0,0.0,0,1,0.57,No News,,No News,0,0.0,
 SYSTMTXC,Holdings,,,,0,0.0,0,-1,-4.41,No News,,No News,0,0.0,
 TVSHLTD,Holdings,,,,0,0.0,0,-1,-1.11,No News,,No News,0,0.0,
