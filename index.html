@@ -60,10 +60,16 @@
     </div>
 
     <script>
-        // Use an explicit relative directory marker (./) to prevent 404 routing errors on GitHub Pages
-        fetch('./data.csv?t=' + new Date().getTime())
+        // Dynamically detects if hosted inside subfolder root or local machine domain 
+        const pathArray = window.location.pathname.split('/');
+        const repoName = pathArray[1] && !window.location.hostname.includes('localhost') ? '/' + pathArray[1] : '';
+        const csvTargetUrl = window.location.origin + repoName + '/data.csv?t=' + new Date().getTime();
+
+        console.log("Fetching target network location:", csvTargetUrl);
+
+        fetch(csvTargetUrl)
             .then(res => {
-                if(!res.ok) throw new Error("Dataset response state missing or broken.");
+                if(!res.ok) throw new Error("Dataset file could not be read.");
                 return res.text();
             })
             .then(csvData => {
@@ -79,7 +85,7 @@
             .catch(err => {
                 console.error(err);
                 document.getElementById('screener-rows').innerHTML = `
-                    <tr><td colspan="4" class="p-4 text-center text-rose-400 font-semibold">⚠️ Failed to load dataset. Verify data.csv is inside the repository root.</td></tr>
+                    <tr><td colspan="4" class="p-4 text-center text-rose-400 font-semibold">⚠️ Failed to load dataset. Data.csv path resolution routing mismatch.</td></tr>
                 `;
             });
 
@@ -92,7 +98,7 @@
                 return;
             }
 
-            // Populate Table
+            // Populate all parsed rows directly into the screen viewer
             data.forEach(row => {
                 let scoreValue = row.Forecast_Score ? parseFloat(row.Forecast_Score) : 0;
                 let badgeColor = scoreValue > 15 ? 'bg-emerald-950 text-emerald-300' : (scoreValue < -15 ? 'bg-rose-950 text-rose-300' : 'text-gray-300');
