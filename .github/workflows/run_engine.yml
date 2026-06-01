@@ -1,0 +1,32 @@
+name: Data Engine Auto-Refresh
+on:
+  schedule:
+    - cron: '0 15 * * 1-5' # Runs automatically Mon-Fri at 3:00 PM UTC
+  workflow_dispatch:      # Allows you to click a button and run it manually
+
+jobs:
+  run-backend:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository Code
+      uses: actions/checkout@v4
+
+    # Use actions/setup-python to launch a mini cloud container execution block
+    - name: Initialize Python Runtime
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Libraries
+      run: pip install pandas
+
+    - name: Generate Fresh CSV Dataset
+      run: python app.py
+
+    - name: Push Data Back to Repository
+      run: |
+        git config --global user.name "GitHub Actions Automation"
+        git config --global user.email "actions@github.com"
+        git add data.csv
+        git commit -m "Auto-updated data.csv metrics [skip ci]" || exit 0
+        git push
