@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XChart Analytics Dashboard</title>
+    <!-- CSS and Chart Engine CDNs -->
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://cloudflare.com"></script>
+    <script src="https://plot.ly"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 border-b border-gray-800 pb-4">
+            <h1 class="text-3xl font-bold text-emerald-400">📊 XChart JavaScript Dashboard</h1>
+            <p class="text-gray-400 text-sm mt-1">Serverless Analytics Platform Powered by GitHub Pages</p>
+        </header>
+
+        <!-- Metrics Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Model Accuracy (Hit Rate)</p>
+                <h3 id="hit-rate" class="text-3xl font-bold text-emerald-400 mt-1">Calculating...</h3>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Bullish Precision</p>
+                <h3 id="bullish-precision" class="text-3xl font-bold text-blue-400 mt-1">Calculating...</h3>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                <p class="text-gray-400 text-xs font-semibold uppercase tracking-wider">Total Signals Logs</p>
+                <h3 id="total-signals" class="text-3xl font-bold text-purple-400 mt-1">Calculating...</h3>
+            </div>
+        </div>
+
+        <!-- Live Table -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6 mb-8 overflow-x-auto">
+            <h2 class="text-xl font-bold text-gray-200 mb-4">Active Momentum Monitor</h2>
+            <table class="w-full text-left text-sm">
+                <thead class="text-xs uppercase bg-gray-700 text-gray-300">
+                    <tr>
+                        <th class="p-3">Ticker</th>
+                        <th class="p-3">Latest Headline</th>
+                        <th class="p-3 text-center">Velocity</th>
+                        <th class="p-3 text-center">Score</th>
+                    </tr>
+                </thead>
+                <tbody id="screener-rows" class="divide-y divide-gray-700"></tbody>
+            </table>
+        </div>
+
+        <!-- Performance Graph -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
+            <h2 class="text-xl font-bold text-gray-200 mb-4">Live Performance Matrix</h2>
+            <div id="accuracy-chart" class="w-full h-96"></div>
+        </div>
+    </div>
+
+    <script>
+        // Reads data.csv from your root folder
+        fetch('data.csv')
+            .then(res => res.text())
+            .then(csvData => {
+                Papa.parse(csvData, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        processDashboard(results.data);
+                    }
+                });
+            });
+
+        function processDashboard(data) {
+            const tableBody = document.getElementById('screener-rows');
+            
+            // Separate data out using the blank Actual_Direction column
+            const active = data.filter(r => r.Actual_Direction === null || r.Actual_Direction === undefined || r.Actual_Direction === '');
+            const history = data.filter(r => r.Actual_Direction !== null && r.Actual_Direction !== undefined && r.Actual_Direction !== '');
+
+            // Populate JS Interactive Table
+            active.forEach(row => {
+                let badgeColor = row.Forecast_Score > 15 ? 'bg-emerald-950 text-emerald-300' : (row.Forecast_Score < -15 ? 'bg-rose-950 text-rose-300' : 'text-gray-300');
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-gray-700/50 transition">
+                        <td class="p-3 font-mono text-emerald-400 font-bold">${row.Ticker}</td>
+                        <td class="p-3 text-gray-300 truncate max-w-md">${row.Latest_Headline}</td>
+                        <td class="p-3 text-center">${row.Repeat_Count || 1}</td>
+                        <td class="p-3 text-center rounded ${badgeColor} font-semibold">${row.Forecast_Score.toFixed(1)}</td>
+                    </tr>
+                `;
+            });
+
+            // Calculate historical validation stats
+            if (history.length > 0) {
+                const total = history.length;
+                const matches = history.filter(r => r.Forecast_Direction === r.Actual_Direction).length;
+                const totalBullish = history.filter(r => r.Forecast_Direction === 1).length;
+                const realBullish = history.filter(r => r.Forecast_Direction === 1 && r.Actual_Direction === 1).length;
+
+                document.getElementById('hit-rate').innerText = `${((matches/total)*100).toFixed(1)}%`;
+                document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish/totalBullish)*100).toFixed(1) : 0}%`;
+                document.getElementById('total-signals').innerText = `${total} items`;
+
+                // Render dynamic Plotly scatter plot
+                const trace = {
+                    x: history.map(r => r.Forecast_Score),
+                    y: history.map(r => r.Actual_Return_Pct),
+                    mode: 'markers',
+                    type: 'scatter',
+                    text: history.map(r => r.Ticker),
+                    marker: {
+                        size: 14,
+                        color: history.map(r => r.Forecast_Direction === r.Actual_Direction ? '#10B981' : '#EF4444'),
+                        line: { color: '#1F2937', width: 2 }
+                    }
+                };
+
+                const layout = {
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    xaxis: { title: 'Forecast Score', gridcolor: '#374151', color: '#9CA3AF' },
+                    yaxis: { title: 'Realized Return %', gridcolor: '#374151', color: '#9CA3AF' },
+                    margin: { t: 10, r: 10, b: 40, l: 40 }
+                };
+
+                Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
+            }
+        }
+    </script>
+</body>
+</html>
