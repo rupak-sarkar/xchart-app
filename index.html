@@ -12,7 +12,7 @@
 
     <div class="max-w-7xl mx-auto">
         <header class="mb-8 border-b border-gray-800 pb-4">
-            <h1 class="text-3xl font-bold text-emerald-400"> Bars📊 XChart JavaScript Dashboard</h1>
+            <h1 class="text-3xl font-bold text-emerald-400">📊 XChart JavaScript Dashboard</h1>
             <p class="text-gray-400 text-sm mt-1">Serverless Analytics Platform Powered by GitHub Pages</p>
         </header>
 
@@ -60,10 +60,10 @@
     </div>
 
     <script>
-        // Cache-busting URL query param ensures you always get the fresh data.csv
-        fetch('data.csv?t=' + new Date().getTime())
+        // Use an explicit relative directory marker (./) to prevent 404 routing errors on GitHub Pages
+        fetch('./data.csv?t=' + new Date().getTime())
             .then(res => {
-                if(!res.ok) throw new Error("Missing data.csv");
+                if(!res.ok) throw new Error("Dataset response state missing or broken.");
                 return res.text();
             })
             .then(csvData => {
@@ -77,6 +77,7 @@
                 });
             })
             .catch(err => {
+                console.error(err);
                 document.getElementById('screener-rows').innerHTML = `
                     <tr><td colspan="4" class="p-4 text-center text-rose-400 font-semibold">⚠️ Failed to load dataset. Verify data.csv is inside the repository root.</td></tr>
                 `;
@@ -108,9 +109,9 @@
 
             // Summary KPI Stats Calculations
             const total = data.length;
-            const matches = data.filter(r => r.Forecast_Direction === r.Actual_Direction).length;
-            const totalBullish = data.filter(r => r.Forecast_Direction === 1).length;
-            const realBullish = data.filter(r => r.Forecast_Direction === 1 && r.Actual_Direction === 1).length;
+            const matches = data.filter(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction)).length;
+            const totalBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1).length;
+            const realBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1 && intOrZero(r.Actual_Direction) === 1).length;
 
             document.getElementById('hit-rate').innerText = `${((matches / total) * 100).toFixed(1)}%`;
             document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish / totalBullish) * 100).toFixed(1) : 0}%`;
@@ -125,7 +126,7 @@
                 text: data.map(r => r.Ticker),
                 marker: {
                     size: 14,
-                    color: data.map(r => r.Forecast_Direction === r.Actual_Direction ? '#10B981' : '#EF4444'),
+                    color: data.map(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction) ? '#10B981' : '#EF4444'),
                     line: { color: '#1F2937', width: 2 }
                 }
             };
@@ -140,6 +141,11 @@
 
             document.getElementById('accuracy-chart').innerHTML = "";
             Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
+        }
+
+        function intOrZero(val) {
+            let parsed = parseInt(val);
+            return isNaN(parsed) ? 0 : parsed;
         }
     </script>
 </body>
