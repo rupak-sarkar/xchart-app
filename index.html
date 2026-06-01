@@ -97,12 +97,10 @@
         let cachedDataset = []; 
         let countdownTime = 60;
 
-        // Initialize when DOM is safe
         document.addEventListener("DOMContentLoaded", () => {
             fetchDataStream();
         });
 
-        // Auto Refresh Interval Setup
         setInterval(() => {
             countdownTime--;
             document.getElementById('timer-box').innerText = countdownTime + 's';
@@ -113,43 +111,64 @@
         }, 1000);
 
         function fetchDataStream() {
-            // Local fallback prevention path
-            const csvTargetUrl = './data.csv?v=' + Math.random();
-
-            if (window.location.protocol === 'file:') {
-                console.warn("CORS Block Threat: Running file via file:/// protocol instead of local server.");
+            // Get the current directory path setup specifically for GitHub subdirectories
+            let basePath = window.location.pathname;
+            if (!basePath.endsWith('/')) { 
+                // Chop off filename if it ends in index.html to get directory root
+                basePath = basePath.substring(0, basePath.lastIndexOf('/') + 1); 
             }
+            
+            // Build absolute URL targeting your GitHub Pages folder + Cache Buster (?v=random)
+            const csvTargetUrl = window.location.origin + basePath + 'data.csv?v=' + Math.random();
 
-            Papa.parse(csvTargetUrl, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                dynamicTyping: true, 
-                complete: function(results) {
-                    if (results.data && results.data.length > 0) {
-                        cachedDataset = results.data;
-                        renderDashboard(cachedDataset);
-                    } else {
-                        document.getElementById('screener-rows').innerHTML = `
-                            <tr><td colspan="4" style="text-align: center; color: #cbd5e1; padding: 20px;">
-                            ⚠️ Dataset is connected but contains zero row indexes.
-                            </td></tr>`;
+            console.log("Fetching target CSV location:", csvTargetUrl);
+
+            // Fetch text raw to isolate PapaParse away from async browser extension listeners
+            fetch(csvTargetUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        if(response.status === 404) {
+                            throw new Error("GitHub deployment is rebuilding. data.csv is temporarily missing from the server. Waiting for compile...");
+                        }
+                        throw new Error(`HTTP Error Status: ${response.status}`);
                     }
-                },
-                error: function(err) {
-                    console.error("Papa Parse Stream Error:", err);
-                    document.getElementById('screener-rows').innerHTML = `
-                        <tr><td colspan="4" style="text-align: center; color: #f87171; padding: 20px;">
-                        ❌ Stream Blocked: 'data.csv' missing or restricted by local security rules.
-                        </td></tr>`;
-                }
-            });
+                    return response.text();
+                })
+                .then(csvRawString => {
+                    Papa.parse(csvRawString, {
+                        header: true,
+                        skipEmptyLines: true,
+                        dynamicTyping: true, 
+                        complete: function(results) {
+                            if (results.data && results.data.length > 0) {
+                                cachedDataset = results.data;
+                                renderDashboard(cachedDataset);
+                            } else {
+                                showTableMessage("⚠️ CSV parsed successfully, but rows are completely empty. Please verify data content formatting.");
+                            }
+                        },
+                        error: function(parseError) {
+                            console.error("Papa Parse process failure:", parseError);
+                            showTableMessage("❌ Processing Layout Error: Structural text matrix mismatch.");
+                        }
+                    });
+                })
+                .catch(networkError => {
+                    console.error("Network Fetch Failure:", networkError);
+                    showTableMessage(`🔄 Syncing with GitHub Deployment: ${networkError.message}`);
+                });
+        }
+
+        function showTableMessage(message) {
+            document.getElementById('screener-rows').innerHTML = `
+                <tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 20px;">
+                ${message}
+                </td></tr>`;
         }
 
         function renderDashboard(data) {
             const tableBody = document.getElementById('screener-rows');
             
-            // Calculate Hit Rate dynamically based on matching direction signs
             let correctPredictions = 0;
             data.forEach(row => {
                 let forecastDir = parseInt(row.Forecast_Direction);
@@ -161,22 +180,3 @@
             
             let calculatedHitRate = data.length > 0 ? ((correctPredictions / data.length) * 100).toFixed(1) + "%" : "0%";
             
-            // Render system stats metrics cards
-            document.getElementById('hit-rate').innerText = calculatedHitRate;
-            document.getElementById('bullish-precision').innerText = "89.7%"; // Standard baseline target value
-            document.getElementById('total-signals').innerText = data.length;
-
-            let htmlContent = "";
-            data.forEach(row => {
-                // Map fields directly to your custom CSV headers
-                let ticker = row.Ticker || "N/A";
-                let headline = row.Latest_Headline || "No context headline processed.";
-                let returnPct = row.Actual_Return_Pct !== undefined ? row.Actual_Return_Pct : 0;
-                let score = row.Forecast_Score !== undefined ? row.Forecast_Score : 0;
-                let forecastDir = parseInt(row.Forecast_Direction);
-
-                // Add plus sign prefix to positive percentages manually for UX clean-up
-                let displayReturn = (returnPct > 0 ? "+" : "") + returnPct + "%";
-
-                // Map row color badges based on direction flags
-                let badgeClass = "bg-gray-700"; 
