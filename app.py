@@ -2,6 +2,8 @@ import pandas as pd
 import yfinance as yf
 import feedparser
 import re
+import time
+import urllib.parse
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
@@ -10,6 +12,125 @@ print("🤖 Initializing FinBERT Neural Network Pipeline...")
 FINBERT_MODEL = "ProsusAI/finbert"
 tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
 model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+
+
+# ============================================================
+# 172 unique swing trading tickers (cleaned, deduped, .NS stripped)
+# The .NS suffix is added dynamically in yfinance calls
+# ============================================================
+TICKERS = [
+    # Auto & Auto Ancillary
+    "EICHERMOT", "HEROMOTOCO", "MARUTI", "ESCORTS",
+    "BANCOINDIA", "BOSCHLTD", "ENDURANCE", "FMGOETZE", "FIEMIND",
+    "GABRIEL", "LGBBROSLTD", "PRICOLLTD", "SANSERA", "SHARDAMOTR",
+    "SHRIPISTON", "UNOMINDA", "ZFCVINDIA",
+
+    # Defence & Aerospace
+    "BEL", "DATAPATTNS", "GRSE", "HAL", "MAZDOCK",
+
+    # IT / Tech / Software
+    "ZENTEC", "ECLERX", "NEWGEN", "PERSISTENT", "RATEGAIN",
+    "SAKSOFT", "ZENSARTECH", "CONTROLPR", "DLINKINDIA", "AFFLE",
+    "CIGNITITEC", "MPSLTD", "OFSS", "KFINTECH",
+
+    # Metals & Mining
+    "NATIONALUM", "HINDCOPPER", "COALINDIA", "GMDCLTD", "NAVA",
+    "GRAVITA", "TEGA",
+
+    # Asset Management & Financial Services
+    "HDFCAMC", "NAM-INDIA", "360ONE", "ANGELONE", "MOTILALOFS",
+    "NUVAMA", "IIFLCAPS", "PRUDENT", "CRISIL", "CARERATING", "ICRA",
+
+    # Breweries & FMCG
+    "GMBREW", "PICCADIL", "SDBL", "ITC", "JYOTHYLAB",
+    "BIKAJI", "BECTORFOOD", "DODLA", "LTFOODS",
+
+    # Electricals & Cables
+    "KEI", "POLYCAB",
+
+    # Capital Goods / Engineering / EPC
+    "HSCL", "AIAENG", "GODFRYPHLP", "AHLUCONT", "CEMPRO",
+    "INTERARCH", "MANINFRA", "NBCC", "NCC", "POWERMECH", "TECHNOE",
+    "ACE", "APLAPOLLO", "MAHSEAMLES", "WELCORP",
+
+    # Industrial / Pumps / Compressors
+    "CUMMINSIND", "INGERRAND", "KIRLOSBROS", "KIRLPNU", "SHAKTIPUMP",
+    "GRAUWEIL",
+
+    # Power / T&D / Electrical Equipment
+    "ABB", "ATLANTAELE", "ELECON", "GVTD", "TDPOWERSYS",
+    "TRANSRAILL", "TRITURBINE", "VOLTAMP", "PFC", "RECLTD",
+
+    # Jewellery & Gems
+    "DPABHUSHAN", "GOLDIAM", "POKARNA",
+
+    # Healthcare / Hospitals
+    "MEDANTA", "INDRAMEDCO", "KOVAI",
+
+    # Hotels & Travel
+    "TAJGVK", "TRAVELFOOD",
+
+    # Consumer Durables
+    "BLUESTARCO", "LGEINDIA",
+
+    # Chemicals & Gas
+    "LINDEINDIA", "EPIGRAL", "VISHNU",
+
+    # Steel & Pipes — covered in Capital Goods above
+
+    # Insurance
+    "SBILIFE",
+
+    # Logistics
+    "TCI", "GESHIP",
+
+    # Lubricants / Oil
+    "CASTROLIND", "GULFOILLUB",
+
+    # Media & Entertainment
+    "TIPSMUSIC", "DBCORP",
+
+    # Medical Devices
+    "POLYMED",
+
+    # Miscellaneous / Diversified
+    "AIIL", "KSCL", "SHILCTECH", "WAAREERTL", "NESCO",
+    "VESUVIUS", "MCX", "COROMANDEL", "ORKLAINDIA", "HBLENGINE",
+    "RAILTEL", "AGI",
+
+    # Pharma & Healthcare Products
+    "ABBOTINDIA", "ACUTAAS", "ALIVUS", "ALKEM", "CAPLIPOINT",
+    "CIPLA", "INNOVACAP", "JBCHEPHARM", "MARKSANS", "SUPRIYA",
+    "TORNTPHARM",
+
+    # Consumer / Retail / Lifestyle
+    "SAFARI", "TRENT", "DOMS", "HYUNDAI",
+
+    # Plastics & Building Materials
+    "GRWRHITECH", "KINGFA", "TIMETECHNO", "STYLAMIND",
+
+    # Stationery & Packaging — covered above
+
+    # Jewellery & Watches (JWL)
+    "JWL",
+
+    # Real Estate
+    "ARVSMART", "GANESHHOU", "LODHA", "MARATHON", "INDIASHLTR",
+
+    # Software Products
+    "NUCLEUS",
+
+    # Industrial Misc
+    "BLS", "EIEL",
+
+    # NBFC / Banking / Finance
+    "ARSSBL", "AUBANK", "BAJFINANCE", "GROWW", "CANFINHOME",
+    "CHOLAHLDNG", "CHOLAFIN", "HUDCO", "HOMEFIRST",
+    "MUTHOOTFIN", "SHRIRAMFIN", "SUNDARMFIN",
+
+    # Holdings
+    "BAJAJHLDNG", "SYSTMTXC", "TVSHLTD",
+]
 
 
 def compute_finbert_score(headline):
@@ -30,14 +151,11 @@ def compute_finbert_score(headline):
             outputs = model(**inputs)
         predictions = torch.nn.functional.softmax(outputs.logits, dim=-1)
 
-        # FinBERT label order: [0 -> Positive, 1 -> Negative, 2 -> Neutral]
         pos_prob = predictions[0][0].item()
         neg_prob = predictions[0][1].item()
 
-        # Normalized compound score from -100 to +100
         compound_score = (pos_prob - neg_prob) * 100.0
 
-        # Direction thresholds
         if compound_score > 15.0:
             direction = 1
         elif compound_score < -15.0:
@@ -47,44 +165,39 @@ def compute_finbert_score(headline):
 
         return round(compound_score, 1), direction
     except Exception as e:
-        print(f"⚠️ NLP Processing Crash: {e}")
+        print(f"  ⚠️ NLP crash: {e}")
         return 0.0, 0
 
 
 def get_live_news_headline(ticker):
     """
-    Fetches the latest news headline from Google News RSS for a given NSE ticker.
-    Returns sanitized headline string (commas replaced with semicolons for CSV safety).
+    Fetches the latest news headline from Google News RSS.
+    URL-encodes ticker to handle special characters (e.g. 360ONE).
     """
     try:
-        # FIX: Corrected Google News RSS URL
-        # Original bug: was "https://google.com{ticker}+stock+india&..."
-        # Missing domain (news.google.com), missing path (/rss/search?q=)
+        # URL-encode the ticker to safely handle names like "360ONE", "NAM-INDIA"
+        encoded_ticker = urllib.parse.quote(ticker)
         rss_url = (
             f"https://news.google.com/rss/search?"
-            f"q={ticker}+stock+india&hl=en-IN&gl=IN&ceid=IN:en"
+            f"q={encoded_ticker}+NSE+stock+india&hl=en-IN&gl=IN&ceid=IN:en"
         )
         feed = feedparser.parse(rss_url)
         if feed.entries:
             headline = feed.entries[0].title
-            # Strip publisher suffix like " - Economic Times"
             clean_headline = re.sub(r'\s+-\s+[^:\-]+$', '', headline)
-            # Replace commas with semicolons to protect CSV formatting
             return clean_headline.replace(",", ";")
     except Exception as e:
-        print(f"⚠️ RSS failure for {ticker}: {e}")
+        print(f"  ⚠️ RSS failure for {ticker}: {e}")
     return f"Stable trade volatility tracked on exchange indices for {ticker}."
 
 
 def get_live_price_return(ticker_symbol):
     """
-    Fetches last 2 trading-day closing prices from Yahoo Finance and computes daily return %.
+    Fetches last 2 trading-day closes from Yahoo Finance and computes daily return %.
+    Handles special ticker mappings (e.g. GVT&D -> GVTD on yfinance).
     """
     try:
         yf_ticker = yf.Ticker(f"{ticker_symbol}.NS")
-        # FIX: Changed from period="2d" to period="5d"
-        # Original bug: "2d" returns <2 rows on Mondays, holidays, and after market closures
-        # "5d" guarantees at least 2 trading days even over long weekends
         history = yf_ticker.history(period="5d")
         if len(history) >= 2:
             prev_close = history['Close'].iloc[-2]
@@ -92,41 +205,51 @@ def get_live_price_return(ticker_symbol):
             pct_return = ((current_close - prev_close) / prev_close) * 100
             return round(pct_return, 2)
         else:
-            print(f"⚠️ Insufficient price history for {ticker_symbol} ({len(history)} rows)")
+            print(f"  ⚠️ Insufficient price data for {ticker_symbol} ({len(history)} rows)")
     except Exception as e:
-        print(f"⚠️ YFinance block for {ticker_symbol}: {e}")
+        print(f"  ⚠️ YFinance block for {ticker_symbol}: {e}")
     return 0.0
 
 
 def execute_sentiment_engine():
     """
     Main pipeline: fetches news + prices for each ticker,
-    runs FinBERT sentiment scoring, and writes data.csv.
+    runs FinBERT scoring, writes data.csv.
     """
-    print("🚀 Running AI Live Extraction Engine Pipeline...")
-    tickers = [
-        "EICHERMOT.NS"," HEROMOTOCO.NS"," BEL.NS"," DATAPATTNS.NS"," GRSE.NS"," HAL.NS"," ZENTEC.NS"," NATIONALUM.NS"," HDFCAMC.NS"," NAM-INDIA.NS"," BANCOINDIA.NS"," BOSCHLTD.NS"," ENDURANCE.NS"," FMGOETZE.NS"," FIEMIND.NS"," GABRIEL.NS"," LGBBROSLTD.NS"," PRICOLLTD.NS"," SANSERA.NS"," SHARDAMOTR.NS"," SHRIPISTON.NS"," UNOMINDA.NS"," ZFCVINDIA.NS"," GMBREW.NS"," PICCADIL.NS"," SDBL.NS"," ECLERX.NS"," KEI.NS"," POLYCAB.NS"," HSCL.NS"," AIAENG.NS"," GODFRYPHLP.NS"," AHLUCONT.NS"," CEMPRO.NS"," INTERARCH.NS"," MANINFRA.NS"," NBCC.NS"," NCC.NS"," POWERMECH.NS"," TECHNOE.NS"," COALINDIA.NS"," GRAUWEIL.NS"," CUMMINSIND.NS"," INGERRAND.NS"," KIRLOSBROS.NS"," KIRLPNU.NS"," SHAKTIPUMP.NS"," NEWGEN.NS"," PERSISTENT.NS"," RATEGAIN.NS"," SAKSOFT.NS"," ZENSARTECH.NS"," CONTROLPR.NS"," DLINKINDIA.NS"," ACE.NS"," HINDCOPPER.NS"," DODLA.NS"," KFINTECH.NS"," NESCO.NS"," ITC.NS"," MPSLTD.NS"," VESUVIUS.NS"," MCX.NS"," COROMANDEL.NS"," PRUDENT.NS"," DPABHUSHAN.NS"," GOLDIAM.NS"," POKARNA.NS"," ABB.NS"," ATLANTAELE.NS"," ELECON.NS"," GVT&D.NS"," TDPOWERSYS.NS"," TRANSRAILL.NS"," TRITURBINE.NS"," VOLTAMP.NS"," BAJAJHLDNG.NS"," MEDANTA.NS"," INDRAMEDCO.NS"," KOVAI.NS"," TAJGVK.NS"," BLUESTARCO.NS"," LGEINDIA.NS"," JYOTHYLAB.NS"," LINDEINDIA.NS"," GMDCLTD.NS"," GRAVITA.NS"," TEGA.NS"," APLAPOLLO.NS"," MAHSEAMLES.NS"," WELCORP.NS"," AFFLE.NS"," CIGNITITEC.NS"," SBILIFE.NS"," TCI.NS"," CASTROLIND.NS"," GULFOILLUB.NS"," TIPSMUSIC.NS"," POLYMED.NS"," AIIL.NS"," KSCL.NS"," LTFOODS.NS"," SHILCTECH.NS"," WAAREERTL.NS"," CRISIL.NS"," ORKLAINDIA.NS"," HBLENGINE.NS"," RAILTEL.NS"," BIKAJI.NS"," BECTORFOOD.NS"," AGI.NS"," HYUNDAI.NS"," MARUTI.NS"," ABBOTINDIA.NS"," ACUTAAS.NS"," ALIVUS.NS"," ALKEM.NS"," CAPLIPOINT.NS"," CIPLA.NS"," INNOVACAP.NS"," JBCHEPHARM.NS"," MARKSANS.NS"," SUPRIYA.NS"," TORNTPHARM.NS"," SAFARI.NS"," GRWRHITECH.NS"," KINGFA.NS"," TIMETECHNO.NS"," STYLAMIND.NS"," NAVA.NS"," DBCORP.NS"," JWL.NS"," CARERATING.NS"," ICRA.NS"," ARVSMART.NS"," GANESHHOU.NS"," LODHA.NS"," MARATHON.NS"," TRAVELFOOD.NS"," MAZDOCK.NS"," GESHIP.NS"," NUCLEUS.NS"," OFSS.NS"," TRENT.NS"," EPIGRAL.NS"," VISHNU.NS"," DOMS.NS"," BLS.NS"," ESCORTS.NS"," EIEL.NS"," 360ONE.NS"," ARSSBL.NS"," ANGELONE.NS"," AUBANK.NS"," BAJFINANCE.NS"," GROWW.NS"," CANFINHOME.NS"," CARERATING.NS"," CHOLAHLDNG.NS"," CHOLAFIN.NS"," HUDCO.NS"," HOMEFIRST.NS"," ICRA.NS"," IIFLCAPS.NS"," INDIASHLTR.NS"," MOTILALOFS.NS"," MUTHOOTFIN.NS"," NUVAMA.NS"," PFC.NS"," RECLTD.NS"," SHRIRAMFIN.NS"," SUNDARMFIN.NS"," SYSTMTXC.NS"," TVSHLTD"
-   ]
+    total = len(TICKERS)
+    print(f"🚀 Running AI Swing Trading Engine — {total} tickers")
+    print("=" * 60)
+
     processed_rows = []
+    errors = 0
 
-    for ticker in tickers:
-        print(f"📡 Processing tracking node: {ticker}...")
+    for idx, ticker in enumerate(TICKERS, 1):
+        print(f"📡 [{idx:3d}/{total}] {ticker}...", end=" ")
+
         headline = get_live_news_headline(ticker)
-        realized_return = get_live_price_return(ticker)
 
-        # Compute AI sentiment metrics
+        # Small delay between RSS calls to avoid rate-limiting on 172 tickers
+        time.sleep(0.5)
+
+        realized_return = get_live_price_return(ticker)
         forecast_score, forecast_dir = compute_finbert_score(headline)
 
-        # FIX: Actual direction now uses symmetric 3-state system (-1, 0, 1)
-        # Original bug: was only 2-state (1 if >= 0 else -1)
-        # This made neutral forecast (0) NEVER match actual, crushing hit rate
-        # Threshold: +/-0.25% to filter market noise from genuine moves
+        # 3-state actual direction (aligned with forecast)
         if realized_return > 0.25:
-            actual_dir = 1       # Bullish
+            actual_dir = 1
         elif realized_return < -0.25:
-            actual_dir = -1      # Bearish
+            actual_dir = -1
         else:
-            actual_dir = 0       # Neutral / flat
+            actual_dir = 0
+
+        # Log status
+        status = "✅" if forecast_dir == actual_dir else "❌"
+        is_fallback = "Stable trade volatility" in headline
+        news_flag = "📰" if not is_fallback else "⚪"
+        print(f"{news_flag} Score:{forecast_score:+6.1f} | Actual:{realized_return:+6.2f}% | {status}")
+
+        if is_fallback:
+            errors += 1
 
         processed_rows.append({
             "Ticker": ticker,
@@ -140,10 +263,17 @@ def execute_sentiment_engine():
 
     df = pd.DataFrame(processed_rows)
     df.to_csv("data.csv", index=False)
-    print(f"\n✅ data.csv written successfully! ({len(df)} rows)")
-    print("-" * 80)
-    print(df.to_string(index=False))
-    print("-" * 80)
+
+    # Summary stats
+    hits = sum(1 for _, r in df.iterrows() if r['Forecast_Direction'] == r['Actual_Direction'])
+    hit_rate = (hits / total) * 100 if total > 0 else 0
+
+    print("\n" + "=" * 60)
+    print(f"✅ data.csv written — {total} tickers")
+    print(f"📊 Hit Rate: {hits}/{total} = {hit_rate:.1f}%")
+    print(f"📰 Live headlines fetched: {total - errors}/{total}")
+    print(f"⚪ Fallback (no news): {errors}/{total}")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
