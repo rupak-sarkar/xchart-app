@@ -95,6 +95,7 @@
         let cachedDataset = []; 
         let countdownTime = 60;
 
+        // Auto Refresh Interval Setup
         setInterval(() => {
             countdownTime--;
             document.getElementById('timer-box').innerText = countdownTime + 's';
@@ -104,6 +105,33 @@
             }
         }, 1000);
 
+        // Native Regex Parser handling quotes and embedded commas flawlessly
+        function parseCSVString(text) {
+            let lines = text.split(/\r\n|\n/);
+            let result = [];
+            if(lines.length === 0 || !lines[0]) return result;
+            
+            // Clean extraction pattern
+            let headers = lines[0].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[0].split(',');
+            headers = headers.map(h => h.replace(/^"|"$/g, '').trim());
+
+            for (let i = 1; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (!line) continue;
+                
+                let obj = {};
+                // Match items inside quotes vs flat blocks
+                let matches = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+                let values = matches.map(v => v.replace(/^"|"$/g, '').trim());
+                
+                headers.forEach((header, index) => {
+                    obj[header] = values[index] !== undefined ? values[index] : null;
+                });
+                result.push(obj);
+            }
+            return result;
+        }
+
         function fetchDataStream() {
             let basePath = window.location.pathname;
             if (!basePath.endsWith('/')) { basePath += '/'; }
@@ -111,30 +139,25 @@
 
             fetch(csvTargetUrl)
                 .then(res => {
-                    if(!res.ok) throw new Error("Dataset read error status tracking block.");
+                    if(!res.ok) throw new Error("Dataset file missing from server route.");
                     return res.text();
                 })
                 .then(csvText => {
-                    const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
-                    if(lines.length <= 1) return;
-                    
-                    // Fixed header parsing line targeting array index 0
-                    const headers = lines[0].split(',');
-                    const parsedRows = [];
-                    
-                    for(let i = 1; i < lines.length; i++) {
-                        const values = lines[i].split(',');
-                        const rowObj = {};
-                        headers.forEach((header, idx) => {
-                            rowObj[header.trim()] = values[idx] ? values[idx].trim() : null;
-                        });
-                        parsedRows.push(rowObj);
+                    cachedDataset = parseCSVString(csvText);
+                    if(cachedDataset.length > 0) {
+                        renderDashboardInterface(cachedDataset);
+                    } else {
+                        document.getElementById('screener-rows').innerHTML = `
+                            <tr><td colspan="4" style="text-align: center; color: #94a3b8; padding: 20px;">Dataset is currently empty. Waiting for Python stream...</td></tr>
+                        `;
                     }
-                    
-                    cachedDataset = parsedRows; 
-                    renderDashboardInterface(cachedDataset);
                 })
-                .catch(err => console.error("Network polling engine sync issue:", err));
+                .catch(err => {
+                    console.error("Sync Engine Failure:", err);
+                    document.getElementById('screener-rows').innerHTML = `
+                        <tr><td colspan="4" style="text-align: center; color: #f87171; padding: 20px;">⚠️ Connection timeout trying to reach data.csv dataset.</td></tr>
+                    `;
+                });
         }
 
         function renderDashboardInterface(data) {
@@ -151,21 +174,3 @@
                         <td class="font-mono text-green-400 font-bold" style="padding: 14px; border-bottom: 1px solid #334155;">${row.Ticker || 'N/A'}</td>
                         <td style="padding: 14px; border-bottom: 1px solid #334155;"><div class="truncate" title="${row.Latest_Headline}">${row.Latest_Headline || 'No feeds loaded.'}</div></td>
                         <td style="text-align: center; padding: 14px; border-bottom: 1px solid #334155;">${row.Repeat_Count || 1}</td>
-                        <td style="text-align: center; padding: 14px; border-bottom: 1px solid #334155;"><div class="rounded ${badgeColor}">${scoreValue.toFixed(1)}</div></td>
-                    </tr>
-                `;
-            });
-
-            const total = data.length;
-            const matches = data.filter(r => intOrZero(r.Forecast_Direction) === intOrZero(r.Actual_Direction)).length;
-            const totalBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1).length;
-            const realBullish = data.filter(r => intOrZero(r.Forecast_Direction) === 1 && intOrZero(r.Actual_Direction) === 1).length;
-
-            document.getElementById('hit-rate').innerText = `${((matches / total) * 100).toFixed(1)}%`;
-            document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish / totalBullish) * 100).toFixed(1) : 0}%`;
-            document.getElementById('total-signals').innerText = `${total} Assets`;
-        }
-
-        function filterWorkspaceRows() {
-            const searchKeyword = document.getElementById('dashboard-search').value.toLowerCase();
-            const filteredRows = cachedDataset.filter(row => {
