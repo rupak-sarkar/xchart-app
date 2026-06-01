@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XChart Analytics Dashboard</title>
-    <!-- CSS and Chart Engine CDNs -->
     <script src="https://jsdelivr.net"></script>
     <script src="https://cloudflare.com"></script>
     <script src="https://plot.ly"></script>
@@ -13,7 +12,7 @@
 
     <div class="max-w-7xl mx-auto">
         <header class="mb-8 border-b border-gray-800 pb-4">
-            <h1 class="text-3xl font-bold text-emerald-400">📊 XChart JavaScript Dashboard</h1>
+            <h1 class="text-3xl font-bold text-emerald-400"> Bars📊 XChart JavaScript Dashboard</h1>
             <p class="text-gray-400 text-sm mt-1">Serverless Analytics Platform Powered by GitHub Pages</p>
         </header>
 
@@ -45,21 +44,28 @@
                         <th class="p-3 text-center">Score</th>
                     </tr>
                 </thead>
-                <tbody id="screener-rows" class="divide-y divide-gray-700"></tbody>
+                <tbody id="screener-rows" class="divide-y divide-gray-700">
+                    <tr><td colspan="4" class="p-4 text-center text-gray-500">Loading metrics network feed...</td></tr>
+                </tbody>
             </table>
         </div>
 
         <!-- Performance Graph -->
         <div class="bg-gray-800 rounded-lg border border-gray-700 p-6">
             <h2 class="text-xl font-bold text-gray-200 mb-4">Live Performance Matrix</h2>
-            <div id="accuracy-chart" class="w-full h-96"></div>
+            <div id="accuracy-chart" class="w-full h-96 flex items-center justify-center text-gray-500">
+                Rendering market chart data...
+            </div>
         </div>
     </div>
 
     <script>
-        // Reads data.csv from your root folder
-        fetch('data.csv')
-            .then(res => res.text())
+        // Cache-busting URL query param ensures you always get the fresh data.csv
+        fetch('data.csv?t=' + new Date().getTime())
+            .then(res => {
+                if(!res.ok) throw new Error("Missing data.csv");
+                return res.text();
+            })
             .then(csvData => {
                 Papa.parse(csvData, {
                     header: true,
@@ -69,63 +75,71 @@
                         processDashboard(results.data);
                     }
                 });
+            })
+            .catch(err => {
+                document.getElementById('screener-rows').innerHTML = `
+                    <tr><td colspan="4" class="p-4 text-center text-rose-400 font-semibold">⚠️ Failed to load dataset. Verify data.csv is inside the repository root.</td></tr>
+                `;
             });
 
         function processDashboard(data) {
             const tableBody = document.getElementById('screener-rows');
+            tableBody.innerHTML = ""; 
             
-            // Separate data out using the blank Actual_Direction column
-            const active = data.filter(r => r.Actual_Direction === null || r.Actual_Direction === undefined || r.Actual_Direction === '');
-            const history = data.filter(r => r.Actual_Direction !== null && r.Actual_Direction !== undefined && r.Actual_Direction !== '');
+            if(!data || data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">The generated data.csv file is empty.</td></tr>`;
+                return;
+            }
 
-            // Populate JS Interactive Table
-            active.forEach(row => {
-                let badgeColor = row.Forecast_Score > 15 ? 'bg-emerald-950 text-emerald-300' : (row.Forecast_Score < -15 ? 'bg-rose-950 text-rose-300' : 'text-gray-300');
+            // Populate Table
+            data.forEach(row => {
+                let scoreValue = row.Forecast_Score ? parseFloat(row.Forecast_Score) : 0;
+                let badgeColor = scoreValue > 15 ? 'bg-emerald-950 text-emerald-300' : (scoreValue < -15 ? 'bg-rose-950 text-rose-300' : 'text-gray-300');
+                
                 tableBody.innerHTML += `
                     <tr class="hover:bg-gray-700/50 transition">
-                        <td class="p-3 font-mono text-emerald-400 font-bold">${row.Ticker}</td>
-                        <td class="p-3 text-gray-300 truncate max-w-md">${row.Latest_Headline}</td>
+                        <td class="p-3 font-mono text-emerald-400 font-bold">${row.Ticker || 'N/A'}</td>
+                        <td class="p-3 text-gray-300 truncate max-w-md">${row.Latest_Headline || 'No news feed logged.'}</td>
                         <td class="p-3 text-center">${row.Repeat_Count || 1}</td>
-                        <td class="p-3 text-center rounded ${badgeColor} font-semibold">${row.Forecast_Score.toFixed(1)}</td>
+                        <td class="p-3 text-center rounded ${badgeColor} font-semibold">${scoreValue.toFixed(1)}</td>
                     </tr>
                 `;
             });
 
-            // Calculate historical validation stats
-            if (history.length > 0) {
-                const total = history.length;
-                const matches = history.filter(r => r.Forecast_Direction === r.Actual_Direction).length;
-                const totalBullish = history.filter(r => r.Forecast_Direction === 1).length;
-                const realBullish = history.filter(r => r.Forecast_Direction === 1 && r.Actual_Direction === 1).length;
+            // Summary KPI Stats Calculations
+            const total = data.length;
+            const matches = data.filter(r => r.Forecast_Direction === r.Actual_Direction).length;
+            const totalBullish = data.filter(r => r.Forecast_Direction === 1).length;
+            const realBullish = data.filter(r => r.Forecast_Direction === 1 && r.Actual_Direction === 1).length;
 
-                document.getElementById('hit-rate').innerText = `${((matches/total)*100).toFixed(1)}%`;
-                document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish/totalBullish)*100).toFixed(1) : 0}%`;
-                document.getElementById('total-signals').innerText = `${total} items`;
+            document.getElementById('hit-rate').innerText = `${((matches / total) * 100).toFixed(1)}%`;
+            document.getElementById('bullish-precision').innerText = `${totalBullish > 0 ? ((realBullish / totalBullish) * 100).toFixed(1) : 0}%`;
+            document.getElementById('total-signals').innerText = `${total} items`;
 
-                // Render dynamic Plotly scatter plot
-                const trace = {
-                    x: history.map(r => r.Forecast_Score),
-                    y: history.map(r => r.Actual_Return_Pct),
-                    mode: 'markers',
-                    type: 'scatter',
-                    text: history.map(r => r.Ticker),
-                    marker: {
-                        size: 14,
-                        color: history.map(r => r.Forecast_Direction === r.Actual_Direction ? '#10B981' : '#EF4444'),
-                        line: { color: '#1F2937', width: 2 }
-                    }
-                };
+            // Render Chart
+            const trace = {
+                x: data.map(r => r.Forecast_Score),
+                y: data.map(r => r.Actual_Return_Pct),
+                mode: 'markers',
+                type: 'scatter',
+                text: data.map(r => r.Ticker),
+                marker: {
+                    size: 14,
+                    color: data.map(r => r.Forecast_Direction === r.Actual_Direction ? '#10B981' : '#EF4444'),
+                    line: { color: '#1F2937', width: 2 }
+                }
+            };
 
-                const layout = {
-                    paper_bgcolor: 'rgba(0,0,0,0)',
-                    plot_bgcolor: 'rgba(0,0,0,0)',
-                    xaxis: { title: 'Forecast Score', gridcolor: '#374151', color: '#9CA3AF' },
-                    yaxis: { title: 'Realized Return %', gridcolor: '#374151', color: '#9CA3AF' },
-                    margin: { t: 10, r: 10, b: 40, l: 40 }
-                };
+            const layout = {
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                xaxis: { title: 'Forecast Score', gridcolor: '#374151', color: '#9CA3AF' },
+                yaxis: { title: 'Realized Return %', gridcolor: '#374151', color: '#9CA3AF' },
+                margin: { t: 20, r: 20, b: 40, l: 40 }
+            };
 
-                Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
-            }
+            document.getElementById('accuracy-chart').innerHTML = "";
+            Plotly.newPlot('accuracy-chart', [trace], layout, {responsive: true});
         }
     </script>
 </body>
