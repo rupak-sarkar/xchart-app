@@ -26,17 +26,16 @@ print(f"News window: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%Y-%m-%d %
 TICKERS_FILE = "tickers.csv"
 HISTORY_FILE = "history.csv"
 DATA_FILE = "data.csv"
-SOURCE_LABELS = {"mc_topnews":"Moneycontrol","mc_business":"Moneycontrol","mc_markets":"Moneycontrol","mc_stocks":"Moneycontrol","et_markets":"Economic Times","et_stocks":"Economic Times","et_news":"Economic Times","ndtv_business":"NDTV Profit","mint_market":"LiveMint","mint_companies":"LiveMint","nse_announce":"NSE Official","nse_actions":"NSE Official","yfinance":"Yahoo Finance","google":"Google News"}
-SOURCE_SEARCH_URLS = {"Moneycontrol":"https://www.moneycontrol.com/news/tags/{ticker}.html","Economic Times":"https://economictimes.indiatimes.com/topic/{ticker}","NDTV Profit":"https://www.ndtvprofit.com/search?q={ticker}","LiveMint":"https://www.livemint.com/Search/Link/Keyword/{ticker}","NSE Official":"https://www.nseindia.com/get-quotes/equity?symbol={ticker}","Yahoo Finance":"https://finance.yahoo.com/quote/{ticker}.NS/news/","Google News":"https://news.google.com/search?q={ticker}+NSE+stock+india&hl=en-IN"}
-SOURCE_WEIGHTS = {"mc_topnews":1.5,"mc_business":1.3,"mc_markets":1.2,"mc_stocks":1.2,"et_markets":1.4,"et_stocks":1.3,"et_news":1.3,"ndtv_business":1.2,"mint_market":1.2,"mint_companies":1.1,"nse_announce":0.8,"nse_actions":0.7,"yfinance":1.0,"google":1.0}
+SOURCE_LABELS = {"mc_topnews":"Moneycontrol","mc_business":"Moneycontrol","mc_markets":"Moneycontrol","mc_stocks":"Moneycontrol","et_markets":"Economic Times","et_stocks":"Economic Times","et_news":"Economic Times","ndtv_business":"NDTV Profit","mint_market":"LiveMint","mint_companies":"LiveMint","nse_announce":"NSE Official","nse_actions":"NSE Official","fe_markets":"Financial Express","fe_companies":"Financial Express","bl_markets":"BusinessLine","bl_stocks":"BusinessLine","bl_companies":"BusinessLine","yfinance":"Yahoo Finance","google":"Google News"}
+SOURCE_SEARCH_URLS = {"Moneycontrol":"https://www.moneycontrol.com/news/tags/{ticker}.html","Economic Times":"https://economictimes.indiatimes.com/topic/{ticker}","NDTV Profit":"https://www.ndtvprofit.com/search?q={ticker}","LiveMint":"https://www.livemint.com/Search/Link/Keyword/{ticker}","NSE Official":"https://www.nseindia.com/get-quotes/equity?symbol={ticker}","Yahoo Finance":"https://finance.yahoo.com/quote/{ticker}.NS/news/","Google News":"https://news.google.com/search?q={ticker}+NSE+stock+india&hl=en-IN","Financial Express":"https://www.financialexpress.com/about/{ticker}/","BusinessLine":"https://www.thehindubusinessline.com/topic/{ticker}/"}
+SOURCE_WEIGHTS = {"mc_topnews":1.5,"mc_business":1.3,"mc_markets":1.2,"mc_stocks":1.2,"et_markets":1.4,"et_stocks":1.3,"et_news":1.3,"ndtv_business":1.2,"mint_market":1.2,"mint_companies":1.1,"nse_announce":0.8,"nse_actions":0.7,"fe_markets":1.3,"fe_companies":1.2,"bl_markets":1.3,"bl_stocks":1.3,"bl_companies":1.2,"yfinance":1.0,"google":1.0}
 NSE_SOURCES = {"nse_announce","nse_actions"}
-ALL_FEEDS = {"mc_topnews":"https://www.moneycontrol.com/rss/MCtopnews.xml","mc_business":"https://www.moneycontrol.com/rss/business.xml","mc_markets":"https://www.moneycontrol.com/rss/marketreports.xml","mc_stocks":"https://www.moneycontrol.com/rss/latestnews.xml","et_markets":"https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms","et_stocks":"https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms","et_news":"https://economictimes.indiatimes.com/markets/stocks/news/rssfeeds/2146843.cms","ndtv_business":"https://feeds.feedburner.com/ndtvprofit-latest","mint_market":"https://www.livemint.com/rss/market","mint_companies":"https://www.livemint.com/rss/companies","nse_announce":"https://archives.nseindia.com/content/RSS/Online_announcements.xml","nse_actions":"https://nsearchives.nseindia.com/content/RSS/Corporate_action.xml"}
+ALL_FEEDS = {"mc_topnews":"https://www.moneycontrol.com/rss/MCtopnews.xml","mc_business":"https://www.moneycontrol.com/rss/business.xml","mc_markets":"https://www.moneycontrol.com/rss/marketreports.xml","mc_stocks":"https://www.moneycontrol.com/rss/latestnews.xml","et_markets":"https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms","et_stocks":"https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms","et_news":"https://economictimes.indiatimes.com/markets/stocks/news/rssfeeds/2146843.cms","ndtv_business":"https://feeds.feedburner.com/ndtvprofit-latest","mint_market":"https://www.livemint.com/rss/market","mint_companies":"https://www.livemint.com/rss/companies","nse_announce":"https://archives.nseindia.com/content/RSS/Online_announcements.xml","nse_actions":"https://nsearchives.nseindia.com/content/RSS/Corporate_action.xml","fe_markets":"https://www.financialexpress.com/market/feed/","fe_companies":"https://www.financialexpress.com/industry/companies/feed/","bl_markets":"https://www.thehindubusinessline.com/markets/feeder/default.rss","bl_stocks":"https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss","bl_companies":"https://www.thehindubusinessline.com/companies/feeder/default.rss"}
 NSE_NOISE_KEYWORDS = ["board meeting intimation","intimation of board meeting","outcome of board meeting","disclosure under regulation","regulation 30","regulation 29","regulation 31","regulation 32","compliance certificate","corporate governance","annual report","annual return","change of address","change in registered office","newspaper publication","notice of agm","notice of egm","proceedings of agm","proceedings of egm","general meeting","book closure","cessation of","appointment of company secretary","secretarial compliance","reconciliation of share capital","statement of investor complaints","certificate under regulation","disclosure of related party","prior intimation","loss of share certificate","duplicate share certificate","investor grievance","shareholder meeting","postal ballot","e-voting","investor presentation","analyst meet","credit facility"]
 NSE_ACTIONABLE_KEYWORDS = ["financial results","quarterly results","annual results","profit","revenue","turnover","ebitda","net income","earnings","results for the quarter","results for the year","audited results","unaudited results","standalone results","consolidated results","order","contract","awarded","received order","order win","letter of intent","loi","work order","dividend","interim dividend","final dividend","special dividend","buyback","buy back","share repurchase","bonus","bonus issue","bonus shares","stock split","sub-division","acquisition","acquire","merger","amalgamation","takeover","joint venture","partnership","subsidiary","disinvestment","stake sale","mou","memorandum of understanding","qip","qualified institutional","rights issue","preferential allotment","warrants","fpo","fundraise","fund raise","capital raise","credit rating","rating upgrade","rating downgrade","crisil","icra","care rating","india ratings","outlook revised","rating assigned","promoter","insider trading","acquisition of shares","disposal of shares","pledge","encumbrance","substantial acquisition","expansion","capacity","capex","capital expenditure","new plant","commissioning","production commenced","commercial production","managing director","chief executive","ceo","cfo","cto","whole time director","resignation of","appointment of managing","appointment of chief","sebi order","penalty","fine","adjudication","suspension","debarment","default","npa","restructuring","insolvency","nclt","resolution plan","fire","accident","force majeure","shutdown","export order","import duty","anti-dumping"]
 SHORT_TERM_KEYWORDS = ["quarterly","q1","q2","q3","q4","results","earnings","profit","loss","revenue","ebitda","net income","beat","miss","estimate","buyback","dividend","bonus","split","record date","ex-date","upgrade","downgrade","target price","rating","outlook","block deal","bulk deal","insider","promoter","stake","order win","order book","contract","awarded"]
 LONG_TERM_KEYWORDS = ["expansion","capacity","capex","capital expenditure","plant","acquisition","acquire","merger","amalgamation","takeover","partnership","joint venture","collaboration","mou","agreement","regulation","policy","government","sebi","rbi","ministry","restructuring","demerger","spin-off","reorganization","ipo","listing","qip","fpo","rights issue","fundraise","technology","ai","digital","automation","innovation","market entry","new segment","diversification","subsidiary","debt","credit rating","refinancing","npa","provisioning","esg","sustainability","carbon","green energy","renewable"]
 COMPANY_ALIASES = {"EICHER MOTORS":"EICHERMOT","EICHER":"EICHERMOT","HERO MOTOCORP":"HEROMOTOCO","HERO MOTO":"HEROMOTOCO","MARUTI SUZUKI":"MARUTI","ESCORTS KUBOTA":"ESCORTS","BOSCH":"BOSCHLTD","BHARAT ELECTRONICS":"BEL","DATA PATTERNS":"DATAPATTNS","GARDEN REACH":"GRSE","HINDUSTAN AERONAUTICS":"HAL","MAZAGON DOCK":"MAZDOCK","PERSISTENT SYSTEMS":"PERSISTENT","ZENSAR":"ZENSARTECH","COFORGE":"COFORGE","NATIONAL ALUMINIUM":"NATIONALUM","NALCO":"NATIONALUM","HINDUSTAN COPPER":"HINDCOPPER","COAL INDIA":"COALINDIA","HDFC AMC":"HDFCAMC","ANGEL ONE":"ANGELONE","MOTILAL OSWAL":"MOTILALOFS","CRISIL":"CRISIL","CARE RATINGS":"CARERATING","ICRA":"ICRA","ITC":"ITC","JYOTHY LABS":"JYOTHYLAB","KEI INDUSTRIES":"KEI","POLYCAB":"POLYCAB","NBCC":"NBCC","NCC":"NCC","CUMMINS INDIA":"CUMMINSIND","ABB":"ABB","ABB INDIA":"ABB","POWER FINANCE":"PFC","REC LTD":"RECLTD","GLOBAL HEALTH":"MEDANTA","BLUE STAR":"BLUESTARCO","LINDE INDIA":"LINDEINDIA","SBI LIFE":"SBILIFE","CASTROL":"CASTROLIND","COROMANDEL":"COROMANDEL","ABBOTT INDIA":"ABBOTINDIA","ALKEM":"ALKEM","CIPLA":"CIPLA","TORRENT PHARMA":"TORNTPHARM","SAFARI INDUSTRIES":"SAFARI","TRENT":"TRENT","LODHA":"LODHA","MACROTECH":"LODHA","BAJAJ FINANCE":"BAJFINANCE","AU SMALL FINANCE":"AUBANK","CHOLAMANDALAM":"CHOLAFIN","MUTHOOT FINANCE":"MUTHOOTFIN","SHRIRAM FINANCE":"SHRIRAMFIN","SUNDARAM FINANCE":"SUNDARMFIN","HUDCO":"HUDCO","MCX":"MCX","GRAVITA":"GRAVITA","APL APOLLO":"APLAPOLLO","AFFLE":"AFFLE","HYUNDAI":"HYUNDAI","BIKAJI":"BIKAJI","ORACLE FINANCIAL":"OFSS","BAJAJ HOLDINGS":"BAJAJHLDNG","RAILTEL":"RAILTEL","DOMS":"DOMS","DODLA DAIRY":"DODLA","LT FOODS":"LTFOODS","WELSPUN CORP":"WELCORP","INGERSOLL RAND":"INGERRAND","KIRLOSKAR":"KIRLOSBROS","SHAKTI PUMPS":"SHAKTIPUMP","TD POWER SYSTEMS":"TDPOWERSYS","UNO MINDA":"UNOMINDA","HOME FIRST":"HOMEFIRST","CAN FIN HOMES":"CANFINHOME","NUVAMA":"NUVAMA","GROWW":"GROWW","TEGA":"TEGA","ENDURANCE":"ENDURANCE","SANSERA":"SANSERA","TIPS MUSIC":"TIPSMUSIC","GOLDIAM":"GOLDIAM","NEWGEN":"NEWGEN","RATEGAIN":"RATEGAIN","ECLERX":"ECLERX","VOLTAMP":"VOLTAMP","ELECON":"ELECON","PRUDENT":"PRUDENT","MARKSANS":"MARKSANS","SUPRIYA":"SUPRIYA","MARATHON":"MARATHON"}
-
 REPORTING_VERBS = {"surged","surges","surge","jumped","jumps","jump","rallied","rallies","rally","soared","soars","soar","rose","rises","crashed","crashes","crash","fell","falls","fall","dropped","drops","drop","tumbled","tumbles","tumble","plunged","plunges","plunge","sank","sinks","sink","declined","declines","decline","slipped","slips","slip","gained","gains","gain","lost","loses","lose","climbed","climbs","climb","advanced","advances","advance","retreated","retreats","tanked","tanks","zoomed","zooms","skyrocketed","nosedived"}
 PRICE_CONTEXT = {"share","shares","stock","stocks","scrip","counter","sensex","nifty","market","index","indices","bse","nse","trading","trade","session","intraday","today","morning","afternoon","week","high","low","close","closed","closing","open","opened"}
 CATALYST_VERBS = {"wins","win","won","awarded","receives","received","secures","secured","acquires","acquired","acquire","merges","merged","merge","approves","approved","approve","clears","cleared","clear","launches","launched","launch","plans","planned","plan","expands","expanded","expand","invests","invested","invest","raises","raised","raise","signs","signed","sign","partners","partnered","partner","enters","entered","enter","files","filed","file","announces","announced","announce","declares","declared","declare","recommends","recommended","upgrades","upgraded","upgrade","downgrades","downgraded","downgrade","appoints","appointed","appoint","resigns","resigned","resign","penalizes","penalized","fines","fined","suspends","suspended","bans","banned","restructures","restructured","defaults","defaulted","commissions","commissioned","inaugurates","inaugurated","divests","divested","demerges","demerged"}
@@ -49,228 +48,203 @@ def classify_headline(headline, actual_return=None):
     if pct_matches and actual_return is not None:
         for ps in pct_matches:
             try:
-                hp = float(ps)
-                if abs(hp - abs(actual_return)) < 3.0: return "reporting", f"% match ({hp}% vs {actual_return}%)"
+                if abs(float(ps) - abs(actual_return)) < 3.0: return "reporting", "% match"
             except: pass
-    has_rv = bool(words & REPORTING_VERBS)
-    has_pc = bool(words & PRICE_CONTEXT)
-    has_pct = bool(re.search(r'\d+\.?\d*\s*%', text))
+    has_rv = bool(words & REPORTING_VERBS); has_pc = bool(words & PRICE_CONTEXT); has_pct = bool(re.search(r'\d+\.?\d*\s*%', text))
     if has_rv and has_pc and has_pct: return "reporting", "verb+context+%"
     if has_rv and has_pc: return "reporting", "verb+context"
-    if bool(words & CATALYST_VERBS): return "predictive", "catalyst verb"
-    if bool(words & SECTOR_IMPACT_WORDS): return "predictive", "sector impact"
-    if has_rv and has_pct: return "reporting", "verb+% no catalyst"
+    if bool(words & CATALYST_VERBS): return "predictive", "catalyst"
+    if bool(words & SECTOR_IMPACT_WORDS): return "predictive", "sector"
+    if has_rv and has_pct: return "reporting", "verb+%"
     for kw in NSE_ACTIONABLE_KEYWORDS:
-        if kw in text: return "predictive", f"actionable: {kw}"
-    return "predictive", "default pass"
+        if kw in text: return "predictive", "actionable"
+    return "predictive", "default"
 
-def classify_nse_headline(headline):
-    text = headline.lower()
+def classify_nse_headline(hl):
+    t = hl.lower()
     for kw in NSE_ACTIONABLE_KEYWORDS:
-        if kw in text: return "actionable"
+        if kw in t: return "actionable"
     for kw in NSE_NOISE_KEYWORDS:
-        if kw in text: return "noise"
+        if kw in t: return "noise"
     return "noise"
 
-def classify_severity(score):
-    if score >= 60: return "Very Bullish"
-    elif score >= 25: return "Bullish"
-    elif score >= 5: return "Mildly Bullish"
-    elif score >= -5: return "Neutral"
-    elif score >= -25: return "Mildly Bearish"
-    elif score >= -60: return "Bearish"
+def classify_severity(s):
+    if s>=60: return "Very Bullish"
+    elif s>=25: return "Bullish"
+    elif s>=5: return "Mildly Bullish"
+    elif s>=-5: return "Neutral"
+    elif s>=-25: return "Mildly Bearish"
+    elif s>=-60: return "Bearish"
     else: return "Very Bearish"
 
 def classify_impact(entries):
-    combined = " ".join(e["headline"] for e in entries).lower()
-    s = sum(1 for kw in SHORT_TERM_KEYWORDS if kw in combined)
-    l = sum(1 for kw in LONG_TERM_KEYWORDS if kw in combined)
-    if s > 0 and l > 0: return "Both"
-    elif l > 0: return "Long-term"
-    elif s > 0: return "Short-term"
-    else: return "Short-term"
+    c = " ".join(e["headline"] for e in entries).lower()
+    s = sum(1 for kw in SHORT_TERM_KEYWORDS if kw in c); l = sum(1 for kw in LONG_TERM_KEYWORDS if kw in c)
+    if s>0 and l>0: return "Both"
+    elif l>0: return "Long-term"
+    elif s>0: return "Short-term"
+    return "Short-term"
 
 def extract_pub_datetime_full(entry):
-    parsed = entry.get("published_parsed") or entry.get("updated_parsed")
-    if parsed:
+    p = entry.get("published_parsed") or entry.get("updated_parsed")
+    if p:
         try:
-            dt_utc = datetime(*parsed[:6], tzinfo=timezone.utc)
-            dt_ist = dt_utc.astimezone(IST)
-            return dt_ist, dt_ist.strftime("%d %b %Y %I:%M %p")
+            d = datetime(*p[:6], tzinfo=timezone.utc).astimezone(IST)
+            return d, d.strftime("%d %b %Y %I:%M %p")
         except: pass
     return None, ""
 
-def extract_news_url(entry):
-    return entry.get("link", entry.get("id", ""))
+def extract_news_url(e): return e.get("link", e.get("id", ""))
 
-def is_in_news_window(dt_ist):
-    if dt_ist is None: return True
-    news_start = datetime.combine(NEWS_START_DATE, datetime.min.time()).replace(tzinfo=IST)
-    return news_start <= dt_ist <= NEWS_CUTOFF_TIME
+def is_in_news_window(d):
+    if d is None: return True
+    return datetime.combine(NEWS_START_DATE, datetime.min.time()).replace(tzinfo=IST) <= d <= NEWS_CUTOFF_TIME
 
-def get_source_search_url(source_label, ticker):
-    t = SOURCE_SEARCH_URLS.get(source_label, "")
-    return t.replace("{ticker}", ticker) if t else ""
+def get_source_search_url(sl, tk):
+    t = SOURCE_SEARCH_URLS.get(sl, ""); return t.replace("{ticker}", tk) if t else ""
 
 def fetch_rss_with_headers(url, label, timeout=15):
     try:
-        r = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout)
-        r.raise_for_status()
+        r = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout); r.raise_for_status()
         return feedparser.parse(r.content)
     except requests.exceptions.RequestException as e:
         print(f"   {label}: {e}")
         try: return feedparser.parse(url)
         except: return None
 
-def match_ticker_in_text(text_upper, tickers_list):
-    for t in sorted(tickers_list, key=len, reverse=True):
-        if re.search(r'\b' + re.escape(t.upper()) + r'\b', text_upper): return t
-    for alias, t in COMPANY_ALIASES.items():
-        if alias in text_upper and t in tickers_list: return t
+def match_ticker_in_text(tu, tl):
+    for t in sorted(tl, key=len, reverse=True):
+        if re.search(r'\b' + re.escape(t.upper()) + r'\b', tu): return t
+    for a, t in COMPANY_ALIASES.items():
+        if a in tu and t in tl: return t
     return None
 
 def load_tickers():
     if os.path.exists(TICKERS_FILE):
         try:
             df = pd.read_csv(TICKERS_FILE); df.columns = df.columns.str.strip()
-            if 'Ticker' not in df.columns: df.rename(columns={df.columns[0]: 'Ticker'}, inplace=True)
-            tickers = [t.replace('.NS','') for t in df['Ticker'].dropna().str.strip().str.upper().tolist() if t]
-            seen = set(); unique = []
-            for t in tickers:
-                if t not in seen: seen.add(t); unique.append(t)
-            sector_map = {}
+            if 'Ticker' not in df.columns: df.rename(columns={df.columns[0]:'Ticker'}, inplace=True)
+            tks = [t.replace('.NS','') for t in df['Ticker'].dropna().str.strip().str.upper().tolist() if t]
+            s = set(); u = []
+            for t in tks:
+                if t not in s: s.add(t); u.append(t)
+            sm = {}
             if 'Sector' in df.columns:
-                for _, row in df.iterrows():
-                    tk = str(row['Ticker']).strip().upper().replace('.NS','')
-                    sec = str(row.get('Sector','')).strip()
-                    if tk and sec: sector_map[tk] = sec
-            print(f"Loaded {len(unique)} tickers from {TICKERS_FILE}")
-            return unique, sector_map
+                for _, r in df.iterrows():
+                    tk = str(r['Ticker']).strip().upper().replace('.NS',''); sc = str(r.get('Sector','')).strip()
+                    if tk and sc: sm[tk] = sc
+            print(f"Loaded {len(u)} tickers from {TICKERS_FILE}"); return u, sm
         except Exception as e: print(f"Error: {e}")
-    print(f"WARNING: {TICKERS_FILE} not found!")
     return ["RELIANCE","TCS","INFY","HDFCBANK","SBIN","ICICIBANK","ITC"], {}
 
-def score_single_headline(headline):
-    if not headline: return 0.0
+def score_single_headline(hl):
+    if not hl: return 0.0
     try:
-        inputs = tokenizer([headline], padding=True, truncation=True, max_length=512, return_tensors="pt")
-        with torch.no_grad(): outputs = model(**inputs)
-        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        return (probs[0][0].item() - probs[0][1].item()) * 100.0
+        i = tokenizer([hl], padding=True, truncation=True, max_length=512, return_tensors="pt")
+        with torch.no_grad(): o = model(**i)
+        p = torch.nn.functional.softmax(o.logits, dim=-1)
+        return (p[0][0].item() - p[0][1].item()) * 100.0
     except: return 0.0
 
 def compute_aggregated_score(entries):
     if not entries: return 0.0, 0
-    tw = 0.0; ws = 0.0
-    for e in entries:
-        raw = score_single_headline(e["headline"]); w = e.get("weight", 1.0)
-        ws += raw * w; tw += w
-    if tw == 0: return 0.0, 0
-    score = ws / tw
-    if score > 5.0: d = 1
-    elif score < -5.0: d = -1
-    else: d = 0
-    return round(score, 1), d
+    tw=0.0; ws=0.0
+    for e in entries: r=score_single_headline(e["headline"]); w=e.get("weight",1.0); ws+=r*w; tw+=w
+    if tw==0: return 0.0, 0
+    s = ws/tw
+    return round(s,1), 1 if s>5 else (-1 if s<-5 else 0)
 
-def get_live_price_return(ticker):
+def get_live_price_return(tk):
     try:
-        h = yf.Ticker(f"{ticker}.NS").history(period="5d")
-        if len(h) >= 2: return round(((h['Close'].iloc[-1] - h['Close'].iloc[-2]) / h['Close'].iloc[-2]) * 100, 2)
+        h = yf.Ticker(f"{tk}.NS").history(period="5d")
+        if len(h)>=2: return round(((h['Close'].iloc[-1]-h['Close'].iloc[-2])/h['Close'].iloc[-2])*100, 2)
     except: pass
     return 0.0
 
-def build_news_cache(tickers_list):
-    cache = {}
-    stats = {"scanned":0,"in_window":0,"reporting":0,"nse_noise":0,"kept":0,"stale":0}
+def build_news_cache(tl):
+    cache={}; st={"sc":0,"iw":0,"rp":0,"nn":0,"kp":0,"sl":0}
     for sk, url in ALL_FEEDS.items():
-        print(f"Fetching {sk}...")
-        feed = fetch_rss_with_headers(url, sk)
+        print(f"Fetching {sk}..."); feed=fetch_rss_with_headers(url,sk)
         if not feed or not feed.entries: print(f"   {sk}: No entries"); continue
-        mc=0; rpt=0; stc=0; nc=0
+        mc=0; rp=0; stc=0; nc=0
         for entry in feed.entries:
-            title = entry.get("title",""); desc = entry.get("description",entry.get("summary",""))
-            ft = f"{title} {desc}".upper()
-            mt = match_ticker_in_text(ft, tickers_list)
+            title=entry.get("title",""); desc=entry.get("description",entry.get("summary",""))
+            ft=f"{title} {desc}".upper(); mt=match_ticker_in_text(ft,tl)
             if not mt or not title.strip(): continue
-            stats["scanned"] += 1
-            dt_ist, pt = extract_pub_datetime_full(entry)
-            if not is_in_news_window(dt_ist): stc+=1; stats["stale"]+=1; continue
-            stats["in_window"] += 1
-            hl = title.strip().replace(",",";"); nu = extract_news_url(entry)
-            hc, _ = classify_headline(hl)
-            if hc == "reporting": rpt+=1; stats["reporting"]+=1; continue
+            st["sc"]+=1; di,pt=extract_pub_datetime_full(entry)
+            if not is_in_news_window(di): stc+=1; st["sl"]+=1; continue
+            st["iw"]+=1; hl=title.strip().replace(",",";"); nu=extract_news_url(entry)
+            hc,_=classify_headline(hl)
+            if hc=="reporting": rp+=1; st["rp"]+=1; continue
             if sk in NSE_SOURCES:
-                nc2 = classify_nse_headline(hl)
-                if nc2 == "noise":
-                    nc+=1; stats["nse_noise"]+=1
-                    fk = f"_filing_{mt}"
-                    if fk not in cache: cache[fk] = []
+                if classify_nse_headline(hl)=="noise":
+                    nc+=1; st["nn"]+=1; fk=f"_filing_{mt}"
+                    if fk not in cache: cache[fk]=[]
                     cache[fk].append({"headline":hl,"source":sk,"pub_time":pt,"weight":0.0,"nse_class":"noise","news_url":nu})
                     continue
-            w = SOURCE_WEIGHTS.get(sk, 1.0)
-            ex = cache.get(mt, [])
+            w=SOURCE_WEIGHTS.get(sk,1.0); ex=cache.get(mt,[])
             if not any(e["headline"].lower()==hl.lower() for e in ex):
-                if mt not in cache: cache[mt] = []
-                cache[mt].append({"headline":hl,"source":sk,"pub_time":pt,"weight":w,"nse_class":"actionable" if sk in NSE_SOURCES else "news","news_url":nu})
-                mc+=1; stats["kept"]+=1
-        notes = []
+                if mt not in cache: cache[mt]=[]
+                cache[mt].append({"headline":hl,"source":sk,"pub_time":pt,"weight":w,"nse_class":"actionable" if sk in NSE_SOURCES else "news","news_url":nu}); mc+=1; st["kp"]+=1
+        notes=[]
         if stc: notes.append(f"{stc} outside window")
-        if rpt: notes.append(f"{rpt} reporting")
+        if rp: notes.append(f"{rp} reporting")
         if nc: notes.append(f"{nc} NSE noise")
-        print(f"   {sk}: {mc} predictive from {len(feed.entries)}" + (f" ({', '.join(notes)})" if notes else ""))
+        print(f"   {sk}: {mc} predictive from {len(feed.entries)}"+(f" ({', '.join(notes)})" if notes else ""))
         time.sleep(0.3)
-    real = {k for k in cache if not k.startswith("_filing_")}
-    print(f"\nCache: {len(real)}/{len(tickers_list)} predictive | Scanned:{stats['scanned']} Reporting:{stats['reporting']} NSEnoise:{stats['nse_noise']} Kept:{stats['kept']}")
+    rl={k for k in cache if not k.startswith("_filing_")}
+    print(f"\nCache: {len(rl)}/{len(tl)} predictive | Scanned:{st['sc']} Reporting:{st['rp']} NSEnoise:{st['nn']} Kept:{st['kp']}")
     return cache
 
-def get_yfinance_news(ticker, actual_return=None):
+
+def get_yfinance_news(tk, ar=None):
     try:
-        news = getattr(yf.Ticker(f"{ticker}.NS"), 'news', None)
+        news = getattr(yf.Ticker(f"{tk}.NS"), 'news', None)
         if news and isinstance(news, list):
             for item in news:
                 if not isinstance(item, dict): continue
                 hl = item.get("title",item.get("headline",""))
                 if not hl: continue
-                hc, _ = classify_headline(hl, actual_return)
-                if hc == "reporting": continue
+                hc,_ = classify_headline(hl, ar)
+                if hc=="reporting": continue
                 nu = item.get("link",item.get("url",""))
                 pts = item.get("providerPublishTime") or item.get("publish_time")
-                pt=""; dt_ist=None
+                pt=""; di=None
                 if pts:
-                    try: dt_ist=datetime.fromtimestamp(int(pts),tz=IST); pt=dt_ist.strftime("%d %b %Y %I:%M %p")
+                    try: di=datetime.fromtimestamp(int(pts),tz=IST); pt=di.strftime("%d %b %Y %I:%M %p")
                     except: pass
-                if is_in_news_window(dt_ist): return hl.replace(",",";"), pt, nu
+                if is_in_news_window(di): return hl.replace(",",";"), pt, nu
     except: pass
     return None, "", ""
 
-def get_google_news(ticker, actual_return=None):
+def get_google_news(tk, ar=None):
     try:
-        url = f"https://news.google.com/rss/search?q={urllib.parse.quote(ticker)}+NSE+stock+india&hl=en-IN&gl=IN&ceid=IN:en"
-        feed = fetch_rss_with_headers(url, f"gg_{ticker}", timeout=8)
+        url = f"https://news.google.com/rss/search?q={urllib.parse.quote(tk)}+NSE+stock+india&hl=en-IN&gl=IN&ceid=IN:en"
+        feed = fetch_rss_with_headers(url, f"gg_{tk}", timeout=8)
         if feed and feed.entries:
             for entry in feed.entries[:5]:
-                dt_ist, pt = extract_pub_datetime_full(entry)
-                if not is_in_news_window(dt_ist): continue
+                di, pt = extract_pub_datetime_full(entry)
+                if not is_in_news_window(di): continue
                 hl = re.sub(r'\s+-\s+[^:\-]+$', '', entry.title)
-                hc, _ = classify_headline(hl, actual_return)
-                if hc == "reporting": continue
+                hc,_ = classify_headline(hl, ar)
+                if hc=="reporting": continue
                 return hl.replace(",",";"), pt, extract_news_url(entry)
     except: pass
     return None, "", ""
 
-def get_all_fresh_news(ticker, cache, actual_return=None):
+def get_all_fresh_news(tk, cache, ar=None):
     entries = []
-    if ticker in cache: entries.extend(cache[ticker])
-    hl, pt, nu = get_yfinance_news(ticker, actual_return)
+    if tk in cache: entries.extend(cache[tk])
+    hl,pt,nu = get_yfinance_news(tk, ar)
     if hl and not any(e["headline"].lower()==hl.lower() for e in entries):
         entries.append({"headline":hl,"source":"yfinance","pub_time":pt,"weight":1.0,"nse_class":"news","news_url":nu})
     if len(entries) < 3:
-        hl, pt, nu = get_google_news(ticker, actual_return)
+        hl,pt,nu = get_google_news(tk, ar)
         if hl and not any(e["headline"].lower()==hl.lower() for e in entries):
             entries.append({"headline":hl,"source":"google","pub_time":pt,"weight":1.0,"nse_class":"news","news_url":nu})
-    if actual_return is not None and entries:
-        entries = [e for e in entries if classify_headline(e["headline"], actual_return)[0] != "reporting"]
-    fe = cache.get(f"_filing_{ticker}", [])
+    if ar is not None and entries:
+        entries = [e for e in entries if classify_headline(e["headline"], ar)[0]!="reporting"]
+    fe = cache.get(f"_filing_{tk}", [])
     if entries: return entries, "actionable", fe
     elif fe: return fe, "filing_only", fe
     else: return [], "no_news", []
@@ -283,14 +257,14 @@ def load_history():
         return df
     except FileNotFoundError: return pd.DataFrame()
 
-def calculate_streaks(history_df, today_rows):
+def calculate_streaks(hdf, tr):
     streaks = {}
-    for row in today_rows:
-        tk=row["Ticker"]; td=row["Forecast_Direction"]; ts=row["Forecast_Score"]; tr=row["Actual_Return_Pct"]
+    for row in tr:
+        tk=row["Ticker"]; td=row["Forecast_Direction"]; ts=row["Forecast_Score"]; trr=row["Actual_Return_Pct"]
         th = pd.DataFrame()
-        if not history_df.empty and 'Ticker' in history_df.columns:
-            th = history_df[(history_df['Ticker']==tk)&(history_df['Date']!=TODAY_IST)].sort_values('Date',ascending=False)
-        sd=1; sr=tr
+        if not hdf.empty and 'Ticker' in hdf.columns:
+            th = hdf[(hdf['Ticker']==tk)&(hdf['Date']!=TODAY_IST)].sort_values('Date',ascending=False)
+        sd=1; sr=trr
         if not th.empty:
             for _,hr in th.iterrows():
                 if int(hr.get('Forecast_Direction',0))==td and td!=0: sd+=1; sr+=float(hr.get('Actual_Return_Pct',0))
@@ -317,78 +291,66 @@ def save_to_history(rows):
     print(f"History: {len(c)} rows / {c['Date'].nunique() if 'Date' in c.columns else 1} days")
 
 def execute_sentiment_engine():
-    tickers_list, sector_map = load_tickers()
-    total = len(tickers_list)
+    tl, sm = load_tickers(); total = len(tl)
     print(f"PREDICTIVE Engine - {total} tickers | {TODAY_IST}")
-    print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | Reporting filtered")
+    print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | 17 feeds | Reporting filtered")
     print("=" * 110)
     print("\nPHASE 1: Fetching predictive news (D-3 to 2hr cutoff)...")
     print("-" * 110)
-    news_cache = build_news_cache(tickers_list)
+    nc = build_news_cache(tl)
     print("-" * 110)
     print(f"\nPHASE 2: Scoring (circular headlines filtered)...")
     print("-" * 110)
-    scored_rows=[]; filing_rows=[]; no_news_rows=[]
-    hits_all=0; hits_dir=0; total_dir=0
-    for idx, ticker in enumerate(tickers_list, 1):
-        ret = get_live_price_return(ticker)
-        if ret > 0.25: ad=1
-        elif ret < -0.25: ad=-1
-        else: ad=0
-        entries, classification, filing_entries = get_all_fresh_news(ticker, news_cache, ret)
-        if classification == "no_news":
-            no_news_rows.append({"Ticker":ticker,"Sector":sector_map.get(ticker,""),"Latest_Headline":"","News_Source":"","News_Time":"","News_URL":"","Headline_Count":0,"Forecast_Score":0.0,"Forecast_Direction":0,"Actual_Direction":ad,"Actual_Return_Pct":ret,"Severity":"No News","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"No News"})
+    scored=[]; filing=[]; nonews=[]; ha=0; hd=0; td2=0
+    for idx, tk in enumerate(tl, 1):
+        ret = get_live_price_return(tk)
+        ad = 1 if ret>0.25 else (-1 if ret<-0.25 else 0)
+        entries, cls, fe = get_all_fresh_news(tk, nc, ret)
+        if cls=="no_news":
+            nonews.append({"Ticker":tk,"Sector":sm.get(tk,""),"Latest_Headline":"","News_Source":"","News_Time":"","News_URL":"","Headline_Count":0,"Forecast_Score":0.0,"Forecast_Direction":0,"Actual_Direction":ad,"Actual_Return_Pct":ret,"Severity":"No News","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"No News"})
             continue
-        if classification == "filing_only":
-            p = filing_entries[0] if filing_entries else {}
-            nu = p.get("news_url","") or get_source_search_url("NSE Official", ticker)
-            filing_rows.append({"Ticker":ticker,"Sector":sector_map.get(ticker,""),"Latest_Headline":p.get("headline",""),"News_Source":"NSE Official","News_Time":p.get("pub_time","").replace(",",""),"News_URL":nu,"Headline_Count":len(filing_entries),"Forecast_Score":0.0,"Forecast_Direction":0,"Actual_Direction":ad,"Actual_Return_Pct":ret,"Severity":"Filing Only","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"Filing Only"})
+        if cls=="filing_only":
+            p = fe[0] if fe else {}; nu = p.get("news_url","") or get_source_search_url("NSE Official",tk)
+            filing.append({"Ticker":tk,"Sector":sm.get(tk,""),"Latest_Headline":p.get("headline",""),"News_Source":"NSE Official","News_Time":p.get("pub_time","").replace(",",""),"News_URL":nu,"Headline_Count":len(fe),"Forecast_Score":0.0,"Forecast_Direction":0,"Actual_Direction":ad,"Actual_Return_Pct":ret,"Severity":"Filing Only","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"Filing Only"})
             continue
-        pe = max(entries, key=lambda e: e["weight"])
-        ps2=pe["source"]; pt2=pe["pub_time"]; pu=pe.get("news_url","")
-        if not pu: pu = get_source_search_url(SOURCE_LABELS.get(ps2,""), ticker)
-        if ps2 in ("yfinance","google"): time.sleep(0.3)
+        pe = max(entries, key=lambda e: e["weight"]); ps=pe["source"]; pt=pe["pub_time"]; pu=pe.get("news_url","")
+        if not pu: pu = get_source_search_url(SOURCE_LABELS.get(ps,""), tk)
+        if ps in ("yfinance","google"): time.sleep(0.3)
         score, direction = compute_aggregated_score(entries)
-        severity = classify_severity(score); impact = classify_impact(entries)
-        is_hit = direction == ad
-        if is_hit: hits_all += 1
-        if direction != 0:
-            total_dir += 1
-            if is_hit: hits_dir += 1
-        abss = abs(score)
-        if abss >= 60: quality = "High Conviction"
-        elif abss >= 25: quality = "Moderate"
-        elif abss >= 5: quality = "Weak"
-        else: quality = "Neutral"
+        sev = classify_severity(score); imp = classify_impact(entries)
+        hit = direction==ad
+        if hit: ha+=1
+        if direction!=0: td2+=1; (hd:=hd+1) if hit else None
+        ab = abs(score)
+        q = "High Conviction" if ab>=60 else ("Moderate" if ab>=25 else ("Weak" if ab>=5 else "Neutral"))
         usrc = list(dict.fromkeys(SOURCE_LABELS.get(e["source"],e["source"]) for e in entries))
-        dm={1:"BULL",-1:"BEAR",0:"NEUT"}
-        hc=len(entries); ht=f"[{hc}h]" if hc>=2 else ""
-        print(f"[{len(scored_rows)+1:3d}] {ticker:<14s} {dm.get(direction,'?'):4s} {severity[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {impact:10s} {'HIT' if is_hit else 'MISS'} {ht}")
-        scored_rows.append({"Ticker":ticker,"Sector":sector_map.get(ticker,""),"Latest_Headline":pe["headline"],"News_Source":" | ".join(usrc),"News_Time":pt2.replace(",","") if pt2 else "","News_URL":pu,"Headline_Count":len(entries),"Forecast_Score":score,"Forecast_Direction":direction,"Actual_Direction":ad,"Actual_Return_Pct":ret,"Severity":severity,"Impact":impact,"Signal_Quality":quality})
-    print(f"\nPHASE 3: Streaks for {len(scored_rows)} tickers...")
+        dm={1:"BULL",-1:"BEAR",0:"NEUT"}; hc=len(entries); ht=f"[{hc}h]" if hc>=2 else ""
+        print(f"[{len(scored)+1:3d}] {tk:<14s} {dm.get(direction,'?'):4s} {sev[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {imp:10s} {'HIT' if hit else 'MISS'} {ht}")
+        scored.append({"Ticker":tk,"Sector":sm.get(tk,""),"Latest_Headline":pe["headline"],"News_Source":" | ".join(usrc),"News_Time":pt.replace(",","") if pt else "","News_URL":pu,"Headline_Count":len(entries),"Forecast_Score":score,"Forecast_Direction":direction,"Actual_Direction":ad,"Actual_Return_Pct":ret,"Severity":sev,"Impact":imp,"Signal_Quality":q})
+    print(f"\nPHASE 3: Streaks for {len(scored)} tickers...")
     print("-" * 110)
-    history_df = load_history(); streaks = calculate_streaks(history_df, scored_rows)
-    for row in scored_rows:
+    hdf = load_history(); streaks = calculate_streaks(hdf, scored)
+    for row in scored:
         s = streaks.get(row["Ticker"],{})
         row["Streak_Days"]=s.get("Streak_Days",0); row["Streak_Return"]=s.get("Streak_Return",0.0); row["Momentum"]=s.get("Momentum","Neutral")
-    all_rows = scored_rows + filing_rows + no_news_rows
+    all_rows = scored + filing + nonews
     pd.DataFrame(all_rows).to_csv(DATA_FILE, index=False)
-    save_to_history(scored_rows)
-    sc=len(scored_rows); fc=len(filing_rows); nc=len(no_news_rows)
-    bull=sum(1 for r in scored_rows if r["Forecast_Direction"]==1)
-    bear=sum(1 for r in scored_rows if r["Forecast_Direction"]==-1)
-    neut=sum(1 for r in scored_rows if r["Forecast_Direction"]==0)
-    hra=(hits_all/sc)*100 if sc>0 else 0; hrd=(hits_dir/total_dir)*100 if total_dir>0 else 0
-    hcr=[r for r in scored_rows if r["Signal_Quality"]=="High Conviction"]
+    save_to_history(scored)
+    sc=len(scored); fc=len(filing); nc2=len(nonews)
+    bull=sum(1 for r in scored if r["Forecast_Direction"]==1)
+    bear=sum(1 for r in scored if r["Forecast_Direction"]==-1)
+    neut=sum(1 for r in scored if r["Forecast_Direction"]==0)
+    hra=(ha/sc)*100 if sc>0 else 0; hrd=(hd/td2)*100 if td2>0 else 0
+    hcr=[r for r in scored if r["Signal_Quality"]=="High Conviction"]
     hch=sum(1 for r in hcr if r["Forecast_Direction"]==r["Actual_Direction"])
     hcra=(hch/len(hcr))*100 if hcr else 0
     print("\n"+"="*110)
-    print(f"data.csv | {TODAY_IST} | PREDICTIVE MODE")
-    print(f"TICKERS: {sc} scored | {fc} filing-only | {nc} no news")
+    print(f"data.csv | {TODAY_IST} | PREDICTIVE MODE | 17 RSS feeds")
+    print(f"TICKERS: {sc} scored | {fc} filing-only | {nc2} no news")
     print(f"TRUE PREDICTIVE ACCURACY:")
-    print(f"  Overall:         {hits_all}/{sc} = {hra:.1f}%")
-    print(f"  Directional:     {hits_dir}/{total_dir} = {hrd:.1f}% <- genuine alpha")
-    print(f"  High Conviction: {hch}/{len(hcr)} = {hcra:.1f}% <- best entry signals")
+    print(f"  Overall:         {ha}/{sc} = {hra:.1f}%")
+    print(f"  Directional:     {hd}/{td2} = {hrd:.1f}% <- genuine alpha")
+    print(f"  High Conviction: {hch}/{len(hcr)} = {hcra:.1f}% <- best entries")
     print(f"SIGNALS: Bull:{bull} Bear:{bear} Neutral:{neut}")
     print("="*110)
 
