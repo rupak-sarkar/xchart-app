@@ -12,14 +12,13 @@
         .mx{max-width:100rem;margin:0 auto}
         .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:14px;margin-bottom:24px;flex-wrap:wrap;gap:10px}
         .hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-
-        .grid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:22px}
-        @media(min-width:768px){.grid{grid-template-columns:repeat(5,1fr)}}
-        .card{background:#1e293b;padding:16px;border-radius:12px;border:1px solid #334155}
-        .cl{color:#94a3b8;font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin:0}
-        .cv{font-size:1.8rem;font-weight:800;margin:4px 0 0}
+        .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:22px}
+        @media(min-width:768px){.grid{grid-template-columns:repeat(6,1fr)}}
+        .card{background:#1e293b;padding:14px;border-radius:12px;border:1px solid #334155}
+        .cl{color:#94a3b8;font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin:0;line-height:1.3}
+        .cv{font-size:1.6rem;font-weight:800;margin:4px 0 0}
+        .cv-sub{font-size:.68rem;color:#64748b;margin:2px 0 0;font-weight:400}
         .green{color:#34d399}.blue{color:#38bdf8}.yellow{color:#facc15}.purple{color:#c084fc}.orange{color:#fb923c}
-
         .sgrid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:22px}
         @media(min-width:768px){.sgrid{grid-template-columns:1fr 1fr}}
         .sp{background:#1e293b;padding:16px;border-radius:12px;border:1px solid #334155}
@@ -30,13 +29,11 @@
         .sm{color:#94a3b8;font-size:.75rem}
         .mb{padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;text-transform:uppercase}
         .ms{background:#064e3b;color:#34d399}.mbu{background:#1e3a5f;color:#38bdf8}.mn{background:#3f3f46;color:#e4e4e7}.mf{background:#7f1d1d;color:#fca5a5}
-
         .tc{background:#1e293b;padding:16px;border-radius:12px;border:1px solid #334155;overflow-x:auto;margin-bottom:22px}
         .sc{margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap}
         .si2{flex-grow:1;min-width:160px;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:9px 12px;color:#f8fafc;font-size:.84rem;outline:none}
         .si2:focus{border-color:#38bdf8}
         .fs{background:#0f172a;border:1px solid #475569;border-radius:8px;padding:9px 12px;color:#f8fafc;font-size:.78rem;outline:none;cursor:pointer}
-
         table{width:100%;text-align:left;font-size:.74rem;border-collapse:collapse}
         th{padding:8px;text-transform:uppercase;font-size:.62rem;background:#334155;color:#cbd5e1;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap}
         th:hover{color:#38bdf8}
@@ -46,37 +43,29 @@
         .bd{border-radius:5px;text-align:center;font-weight:700;padding:2px 7px;display:inline-block;min-width:46px;font-size:.72rem}
         .bg{background:#064e3b;color:#34d399}.br{background:#7f1d1d;color:#f87171}.bgy{background:#475569;color:#cbd5e1}
         .tr{max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .rc{color:#64748b;font-size:.75rem;margin-top:6px}
-        .ft{text-align:center;color:#475569;font-size:.68rem;padding:8px 0}
-        .es{text-align:center;color:#64748b;padding:16px;font-size:.84rem}
-
-        /* Source badges */
+        .news-link{color:#93c5fd;text-decoration:none;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+        .news-link:hover{color:#38bdf8;text-decoration:underline}
         .src-badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.62rem;font-weight:600;white-space:nowrap}
         .src-mc{background:#1a2744;color:#38bdf8}.src-et{background:#2a1a0a;color:#fb923c}
         .src-nse{background:#1a2e1a;color:#34d399}.src-gg{background:#2a2a1a;color:#facc15}
         .src-yf{background:#2a1a2a;color:#c084fc}.src-ndtv{background:#1a1a2e;color:#818cf8}
         .src-mint{background:#0a2a2a;color:#2dd4bf}.src-none{background:#1e293b;color:#475569}
         .news-time{color:#64748b;font-size:.66rem}
-
-        /* Severity badges */
         .sev{padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;display:inline-block;white-space:nowrap}
         .sev-vb{background:#064e3b;color:#6ee7b7}.sev-b{background:#065f46;color:#34d399}
         .sev-mb{background:#1e3a5f;color:#93c5fd}.sev-n{background:#3f3f46;color:#a1a1aa}
         .sev-mbe{background:#451a03;color:#fdba74}.sev-be{background:#7f1d1d;color:#fca5a5}
         .sev-vbe{background:#450a0a;color:#f87171}.sev-nn{background:#1e293b;color:#475569}
-
-        /* Impact badges */
         .imp{padding:2px 8px;border-radius:4px;font-size:.62rem;font-weight:600;display:inline-block;white-space:nowrap}
         .imp-st{background:#1e293b;color:#facc15;border:1px solid #713f12}
         .imp-lt{background:#1e293b;color:#c084fc;border:1px solid #581c87}
         .imp-bo{background:#1e293b;color:#fb923c;border:1px solid #9a3412}
-
-        /* No-news row dimming */
-        .row-no-news td{opacity:.4}
-
+        .row-no-news td{opacity:.35}.row-filing td{opacity:.5}
+        .rc{color:#64748b;font-size:.75rem;margin-top:6px}
+        .ft{text-align:center;color:#475569;font-size:.68rem;padding:8px 0}
+        .es{text-align:center;color:#64748b;padding:16px;font-size:.84rem}
         .btn-manage{background:#1e293b;border:1px solid #475569;border-radius:8px;padding:7px 14px;color:#94a3b8;font-size:.78rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s}
         .btn-manage:hover{border-color:#38bdf8;color:#38bdf8}
-
         .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:1000;display:none;justify-content:center;align-items:center;padding:20px}
         .modal-overlay.active{display:flex}
         .modal{background:#1e293b;border:1px solid #334155;border-radius:16px;width:100%;max-width:720px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,.5)}
@@ -109,27 +98,25 @@
     <header class="hdr">
         <div>
             <h1 style="font-size:1.5rem;font-weight:800;color:#38bdf8;margin:0">&#128737; FinBERT Swing Trading Engine</h1>
-            <p style="color:#94a3b8;font-size:.74rem;margin:4px 0 0">AI Sentiment + Impact Analysis &bull; Fresh news only (today + yesterday) &bull; 3x daily</p>
+            <p style="color:#94a3b8;font-size:.74rem;margin:4px 0 0">AI Sentiment + Impact Analysis &#8226; Fresh news only (today + yesterday) &#8226; 3x daily</p>
         </div>
         <div class="hdr-right">
             <button class="btn-manage" onclick="openModal()">&#9881; Manage Tickers</button>
             <div style="color:#64748b;font-size:.74rem" id="last-update"></div>
         </div>
     </header>
-
     <div class="grid">
-        <div class="card"><p class="cl">Hit Rate (News Only)</p><h3 id="hit-rate" class="cv green">—</h3></div>
-        <div class="card"><p class="cl">Bullish Precision</p><h3 id="bull-prec" class="cv blue">—</h3></div>
-        <div class="card"><p class="cl">Bearish Precision</p><h3 id="bear-prec" class="cv yellow">—</h3></div>
-        <div class="card"><p class="cl">Tickers with News</p><h3 id="news-count" class="cv orange">—</h3></div>
-        <div class="card"><p class="cl">Active Streaks (2+d)</p><h3 id="act-str" class="cv purple">—</h3></div>
+        <div class="card"><p class="cl">Overall Accuracy</p><h3 id="hit-rate" class="cv green">&#8212;</h3><p id="hit-sub" class="cv-sub"></p></div>
+        <div class="card"><p class="cl">Directional Accuracy</p><h3 id="dir-acc" class="cv blue">&#8212;</h3><p id="dir-sub" class="cv-sub"></p></div>
+        <div class="card"><p class="cl">High Conviction</p><h3 id="hc-acc" class="cv orange">&#8212;</h3><p id="hc-sub" class="cv-sub"></p></div>
+        <div class="card"><p class="cl">Bullish Precision</p><h3 id="bull-prec" class="cv green">&#8212;</h3><p id="bull-sub" class="cv-sub"></p></div>
+        <div class="card"><p class="cl">Bearish Precision</p><h3 id="bear-prec" class="cv yellow">&#8212;</h3><p id="bear-sub" class="cv-sub"></p></div>
+        <div class="card"><p class="cl">Tickers Scored</p><h3 id="news-count" class="cv purple">&#8212;</h3><p id="news-sub" class="cv-sub"></p></div>
     </div>
-
     <div class="sgrid">
         <div class="sp"><h3 style="color:#34d399">&#128994; Top Bullish Streaks</h3><div id="bull-str"><p class="es">Builds over consecutive trading days</p></div></div>
         <div class="sp"><h3 style="color:#f87171">&#128308; Top Bearish Streaks</h3><div id="bear-str"><p class="es">Builds over consecutive trading days</p></div></div>
     </div>
-
     <div class="tc">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
             <h2 style="font-size:1rem;font-weight:800;color:#f1f5f9;margin:0">Signal Monitor</h2>
@@ -137,98 +124,80 @@
         <div class="sc">
             <input type="text" id="dash-search" class="si2" placeholder="&#128269; Search ticker, headline, source, severity..." onkeyup="applyFilters()">
             <select id="dir-filter" class="fs" onchange="applyFilters()">
-                <option value="all">All Signals</option>
-                <option value="news">&#128240; With News Only</option>
+                <option value="all">All Tickers</option>
+                <option value="scored">&#128240; Scored Only</option>
                 <option value="1">&#128994; Bullish</option>
                 <option value="-1">&#128308; Bearish</option>
                 <option value="0">&#9898; Neutral</option>
                 <option value="streak">&#128293; Active Streaks</option>
-                <option value="vb">&#128170; Very Bullish / Bearish</option>
+                <option value="hc">&#128170; High Conviction</option>
                 <option value="lt">&#9200; Long-term Impact</option>
             </select>
         </div>
-        <table>
-            <thead><tr>
-                <th onclick="sortT(0,'s')">Ticker</th>
-                <th>Headline</th>
-                <th onclick="sortT(2,'s')" style="text-align:center">Source</th>
-                <th onclick="sortT(3,'s')">News Time</th>
-                <th onclick="sortT(4,'s')" style="text-align:center">Severity</th>
-                <th onclick="sortT(5,'s')" style="text-align:center">Impact</th>
-                <th onclick="sortT(6,'n')" style="text-align:center">Score</th>
-                <th onclick="sortT(7,'n')" style="text-align:center">Ret %</th>
-                <th onclick="sortT(8,'s')" style="text-align:center">Signal</th>
-                <th onclick="sortT(9,'n')" style="text-align:center">Streak</th>
-                <th onclick="sortT(10,'s')" style="text-align:center">Momentum</th>
-                <th onclick="sortT(11,'n')" style="text-align:center">Cumul %</th>
-            </tr></thead>
-            <tbody id="rows"><tr><td colspan="12" class="es">Loading data...</td></tr></tbody>
-        </table>
+        <table><thead><tr>
+            <th onclick="sortT(0,'s')">Ticker</th>
+            <th>Headline</th>
+            <th onclick="sortT(2,'s')" style="text-align:center">Source</th>
+            <th onclick="sortT(3,'s')">News Time</th>
+            <th onclick="sortT(4,'s')" style="text-align:center">Severity</th>
+            <th onclick="sortT(5,'s')" style="text-align:center">Impact</th>
+            <th onclick="sortT(6,'n')" style="text-align:center">Score</th>
+            <th onclick="sortT(7,'n')" style="text-align:center">Ret %</th>
+            <th onclick="sortT(8,'s')" style="text-align:center">Signal</th>
+            <th onclick="sortT(9,'n')" style="text-align:center">Streak</th>
+            <th onclick="sortT(10,'s')" style="text-align:center">Momentum</th>
+            <th onclick="sortT(11,'n')" style="text-align:center">Cumul %</th>
+        </tr></thead>
+        <tbody id="rows"><tr><td colspan="12" class="es">Loading data...</td></tr></tbody></table>
         <p id="row-count" class="rc"></p>
     </div>
-    <p class="ft">Powered by FinBERT &bull; Only tickers with fresh news (today/yesterday) are scored &bull; No-news tickers shown dimmed at bottom</p>
+    <p class="ft">Powered by FinBERT &#8226; Click any headline to read full article &#8226; Data via GitHub Actions</p>
 </div>
-
-<!-- MODAL -->
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
     <div class="modal">
-        <div class="modal-header"><h2>&#9881; Ticker Manager</h2><button class="modal-close" onclick="closeModal()">&times;</button></div>
+        <div class="modal-header"><h2>&#9881; Ticker Manager</h2><button class="modal-close" onclick="closeModal()">&#215;</button></div>
         <div class="modal-body">
-            <div class="m-bar">
-                <input type="text" id="new-ticker" class="m-input" placeholder="NSE ticker" onkeydown="if(event.key==='Enter')addTicker()">
-                <input type="text" id="new-sector" class="m-input-sec" placeholder="Sector" onkeydown="if(event.key==='Enter')addTicker()">
-                <button class="m-btn btn-add" onclick="addTicker()">+ Add</button>
-            </div>
+            <div class="m-bar"><input type="text" id="new-ticker" class="m-input" placeholder="NSE ticker" onkeydown="if(event.key==='Enter')addTicker()"><input type="text" id="new-sector" class="m-input-sec" placeholder="Sector" onkeydown="if(event.key==='Enter')addTicker()"><button class="m-btn btn-add" onclick="addTicker()">+ Add</button></div>
             <input type="text" id="tag-search" class="m-search" placeholder="&#128269; Filter..." oninput="filterTags()">
             <div id="ticker-tags" class="m-tags"></div>
         </div>
-        <div class="modal-footer">
-            <div><span id="ticker-count" class="m-count">0</span><span class="m-note"> &bull; Commit CSV to repo</span></div>
-            <div style="display:flex;gap:6px"><button class="m-btn btn-reset" onclick="resetTickers()">&#8635;</button><button class="m-btn btn-dl" onclick="downloadTickersCSV()">&#11015; Download CSV</button></div>
-        </div>
+        <div class="modal-footer"><div><span id="ticker-count" class="m-count">0</span><span class="m-note"> &#8226; Commit CSV to repo</span></div><div style="display:flex;gap:6px"><button class="m-btn btn-reset" onclick="resetTickers()">&#8635;</button><button class="m-btn btn-dl" onclick="downloadTickersCSV()">&#11015; Download CSV</button></div></div>
     </div>
 </div>
 <div class="toast" id="toast"></div>
-
 <script>
 let cachedData=[],tickerList=[],sortCol=-1,sortAsc=true;
 document.addEventListener("DOMContentLoaded",()=>{fetchData();loadTickerCSV()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
-
 function bp(){let p=window.location.pathname;if(!p.endsWith('/'))p=p.substring(0,p.lastIndexOf('/')+1);return window.location.origin+p}
 function fetchData(){fetch(bp()+'data.csv?v='+Math.random(),{cache:"no-store"}).then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{if(t&&t.trim())parseCSV(t)}).catch(()=>{})}
 function loadTickerCSV(){fetch(bp()+'tickers.csv?v='+Math.random(),{cache:"no-store"}).then(r=>{if(!r.ok)throw 0;return r.text()}).then(t=>{if(typeof Papa!=='undefined'){Papa.parse(t,{header:true,skipEmptyLines:'greedy',complete:r=>{tickerList=r.data.filter(x=>x.Ticker&&x.Ticker.trim()).map(x=>({Ticker:x.Ticker.trim().toUpperCase().replace('.NS',''),Sector:(x.Sector||'').trim()}));let s=new Set(),u=[];tickerList.forEach(t=>{if(!s.has(t.Ticker)){s.add(t.Ticker);u.push(t)}});tickerList=u;renderTickerTags()}})}}).catch(()=>{})}
 function parseCSV(t){if(typeof Papa!=='undefined'){Papa.parse(t,{header:true,skipEmptyLines:'greedy',dynamicTyping:true,complete:r=>{if(r.data&&r.data.length>0){cachedData=r.data.filter(x=>x.Ticker);renderAll(cachedData)}}})}}
-
+function isScored(r){let s=(r.Severity||'').toLowerCase();return s!=='no news'&&s!=='filing only'}
 function renderAll(data){
     if(!data||!data.length)return;
     document.getElementById('last-update').textContent='Last load: '+new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
-    let scored=data.filter(r=>(r.Severity||'')!=='No News');
-    let total=scored.length,hits=0,bF=0,bH=0,beF=0,beH=0,actStr=0;
-    scored.forEach(r=>{
-        let fd=+r.Forecast_Direction,ad=+r.Actual_Direction,sk=+(r.Streak_Days||0);
-        if(fd===ad)hits++;if(fd===1){bF++;if(ad===1)bH++}if(fd===-1){beF++;if(ad===-1)beH++}if(sk>=2)actStr++;
-    });
-    document.getElementById('hit-rate').textContent=(total>0?((hits/total)*100).toFixed(1):'0')+'%';
-    document.getElementById('bull-prec').textContent=bF>0?((bH/bF)*100).toFixed(1)+'%':'N/A';
-    document.getElementById('bear-prec').textContent=beF>0?((beH/beF)*100).toFixed(1)+'%':'N/A';
-    document.getElementById('news-count').textContent=total+'/'+data.length;
-    document.getElementById('act-str').textContent=actStr;
-    renderStreaks(scored);renderTable(data);
-}
-
+    let scored=data.filter(r=>isScored(r));
+    let filC=data.filter(r=>(r.Severity||'').toLowerCase()==='filing only').length;
+    let noC=data.filter(r=>(r.Severity||'').toLowerCase()==='no news').length;
+    let total=scored.length,hits=0,bF=0,bH=0,beF=0,beH=0,dirT=0,dirH=0,hcT=0,hcH=0,actStr=0;
+    scored.forEach(r=>{let fd=+r.Forecast_Direction,ad=+r.Actual_Direction,sk=+(r.Streak_Days||0),as=Math.abs(+r.Forecast_Score);if(fd===ad)hits++;if(fd!==0){dirT++;if(fd===ad)dirH++}if(as>=60){hcT++;if(fd===ad)hcH++}if(fd===1){bF++;if(ad===1)bH++}if(fd===-1){beF++;if(ad===-1)beH++}if(sk>=2)actStr++});
+    document.getElementById('hit-rate').textContent=(total>0?((hits/total)*100).toFixed(1):'0')+'%';document.getElementById('hit-sub').textContent=hits+'/'+total+' scored';
+    document.getElementById('dir-acc').textContent=(dirT>0?((dirH/dirT)*100).toFixed(1):'N/A')+(dirT>0?'%':'');document.getElementById('dir-sub').textContent=dirH+'/'+dirT+' directional';
+    document.getElementById('hc-acc').textContent=(hcT>0?((hcH/hcT)*100).toFixed(1):'N/A')+(hcT>0?'%':'');document.getElementById('hc-sub').textContent=hcH+'/'+hcT+' high conviction';
+    document.getElementById('bull-prec').textContent=bF>0?((bH/bF)*100).toFixed(1)+'%':'N/A';document.getElementById('bull-sub').textContent=bH+'/'+bF+' bullish';
+    document.getElementById('bear-prec').textContent=beF>0?((beH/beF)*100).toFixed(1)+'%':'N/A';document.getElementById('bear-sub').textContent=beH+'/'+beF+' bearish';
+    document.getElementById('news-count').textContent=total+'/'+data.length;document.getElementById('news-sub').textContent=filC+' filing, '+noC+' no news';
+    renderStreaks(scored);renderTable(data)}
 function renderStreaks(data){
     let bull=data.filter(r=>+r.Forecast_Direction===1&&+(r.Streak_Days||0)>=2).sort((a,b)=>+b.Streak_Days-+a.Streak_Days).slice(0,8);
     let bear=data.filter(r=>+r.Forecast_Direction===-1&&+(r.Streak_Days||0)>=2).sort((a,b)=>+b.Streak_Days-+a.Streak_Days).slice(0,8);
     document.getElementById('bull-str').innerHTML=bull.length?bull.map(r=>sHTML(r,'bg')).join(''):'<p class="es">No active bullish streaks</p>';
-    document.getElementById('bear-str').innerHTML=bear.length?bear.map(r=>sHTML(r,'br')).join(''):'<p class="es">No active bearish streaks</p>';
-}
-function sHTML(r,cls){let d=+(r.Streak_Days||0),c=+(r.Streak_Return||0),m=r.Momentum||'New';let mc=m==='Strong'?'ms':m==='Building'?'mbu':m==='Fading'?'mf':'mn';return `<div class="si"><span class="st">${r.Ticker}</span><span class="bd ${cls}">${d}d</span><span class="sm">Cumul: ${c>=0?'+':''}${c.toFixed(2)}%</span><span class="mb ${mc}">${m}</span></div>`}
-
+    document.getElementById('bear-str').innerHTML=bear.length?bear.map(r=>sHTML(r,'br')).join(''):'<p class="es">No active bearish streaks</p>'}
+function sHTML(r,cls){let d=+(r.Streak_Days||0),c=+(r.Streak_Return||0),m=r.Momentum||'New';let mc=m==='Strong'?'ms':m==='Building'?'mbu':m==='Fading'?'mf':'mn';return '<div class="si"><span class="st">'+r.Ticker+'</span><span class="bd '+cls+'">'+d+'d</span><span class="sm">Cumul: '+(c>=0?'+':'')+c.toFixed(2)+'%</span><span class="mb '+mc+'">'+m+'</span></div>'}
 function srcCls(s){if(!s)return 'src-none';let l=s.toLowerCase();if(l.includes('moneycontrol'))return 'src-mc';if(l.includes('economic'))return 'src-et';if(l.includes('nse'))return 'src-nse';if(l.includes('google'))return 'src-gg';if(l.includes('yahoo'))return 'src-yf';if(l.includes('ndtv'))return 'src-ndtv';if(l.includes('mint'))return 'src-mint';return 'src-none'}
 function sevCls(s){if(!s)return 'sev-nn';let l=s.toLowerCase();if(l==='very bullish')return 'sev-vb';if(l==='bullish')return 'sev-b';if(l==='mildly bullish')return 'sev-mb';if(l==='neutral')return 'sev-n';if(l==='mildly bearish')return 'sev-mbe';if(l==='bearish')return 'sev-be';if(l==='very bearish')return 'sev-vbe';return 'sev-nn'}
 function impCls(i){if(!i)return '';if(i==='Short-term')return 'imp-st';if(i==='Long-term')return 'imp-lt';if(i==='Both')return 'imp-bo';return ''}
-
 function renderTable(data){
     let tb=document.getElementById('rows');tb.innerHTML='';
     data.forEach(r=>{
@@ -236,79 +205,52 @@ function renderTable(data){
         let fd=+r.Forecast_Direction,ad=+r.Actual_Direction,ret=+r.Actual_Return_Pct,sc=+r.Forecast_Score;
         let sk=+(r.Streak_Days||0),cu=+(r.Streak_Return||0),mo=r.Momentum||'';
         let sev=r.Severity||'',imp=r.Impact||'',src=r.News_Source||'',nt=r.News_Time||'';
-        let noNews=sev==='No News';
-        tr.dataset.fd=fd;tr.dataset.ad=ad;tr.dataset.hit=(fd===ad)?'1':'0';tr.dataset.sk=sk;tr.dataset.sev=sev.toLowerCase();tr.dataset.imp=imp.toLowerCase();tr.dataset.hasNews=noNews?'0':'1';
-        if(noNews)tr.className='row-no-news';
-
+        let newsUrl=r.News_URL||'';
+        let sevL=sev.toLowerCase();let scored=sevL!=='no news'&&sevL!=='filing only';
+        let noNews=sevL==='no news';let filing=sevL==='filing only';
+        let absScore=Math.abs(sc);
+        tr.dataset.fd=fd;tr.dataset.ad=ad;tr.dataset.hit=(fd===ad)?'1':'0';tr.dataset.sk=sk;
+        tr.dataset.sev=sevL;tr.dataset.imp=(imp||'').toLowerCase();tr.dataset.scored=scored?'1':'0';
+        tr.dataset.hc=(absScore>=60&&scored)?'1':'0';
+        if(noNews)tr.className='row-no-news';if(filing)tr.className='row-filing';
         let t0=ce('td');t0.className='fm';t0.style.fontWeight='700';t0.style.color='#38bdf8';t0.textContent=r.Ticker||'—';
-        let t1=ce('td');t1.className='tr';t1.textContent=r.Latest_Headline||'—';
-
+        // HEADLINE: clickable link if URL exists
+        let t1=ce('td');
+        let hlText=r.Latest_Headline||'—';
+        if(newsUrl&&hlText!=='—'){
+            let a=ce('a');a.className='news-link';a.href=newsUrl;a.target='_blank';a.rel='noopener noreferrer';a.title='Click to read full article';a.textContent=hlText;t1.appendChild(a)
+        }else{t1.className='tr';t1.style.color='#94a3b8';t1.textContent=hlText}
         let t2=ce('td');t2.style.textAlign='center';
-        if(src){let parts=src.split('|');let container=document.createDocumentFragment();parts.forEach((p,i)=>{let sb=ce('span');sb.className='src-badge '+srcCls(p.trim());sb.textContent=p.trim();container.appendChild(sb);if(i<parts.length-1){container.appendChild(document.createTextNode(' '))}});t2.appendChild(container)}else{t2.style.color='#475569';t2.textContent='—'}
-
+        if(src){let parts=src.split('|');let frag=document.createDocumentFragment();parts.forEach((p,i)=>{let sb=ce('span');sb.className='src-badge '+srcCls(p.trim());sb.textContent=p.trim();frag.appendChild(sb);if(i<parts.length-1)frag.appendChild(document.createTextNode(' '))});t2.appendChild(frag)}else{t2.style.color='#475569';t2.textContent='—'}
         let t3=ce('td');t3.className='news-time';t3.textContent=nt||'—';
-
         let t4=ce('td');t4.style.textAlign='center';
-        if(sev&&sev!=='No News'){let sb=ce('span');sb.className='sev '+sevCls(sev);sb.textContent=sev;t4.appendChild(sb)}else{t4.style.color='#475569';t4.textContent=noNews?'No News':'—'}
-
+        if(sev&&!noNews){let sb=ce('span');sb.className='sev '+sevCls(sev);sb.textContent=sev;t4.appendChild(sb)}else{t4.style.color='#475569';t4.textContent=noNews?'No News':'—'}
         let t5=ce('td');t5.style.textAlign='center';
         if(imp){let ib=ce('span');ib.className='imp '+impCls(imp);ib.textContent=imp;t5.appendChild(ib)}else{t5.style.color='#475569';t5.textContent='—'}
-
         let t6=ce('td');t6.style.textAlign='center';t6.dataset.value=sc;
-        if(!noNews){let s6=ce('span');s6.className='bd '+(sc>0?'bg':sc<0?'br':'bgy');s6.textContent=(sc>0?'+':'')+sc.toFixed(1);t6.appendChild(s6)}else{t6.style.color='#475569';t6.textContent='—'}
-
+        if(scored){let s6=ce('span');s6.className='bd '+(sc>0?'bg':sc<0?'br':'bgy');s6.textContent=(sc>0?'+':'')+sc.toFixed(1);t6.appendChild(s6)}else{t6.style.color='#475569';t6.textContent='—'}
         let t7=ce('td');t7.style.textAlign='center';t7.dataset.value=ret;
         let s7=ce('span');s7.className='bd '+(ret>0?'bg':ret<0?'br':'bgy');s7.textContent=(ret>0?'+':'')+ret.toFixed(2)+'%';t7.appendChild(s7);
-
         let t8=ce('td');t8.style.textAlign='center';
-        if(!noNews){let s8=ce('span');s8.className='bd '+(fd===1?'bg':fd===-1?'br':'bgy');s8.textContent=fd===1?'Bull':fd===-1?'Bear':'Neut';t8.appendChild(s8)}else{t8.style.color='#475569';t8.textContent='—'}
-
+        if(scored){let s8=ce('span');s8.className='bd '+(fd===1?'bg':fd===-1?'br':'bgy');s8.textContent=fd===1?'Bull':fd===-1?'Bear':'Neut';t8.appendChild(s8)}else{t8.style.color='#475569';t8.textContent=filing?'Filing':'—'}
         let t9=ce('td');t9.style.textAlign='center';t9.dataset.value=sk;
         if(sk>=2){let s9=ce('span');s9.className='bd '+(fd===1?'bg':fd===-1?'br':'bgy');s9.textContent=sk+'d';t9.appendChild(s9)}else{t9.style.color='#64748b';t9.textContent=sk>0?'1d':'—'}
-
         let t10=ce('td');t10.style.textAlign='center';
         if(mo&&mo!=='Neutral'&&mo!==''){let s10=ce('span');s10.className='mb '+(mo==='Strong'?'ms':mo==='Building'?'mbu':mo==='Fading'?'mf':'mn');s10.textContent=mo;t10.appendChild(s10)}else{t10.style.color='#64748b';t10.textContent='—'}
-
         let t11=ce('td');t11.style.textAlign='center';t11.dataset.value=cu;
         if(sk>=2){t11.style.fontWeight='700';t11.style.fontFamily='monospace';t11.style.color=cu>=0?'#34d399':'#f87171';t11.textContent=(cu>=0?'+':'')+cu.toFixed(2)+'%'}else{t11.style.color='#64748b';t11.textContent='—'}
-
-        [t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11].forEach(c=>tr.appendChild(c));
-        tb.appendChild(tr);
-    });
-    updRC();
-}
-
+        ;[t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11].forEach(c=>tr.appendChild(c));tb.appendChild(tr)});updRC()}
 function ce(t){return document.createElement(t)}
-
 function openModal(){document.getElementById('modal-overlay').classList.add('active');document.body.style.overflow='hidden';setTimeout(()=>document.getElementById('new-ticker').focus(),100)}
 function closeModal(){document.getElementById('modal-overlay').classList.remove('active');document.body.style.overflow='';document.getElementById('tag-search').value='';filterTags()}
-function renderTickerTags(){let c=document.getElementById('ticker-tags');c.innerHTML='';tickerList.forEach((t,i)=>{let d=document.createElement('div');d.className='tag';d.dataset.ticker=t.Ticker.toLowerCase();d.dataset.sector=(t.Sector||'').toLowerCase();d.innerHTML=`${t.Ticker}${t.Sector?' <span class="tag-sec">('+t.Sector+')</span>':''}<button class="tag-x" onclick="removeTicker(${i})">&times;</button>`;c.appendChild(d)});document.getElementById('ticker-count').textContent=tickerList.length+' tickers'}
-function addTicker(){let inp=document.getElementById('new-ticker'),si=document.getElementById('new-sector');let tk=inp.value.trim().toUpperCase().replace('.NS',''),sec=si.value.trim();if(!tk){inp.focus();return}if(tickerList.some(t=>t.Ticker===tk)){inp.style.borderColor='#f87171';showToast('⚠️ '+tk+' exists');setTimeout(()=>inp.style.borderColor='#475569',1500);return}tickerList.push({Ticker:tk,Sector:sec});tickerList.sort((a,b)=>a.Ticker.localeCompare(b.Ticker));renderTickerTags();inp.value='';si.value='';inp.focus();showToast('✅ '+tk+' added');filterTags()}
-function removeTicker(i){let n=tickerList[i].Ticker;tickerList.splice(i,1);renderTickerTags();showToast('🗑️ '+n+' removed');filterTags()}
-function resetTickers(){loadTickerCSV();showToast('↻ Reset')}
+function renderTickerTags(){let c=document.getElementById('ticker-tags');c.innerHTML='';tickerList.forEach((t,i)=>{let d=document.createElement('div');d.className='tag';d.dataset.ticker=t.Ticker.toLowerCase();d.dataset.sector=(t.Sector||'').toLowerCase();d.innerHTML=t.Ticker+(t.Sector?' <span class="tag-sec">('+t.Sector+')</span>':'')+'<button class="tag-x" onclick="removeTicker('+i+')">&#215;</button>';c.appendChild(d)});document.getElementById('ticker-count').textContent=tickerList.length+' tickers'}
+function addTicker(){let inp=document.getElementById('new-ticker'),si=document.getElementById('new-sector');let tk=inp.value.trim().toUpperCase().replace('.NS',''),sec=si.value.trim();if(!tk){inp.focus();return}if(tickerList.some(t=>t.Ticker===tk)){inp.style.borderColor='#f87171';showToast('Already exists');setTimeout(()=>inp.style.borderColor='#475569',1500);return}tickerList.push({Ticker:tk,Sector:sec});tickerList.sort((a,b)=>a.Ticker.localeCompare(b.Ticker));renderTickerTags();inp.value='';si.value='';inp.focus();showToast(tk+' added');filterTags()}
+function removeTicker(i){let n=tickerList[i].Ticker;tickerList.splice(i,1);renderTickerTags();showToast(n+' removed');filterTags()}
+function resetTickers(){loadTickerCSV();showToast('Reset')}
 function filterTags(){let q=document.getElementById('tag-search').value.toLowerCase().trim(),tags=document.getElementById('ticker-tags').children;for(let i=0;i<tags.length;i++){let tk=tags[i].dataset.ticker||'',sec=tags[i].dataset.sector||'';tags[i].style.display=(!q||tk.includes(q)||sec.includes(q))?'':'none'}}
-function downloadTickersCSV(){let csv='Ticker,Sector\n';tickerList.forEach(t=>{csv+=t.Ticker+','+(t.Sector||'')+'\n'});let b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),a=ce('a');a.href=u;a.download='tickers.csv';a.click();URL.revokeObjectURL(u);showToast('⬇️ Downloaded')}
+function downloadTickersCSV(){let csv='Ticker,Sector\n';tickerList.forEach(t=>{csv+=t.Ticker+','+(t.Sector||'')+'\n'});let b=new Blob([csv],{type:'text/csv'}),u=URL.createObjectURL(b),a=ce('a');a.href=u;a.download='tickers.csv';a.click();URL.revokeObjectURL(u);showToast('Downloaded')}
 function showToast(m){let t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
-
-function applyFilters(){
-    let q=document.getElementById('dash-search').value.toLowerCase().trim(),f=document.getElementById('dir-filter').value;
-    let rows=document.getElementById('rows').getElementsByTagName('tr');
-    for(let i=0;i<rows.length;i++){
-        let cells=rows[i].getElementsByTagName('td');if(cells.length<3)continue;
-        let tk=(cells[0].textContent||'').toLowerCase(),hl=(cells[1].textContent||'').toLowerCase(),sr=(cells[2].textContent||'').toLowerCase(),sv=(cells[4].textContent||'').toLowerCase();
-        let ms=!q||tk.includes(q)||hl.includes(q)||sr.includes(q)||sv.includes(q);
-        let mf=true;
-        if(f==='news')mf=rows[i].dataset.hasNews==='1';
-        else if(f==='1')mf=rows[i].dataset.fd==='1';
-        else if(f==='-1')mf=rows[i].dataset.fd==='-1';
-        else if(f==='0')mf=rows[i].dataset.fd==='0';
-        else if(f==='streak')mf=+rows[i].dataset.sk>=2;
-        else if(f==='vb'){let sv2=rows[i].dataset.sev;mf=sv2.includes('very')}
-        else if(f==='lt'){let im=rows[i].dataset.imp;mf=im.includes('long')||im.includes('both')}
-        rows[i].style.display=(ms&&mf)?'':'none';
-    }
-    updRC();
-}
+function applyFilters(){let q=document.getElementById('dash-search').value.toLowerCase().trim(),f=document.getElementById('dir-filter').value;let rows=document.getElementById('rows').getElementsByTagName('tr');for(let i=0;i<rows.length;i++){let cells=rows[i].getElementsByTagName('td');if(cells.length<3)continue;let tk=(cells[0].textContent||'').toLowerCase(),hl=(cells[1].textContent||'').toLowerCase(),sr=(cells[2].textContent||'').toLowerCase(),sv=(cells[4].textContent||'').toLowerCase();let ms=!q||tk.includes(q)||hl.includes(q)||sr.includes(q)||sv.includes(q);let mf=true;if(f==='scored')mf=rows[i].dataset.scored==='1';else if(f==='1')mf=rows[i].dataset.fd==='1';else if(f==='-1')mf=rows[i].dataset.fd==='-1';else if(f==='0')mf=rows[i].dataset.fd==='0'&&rows[i].dataset.scored==='1';else if(f==='streak')mf=+rows[i].dataset.sk>=2;else if(f==='hc')mf=rows[i].dataset.hc==='1';else if(f==='lt'){let im=rows[i].dataset.imp;mf=im.includes('long')||im.includes('both')};rows[i].style.display=(ms&&mf)?'':'none'}updRC()}
 function updRC(){let rows=document.getElementById('rows').getElementsByTagName('tr'),v=0;for(let i=0;i<rows.length;i++)if(rows[i].style.display!=='none'&&rows[i].getElementsByTagName('td').length>1)v++;document.getElementById('row-count').textContent='Showing '+v+' of '+cachedData.length+' tickers'}
 function sortT(ci,ty){if(sortCol===ci)sortAsc=!sortAsc;else{sortCol=ci;sortAsc=true}let tb=document.getElementById('rows'),arr=Array.from(tb.getElementsByTagName('tr'));arr.sort((a,b)=>{let cA=a.getElementsByTagName('td')[ci],cB=b.getElementsByTagName('td')[ci];if(!cA||!cB)return 0;let vA,vB;if(ty==='n'){vA=parseFloat(cA.dataset.value||cA.textContent.replace(/[^0-9.\-]/g,''))||0;vB=parseFloat(cB.dataset.value||cB.textContent.replace(/[^0-9.\-]/g,''))||0}else{vA=cA.textContent.trim().toLowerCase();vB=cB.textContent.trim().toLowerCase()}if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0});arr.forEach(r=>tb.appendChild(r))}
 </script>
