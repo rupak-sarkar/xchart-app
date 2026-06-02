@@ -38,13 +38,12 @@ jobs:
         pip install pandas yfinance feedparser transformers requests
         pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-    - name: Verify Ticker List Exists
+    - name: Verify Ticker List
       run: |
-        if [ ! -f tickers.csv ]; then
-          echo "⚠️ tickers.csv not found — app.py will use defaults"
+        if [ -f tickers.csv ]; then
+          echo "tickers.csv: $(tail -n +2 tickers.csv | wc -l) tickers"
         else
-          TICKER_COUNT=$(tail -n +2 tickers.csv | wc -l)
-          echo "✅ tickers.csv: $TICKER_COUNT tickers loaded"
+          echo "tickers.csv not found - app.py will use defaults"
         fi
 
     - name: Run FinBERT Engine
@@ -53,12 +52,12 @@ jobs:
     - name: Verify Output
       run: |
         if [ ! -f data.csv ]; then
-          echo "❌ FATAL: data.csv was not generated!"
+          echo "FATAL: data.csv not generated!"
           exit 1
         fi
-        echo "✅ data.csv: $(tail -n +2 data.csv | wc -l) rows"
+        echo "data.csv: $(tail -n +2 data.csv | wc -l) rows"
         if [ -f history.csv ]; then
-          echo "✅ history.csv: $(tail -n +2 history.csv | wc -l) rows"
+          echo "history.csv: $(tail -n +2 history.csv | wc -l) rows"
         fi
 
     - name: Push Data Back to Repository
@@ -68,5 +67,6 @@ jobs:
         git add data.csv history.csv
         CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
         git diff --cached --quiet && echo "No changes" && exit 0
-        git commit -m "📊 Updated data.csv + history.csv [$(date -u +'%Y-%m-%d %H:%M UTC')]"
+        git commit -m "Auto-updated data.csv + history.csv [$(date -u +'%Y-%m-%d %H:%M UTC')]"
+        git pull --rebase origin "$CURRENT_BRANCH"
         git push origin "$CURRENT_BRANCH"
