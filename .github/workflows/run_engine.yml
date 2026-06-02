@@ -13,60 +13,53 @@ permissions:
 jobs:
   run-backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
-    - name: Checkout Repository Code
+    - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Initialize Python Runtime
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
 
-    - name: Cache FinBERT Model Weights
+    - name: Cache FinBERT Model
       uses: actions/cache@v4
       with:
         path: ~/.cache/huggingface
         key: finbert-model-v1
         restore-keys: finbert-model-
 
-    - name: Install AI Core Dependencies
+    - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas yfinance feedparser transformers requests
+        pip install pandas yfinance feedparser transformers requests numpy
         pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-    - name: Verify Ticker List
-      run: |
-        if [ -f tickers.csv ]; then
-          echo "tickers.csv: $(tail -n +2 tickers.csv | wc -l) tickers"
-        else
-          echo "tickers.csv not found - app.py will use defaults"
-        fi
-
-    - name: Run FinBERT Engine
+    - name: Run FinBERT Sentiment Engine
       run: python app.py
 
-    - name: Verify Output
-      run: |
-        if [ ! -f data.csv ]; then
-          echo "FATAL: data.csv not generated!"
-          exit 1
-        fi
-        echo "data.csv: $(tail -n +2 data.csv | wc -l) rows"
-        if [ -f history.csv ]; then
-          echo "history.csv: $(tail -n +2 history.csv | wc -l) rows"
-        fi
+    - name: Download Stock OHLCV Data + Indicators
+      run: python create_stock_data.py
 
-    - name: Push Data Back to Repository
+    - name: Verify Outputs
+      run: |
+        echo "--- data.csv ---"
+        if [ -f data.csv ]; then echo "Rows: $(tail -n +2 data.csv | wc -l)"; else echo "MISSING!"; exit 1; fi
+        echo "--- stock_data.csv ---"
+        if [ -f stock_data.csv ]; then echo "Rows: $(tail -n +2 stock_data.csv | wc -l)"; else echo "MISSING (first run may take longer)"; fi
+        echo "--- history.csv ---"
+        if [ -f history.csv ]; then echo "Rows: $(tail -n +2 history.csv | wc -l)"; fi
+
+    - name: Push Data
       run: |
         git config --global user.name "GitHub Actions Automation"
         git config --global user.email "actions@github.com"
-        git add data.csv history.csv
+        git add data.csv history.csv stock_data.csv
         CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
         git diff --cached --quiet && echo "No changes" && exit 0
-        git commit -m "Auto-updated data.csv + history.csv [$(date -u +'%Y-%m-%d %H:%M UTC')]"
+        git commit -m "Auto-updated data [$(date -u +'%Y-%m-%d %H:%M UTC')]"
         git pull --rebase origin "$CURRENT_BRANCH"
         git push origin "$CURRENT_BRANCH"
