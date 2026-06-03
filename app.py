@@ -33,7 +33,6 @@ HISTORY_FILE = "history.csv"
 DATA_FILE = "data.csv"
 STOCK_DATA_FILE = "stock_data.csv"
 
-# ── GEMINI (macro only now) ──
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL_NAME = "gemini-2.0-flash"
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent"
@@ -43,7 +42,6 @@ if GEMINI_API_KEY:
 else:
     print("Gemini API: not configured → rule-based macro")
 
-# ── v3: Two weight profiles ──
 WEIGHTS_NEWS = {"sentiment": 0.45, "technical": 0.35, "macro": 0.15, "fundamental": 0.05}
 WEIGHTS_NO_NEWS = {"technical": 0.70, "macro": 0.30}
 print(f"Weights (news):    Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
@@ -64,8 +62,9 @@ PRICE_CONTEXT = {"share","shares","stock","stocks","scrip","counter","sensex","n
 CATALYST_VERBS = {"wins","win","won","awarded","receives","received","secures","secured","acquires","acquired","acquire","merges","merged","merge","approves","approved","approve","clears","cleared","clear","launches","launched","launch","plans","planned","plan","expands","expanded","expand","invests","invested","invest","raises","raised","raise","signs","signed","sign","partners","partnered","partner","enters","entered","enter","files","filed","file","announces","announced","announce","declares","declared","declare","recommends","recommended","upgrades","upgraded","upgrade","downgrades","downgraded","downgrade","appoints","appointed","appoint","resigns","resigned","resign","penalizes","penalized","fines","fined","suspends","suspended","bans","banned","restructures","restructured","defaults","defaulted","commissions","commissioned","inaugurates","inaugurated","divests","divested","demerges","demerged"}
 SECTOR_IMPACT_WORDS = {"industry","sector","segment","policy","regulation","government","ministry","budget","gst","tariff","duty","subsidy","pli","rbi","sebi","ban","mandate","compliance","guideline","monsoon","crude","oil","commodity","inflation","rate cut","rate hike","forex","rupee","dollar","export","import","demand","supply"}
 
+
 # ═══════════════════════════════════════════════════════════════
-# HEADLINE + NEWS FUNCTIONS (unchanged)
+# HEADLINE + NEWS FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
 
 def classify_headline(headline, actual_return=None):
@@ -272,6 +271,11 @@ def get_all_fresh_news(tk, cache, ar=None):
     elif fe: return fe, "filing_only", fe
     else: return [], "no_news", []
 
+
+# ═══════════════════════════════════════════════════════════════
+# HISTORY + STREAKS
+# ═══════════════════════════════════════════════════════════════
+
 def load_history():
     try:
         df = pd.read_csv(HISTORY_FILE)
@@ -315,7 +319,7 @@ def save_to_history(rows):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MULTI-LAYER SCORING ENGINE (v3)
+# MULTI-LAYER SCORING ENGINE (v3.1)
 # ═══════════════════════════════════════════════════════════════
 
 def call_gemini(prompt, retries=2):
@@ -357,21 +361,24 @@ def load_stock_data_for_scoring():
     return pd.DataFrame()
 
 
+# ── FIX 2: Scan ALL rows for sector ──
 def get_sector_from_stock_data(ticker, stock_df):
-    """Get Industry/sector from stock_data.csv for a ticker"""
+    """Get Industry/sector — scan all rows for non-null value"""
     if stock_df is None or stock_df.empty: return ""
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty: return ""
-    last = tk_data.iloc[-1]
-    for cn in ['Industry','industry','Sector','sector']:
-        if cn in last.index:
-            v = last[cn]
-            if pd.notna(v) and str(v).strip(): return str(v).strip()
+    for cn in ['Industry', 'industry', 'Sector', 'sector']:
+        if cn not in tk_data.columns: continue
+        vals = tk_data[cn].dropna().astype(str).str.strip()
+        vals = vals[vals != '']
+        if len(vals) > 0:
+            return vals.iloc[-1]
     return ""
 
 
+# ── FIX 1: Technical with backward scan ──
 def get_technical_score(ticker, stock_df, debug=False):
-    """Score technical position — FIXED with last.index access"""
+    """Score technical position — scans backward for BB_Flag, Knox, up_true"""
     if stock_df is None or stock_df.empty:
         return {"score": 0, "signals": []}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
@@ -382,6 +389,7 @@ def get_technical_score(ticker, stock_df, debug=False):
     if valid.empty:
         if debug: print(f"    DEBUG {ticker}: no valid Close rows")
         return {"score": 0, "signals": []}
+
     last = valid.iloc[-1]
     score = 0; signals = []
 
@@ -395,8 +403,22 @@ def get_technical_score(ticker, stock_df, debug=False):
                 except: pass
         return None
 
-    rsi = val(['RSI_14','RSI','rsi_14'])
-    if debug: print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val('BB_Flag')}, Knox={val('Knoxville_Divergence')}, up={val('up_true')}")
+    def val_scan(col_names, rows=5):
+        """Scan backward up to N rows for a non-null value"""
+        if isinstance(col_names, str): col_names = [col_names]
+        for cn in col_names:
+            if cn not in valid.columns: continue
+            for i in range(1, min(rows + 1, len(valid) + 1)):
+                v = valid.iloc[-i].get(cn) if cn in valid.iloc[-i].index else None
+                try:
+                    if v is not None and pd.notna(v) and str(v).strip() != '': return v
+                except: pass
+        return None
+
+    # RSI
+    rsi = val(['RSI_14', 'RSI', 'rsi_14'])
+    if debug:
+        print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, Knox={val_scan('Knoxville_Divergence',5)}, up={val_scan('up_true',3)}")
     if rsi is not None:
         rsi = float(rsi)
         if rsi > 75: score -= 30; signals.append(f"RSI overbought({rsi:.0f})")
@@ -404,18 +426,20 @@ def get_technical_score(ticker, stock_df, debug=False):
         elif rsi < 25: score += 30; signals.append(f"RSI oversold({rsi:.0f})")
         elif rsi < 35: score += 15; signals.append(f"RSI depressed({rsi:.0f})")
 
-    bb = val(['BB_Flag','bb_flag'])
+    # BB Flag — scan backward 3 rows
+    bb = val_scan(['BB_Flag', 'bb_flag'], rows=3)
     if bb is not None:
         bb = str(bb).strip().upper()
         if bb == 'BBH': score -= 20; signals.append("BB upper band")
         elif bb == 'BBL': score += 20; signals.append("BB lower band")
 
-    close = val(['Close','close'])
+    # Price vs SMAs
+    close = val(['Close', 'close'])
     if close is not None:
         close = float(close)
-        sma22 = val(['SMA_22','sma_22','SMA22'])
-        sma50 = val(['SMA_50','SMA_52','sma_50','sma_52'])
-        sma200 = val(['SMA_200','sma_200','SMA200'])
+        sma22 = val(['SMA_22', 'sma_22', 'SMA22'])
+        sma50 = val(['SMA_50', 'SMA_52', 'sma_50', 'sma_52'])
+        sma200 = val(['SMA_200', 'sma_200', 'SMA200'])
         if sma22 is not None:
             if close < float(sma22): score -= 12; signals.append("Below SMA22")
             else: score += 8
@@ -425,13 +449,15 @@ def get_technical_score(ticker, stock_df, debug=False):
             if close < float(sma200): score -= 20; signals.append("Below SMA200")
             else: score += 10
 
-    knox = val(['Knoxville_Divergence','Knoxville','knoxville_divergence'])
+    # Knoxville — scan backward 5 rows
+    knox = val_scan(['Knoxville_Divergence', 'Knoxville', 'knoxville_divergence'], rows=5)
     if knox is not None:
         knox = str(knox).strip().lower()
-        if knox in ('bearish','bear'): score -= 15; signals.append("Knox bearish div")
-        elif knox in ('bullish','bull'): score += 15; signals.append("Knox bullish div")
+        if knox in ('bearish', 'bear'): score -= 15; signals.append("Knox bearish div")
+        elif knox in ('bullish', 'bull'): score += 15; signals.append("Knox bullish div")
 
-    up = val(['up_true','Up_True','UP_TRUE'])
+    # FII/DII — scan backward 3 rows
+    up = val_scan(['up_true', 'Up_True', 'UP_TRUE'], rows=3)
     if up is not None:
         try:
             if int(float(up)) == 1: score += 15; signals.append("FII/DII momentum")
@@ -441,7 +467,7 @@ def get_technical_score(ticker, stock_df, debug=False):
 
 
 def score_fundamentals_rules(ticker, stock_df):
-    """Lightweight valuation score from stock_data.csv columns — no yfinance API call"""
+    """Lightweight valuation from stock_data.csv — no API call"""
     if stock_df is None or stock_df.empty:
         return {"score": 0, "concern": ""}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
@@ -449,7 +475,6 @@ def score_fundamentals_rules(ticker, stock_df):
         return {"score": 0, "concern": ""}
     last = tk_data.iloc[-1]
     score = 0; concerns = []
-
     def val(names):
         if isinstance(names, str): names = [names]
         for n in names:
@@ -459,13 +484,11 @@ def score_fundamentals_rules(ticker, stock_df):
                     if pd.notna(v): return float(v)
                 except: pass
         return None
-
     de = val(['Debt_Eq','debt_equity','Debt_Equity','DebtToEquity'])
     if de is not None:
         if de > 200: score -= 20; concerns.append("Very high debt")
         elif de > 100: score -= 10; concerns.append("High debt")
         elif de < 30: score += 5
-
     return {"score": max(-100, min(100, score)), "concern": "; ".join(concerns) if concerns else ""}
 
 
@@ -523,12 +546,14 @@ def compute_composite_news(sentiment, technical, macro, fundamental):
     return {"score": comp, "direction": d}
 
 
+# ── FIX 3: Clamped macro for tech-only ──
 def compute_composite_no_news(technical, macro):
-    """Composite for tickers WITHOUT news — tech + macro only"""
+    """Composite for tickers WITHOUT news — tech-dominant, clamped macro"""
     w = WEIGHTS_NO_NEWS
-    comp = (technical * w["technical"]) + (macro * w["macro"])
+    clamped_macro = max(-15, min(15, macro))
+    comp = (technical * w["technical"]) + (clamped_macro * w["macro"])
     comp = round(comp, 1)
-    d = 1 if comp > 12 else (-1 if comp < -12 else 0)
+    d = 1 if comp > 15 else (-1 if comp < -15 else 0)
     return {"score": comp, "direction": d}
 
 
@@ -543,22 +568,22 @@ def classify_composite_severity(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v3)
+# MAIN ENGINE (v3.1)
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
     tl, sm = load_tickers(); total = len(tl)
-    print(f"PREDICTIVE Engine v3 - {total} tickers | {TODAY_IST}")
+    print(f"PREDICTIVE Engine v3.1 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
     print("=" * 110)
 
-    # ── PHASE 1: News ──
+    # ── PHASE 1 ──
     print("\nPHASE 1: Fetching predictive news (D-3 to 2hr cutoff)...")
     print("-" * 110)
     nc = build_news_cache(tl)
     print("-" * 110)
 
-    # ── PHASE 2: FinBERT ──
+    # ── PHASE 2 ──
     print(f"\nPHASE 2: FinBERT scoring (circular headlines filtered)...")
     print("-" * 110)
     scored=[]; filing=[]; nonews=[]; ha=0; hd=0; td2=0
@@ -589,7 +614,7 @@ def execute_sentiment_engine():
         print(f"[{len(scored)+1:3d}] {tk:<14s} {dm.get(direction,'?'):4s} {sev[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {imp:10s} {'HIT' if hit else 'MISS'} {ht}")
         scored.append({**base_row,"Latest_Headline":pe["headline"],"News_Source":" | ".join(usrc),"News_Time":pt.replace(",","") if pt else "","News_URL":pu,"Headline_Count":len(entries),"Forecast_Score":score,"Forecast_Direction":direction,"Severity":sev,"Impact":imp,"Signal_Quality":q})
 
-    # ── PHASE 3: Multi-layer for ALL tickers ──
+    # ── PHASE 3 ──
     all_rows = scored + filing + nonews
     print(f"\nPHASE 3: Multi-layer analysis (ALL {len(all_rows)} tickers)...")
     print("-" * 110)
@@ -606,21 +631,26 @@ def execute_sentiment_engine():
         if tech["score"] != 0: tech_count += 1
     print(f"  → {tech_count}/{len(all_rows)} tickers with non-zero technical score")
 
-    # 3b: Lightweight fundamental for scored tickers only (5% weight)
+    # 3b: Fundamental (lightweight, from stock_data)
     print("Computing fundamental scores (rule-based from stock_data)...")
     for row in all_rows:
         fund = score_fundamentals_rules(row["Ticker"], stock_df)
         row["Fundamental_Score"] = fund["score"]
         row["Fund_Concern"] = fund.get("concern", "")
 
-    # 3c: Sector mapping + Macro
+    # 3c: Sector mapping + Macro — FIX 2
     print("Building sector map...")
     all_sectors = set()
+    sector_count = 0
     for row in all_rows:
         sector = sm.get(row["Ticker"], "") or get_sector_from_stock_data(row["Ticker"], stock_df)
         row["_sector"] = sector
-        if sector: all_sectors.add(sector)
-    print(f"  → {len(all_sectors)} unique sectors found")
+        if sector:
+            all_sectors.add(sector)
+            sector_count += 1
+    print(f"  → {sector_count}/{len(all_rows)} tickers mapped to {len(all_sectors)} sectors")
+    if len(all_sectors) <= 5:
+        print(f"  → Sectors: {all_sectors}")
 
     print("Fetching Nifty 50 performance...")
     nifty_chg = get_nifty_change()
@@ -631,11 +661,10 @@ def execute_sentiment_engine():
         row["Macro_Score"] = macro["score"]
         row["Macro_Context"] = macro.get("context", "")
 
-    # 3d: Composite — two modes
+    # 3d: Composite
     print(f"\nComputing composite signals (news: {len(scored)} | tech-only: {len(filing)+len(nonews)})...")
     print("-" * 110)
 
-    # News-scored tickers
     cha=0; chd=0; ctd=0
     for row in scored:
         comp = compute_composite_news(row["Forecast_Score"], row["Technical_Score"], row["Macro_Score"], row["Fundamental_Score"])
@@ -649,21 +678,19 @@ def execute_sentiment_engine():
         corrected = " ← CORRECTED" if row["Forecast_Direction"] != comp["direction"] else ""
         print(f"  [{scored.index(row)+1:3d}] {row['Ticker']:<14s} Sent:{row['Forecast_Score']:+6.1f}({dm2[row['Forecast_Direction']]}) Tech:{row['Technical_Score']:+4d} Macro:{row['Macro_Score']:+4d} Fund:{row['Fundamental_Score']:+4d} → Comp:{comp['score']:+6.1f} {dm2[comp['direction']]} {'HIT' if c_hit else 'MISS'}{corrected}")
 
-    # Filing + No-news tickers (tech+macro only)
     t_bull=0; t_bear=0; t_neut=0; t_hit=0; t_total=0
     for row in filing + nonews:
         comp = compute_composite_no_news(row["Technical_Score"], row["Macro_Score"])
         row["Composite_Score"] = comp["score"]
         row["Composite_Direction"] = comp["direction"]
         row["Composite_Severity"] = classify_composite_severity(comp["score"]) if comp["score"] != 0 else ""
-        row["Forecast_Direction"] = 0  # no sentiment direction
+        row["Forecast_Direction"] = 0
         if comp["direction"] == 1: t_bull += 1
         elif comp["direction"] == -1: t_bear += 1
         else: t_neut += 1
         if comp["direction"] == row["Actual_Direction"]: t_hit += 1
         t_total += 1
 
-    # cleanup
     for row in all_rows:
         row.pop("_sector", None)
 
@@ -672,7 +699,7 @@ def execute_sentiment_engine():
     if t_total > 0:
         print(f"  Tech-only hit rate: {t_hit}/{t_total} = {(t_hit/t_total)*100:.1f}%")
 
-    # ── PHASE 4: Streaks (news-scored only) ──
+    # ── PHASE 4 ──
     print(f"\nPHASE 4: Streaks for {len(scored)} tickers...")
     print("-" * 110)
     hdf = load_history(); streaks = calculate_streaks(hdf, scored)
@@ -696,10 +723,10 @@ def execute_sentiment_engine():
     total_scored = sc + len(scored_with_tech)
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v3 | ALL TICKERS SCORED")
+    print(f"data.csv | {TODAY_IST} | ENGINE v3.1 | ALL TICKERS SCORED")
     print(f"TICKERS: {sc} news-scored | {fc} filing | {nc2} no-news | {total_scored} total with signals")
     print(f"WEIGHTS: News→ Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
-    print(f"         No-News→ Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")
+    print(f"         No-News→ Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} (macro clamped ±15)")
     print()
     print(f"SENTIMENT-ONLY ({sc} with news):")
     print(f"  Overall:     {ha}/{sc} = {hra:.1f}%  |  Directional: {hd}/{td2} = {hrd:.1f}%")
