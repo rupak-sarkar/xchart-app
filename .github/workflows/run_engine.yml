@@ -38,11 +38,9 @@ jobs:
         pip install pandas yfinance feedparser transformers requests numpy
         pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-    # ── STEP 1: Stock data FIRST (needed by app.py Phase 3 technical scoring) ──
     - name: Download Stock OHLCV Data + Indicators
       run: python create_stock_data.py
 
-    # ── STEP 2: Multi-layer engine (reads stock_data.csv + calls Gemini) ──
     - name: Run Multi-Layer Sentiment Engine
       env:
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -65,5 +63,15 @@ jobs:
         CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
         git diff --cached --quiet && echo "No changes" && exit 0
         git commit -m "Auto-updated data [$(date -u +'%Y-%m-%d %H:%M UTC')]"
-        git pull --rebase origin "$CURRENT_BRANCH"
+
+        # Pull with auto-resolve: keep OUR version for generated data files
+        git pull --rebase origin "$CURRENT_BRANCH" \
+          -X theirs \
+          || {
+            echo "Rebase conflict — force-resolving generated files..."
+            git checkout --theirs data.csv history.csv stock_data.csv 2>/dev/null || true
+            git add data.csv history.csv stock_data.csv
+            git rebase --continue || git rebase --skip
+          }
+
         git push origin "$CURRENT_BRANCH"
