@@ -13,7 +13,7 @@ permissions:
 jobs:
   run-backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
     - name: Checkout Repository
@@ -38,11 +38,15 @@ jobs:
         pip install pandas yfinance feedparser transformers requests numpy
         pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-    - name: Run FinBERT Sentiment Engine
-      run: python app.py
-
+    # ── STEP 1: Stock data FIRST (needed by app.py Phase 3 technical scoring) ──
     - name: Download Stock OHLCV Data + Indicators
       run: python create_stock_data.py
+
+    # ── STEP 2: Multi-layer engine (reads stock_data.csv + calls Gemini) ──
+    - name: Run Multi-Layer Sentiment Engine
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: python app.py
 
     - name: Verify Outputs
       run: |
