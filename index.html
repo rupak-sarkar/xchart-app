@@ -3,33 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XChart Multi-Layer Trading Engine v3</title>
+<title>XChart.in — Multi-Layer Trading Engine | AI-Powered Stock Signals</title>
+<meta name="description" content="XChart.in - AI-powered multi-layer trading engine for NSE and BSE. FinBERT sentiment analysis, MACD, ADX, SuperTrend, RSI, Bollinger Bands, Ichimoku with sector macro scoring.">
+<meta name="keywords" content="stock signals, AI trading, FinBERT, NSE, BSE, technical analysis, MACD, ADX, SuperTrend, stock screener, India">
+<meta name="author" content="XChart.in">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="XChart.in — Multi-Layer Trading Engine">
+<meta property="og:description" content="AI-powered multi-layer trading engine. FinBERT sentiment + 9 technical indicators + sector macro analysis for 158 NSE/BSE tickers.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://xchart.in">
+<link rel="canonical" href="https://xchart.in">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <style>
-*{box-sizing:border-box}body{background:#0f172a;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;margin:0}.mx{max-width:100rem;margin:0 auto}.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:14px;margin-bottom:24px;flex-wrap:wrap;gap:10px}.hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+*{box-sizing:border-box}body{background:#0f172a;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;margin:0}.mx{max-width:100rem;margin:0 auto}
+
+.hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334155;padding-bottom:14px;margin-bottom:24px;flex-wrap:wrap;gap:10px}.hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+
 .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:22px}@media(min-width:768px){.grid{grid-template-columns:repeat(6,1fr)}}.card{background:#1e293b;padding:14px;border-radius:12px;border:1px solid #334155}.cl{color:#94a3b8;font-size:.6rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin:0;line-height:1.3}.cv{font-size:1.6rem;font-weight:800;margin:4px 0 0}.cv-sub{font-size:.68rem;color:#64748b;margin:2px 0 0;font-weight:400}.green{color:#34d399}.blue{color:#38bdf8}.yellow{color:#facc15}.purple{color:#c084fc}.orange{color:#fb923c}.cyan{color:#22d3ee}.red{color:#f87171}
+
 .sgrid{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:22px}@media(min-width:768px){.sgrid{grid-template-columns:1fr 1fr}}.sp{background:#1e293b;padding:16px;border-radius:12px;border:1px solid #334155}.sp h3{margin:0 0 10px;font-size:.9rem;font-weight:700}.si{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;margin-bottom:4px;font-size:.78rem}.si:hover{background:rgba(56,189,248,.06)}.st{font-family:monospace;font-weight:700;min-width:100px;color:#38bdf8}.sm{color:#94a3b8;font-size:.75rem}.mb{padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;text-transform:uppercase}.ms{background:#064e3b;color:#34d399}.mbu{background:#1e3a5f;color:#38bdf8}.mn{background:#3f3f46;color:#e4e4e7}.mf{background:#7f1d1d;color:#fca5a5}
+
 .tc{background:#1e293b;padding:16px;border-radius:12px;border:1px solid #334155;overflow-x:auto;margin-bottom:22px}.sc{margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap}.si2{flex-grow:1;min-width:160px;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:9px 12px;color:#f8fafc;font-size:.84rem;outline:none}.si2:focus{border-color:#38bdf8}.fs{background:#0f172a;border:1px solid #475569;border-radius:8px;padding:9px 12px;color:#f8fafc;font-size:.78rem;outline:none;cursor:pointer}
+
 table{width:100%;text-align:left;font-size:.72rem;border-collapse:collapse}th{padding:7px;text-transform:uppercase;font-size:.6rem;background:#334155;color:#cbd5e1;font-weight:700;cursor:pointer;user-select:none;white-space:nowrap}th:hover{color:#38bdf8}td{padding:7px;border-bottom:1px solid #1e293b;color:#e2e8f0;white-space:nowrap}tbody tr{border-bottom:1px solid #334155}tbody tr:hover td{background:rgba(56,189,248,.04)}
+
 .fm{font-family:monospace;font-size:.8rem}.bd{border-radius:5px;text-align:center;font-weight:700;padding:2px 6px;display:inline-block;min-width:42px;font-size:.7rem}.bg{background:#064e3b;color:#34d399}.br{background:#7f1d1d;color:#f87171}.bgy{background:#475569;color:#cbd5e1}.bc{background:#164e63;color:#22d3ee}.bt{background:#1e1e3f;color:#818cf8}
+
 .news-link{color:#93c5fd;text-decoration:none;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.news-link:hover{color:#38bdf8;text-decoration:underline}
+
 .src-badge{display:inline-block;padding:2px 5px;border-radius:4px;font-size:.6rem;font-weight:600;white-space:nowrap}.src-mc{background:#1a2744;color:#38bdf8}.src-et{background:#2a1a0a;color:#fb923c}.src-nse{background:#1a2e1a;color:#34d399}.src-gg{background:#2a2a1a;color:#facc15}.src-yf{background:#2a1a2a;color:#c084fc}.src-ndtv{background:#1a1a2e;color:#818cf8}.src-mint{background:#0a2a2a;color:#2dd4bf}.src-bl{background:#1a2a1a;color:#86efac}.src-none{background:#1e293b;color:#475569}
+
 .news-time{color:#64748b;font-size:.64rem}.sev{padding:2px 7px;border-radius:4px;font-size:.63rem;font-weight:700;display:inline-block;white-space:nowrap}.sev-vb{background:#064e3b;color:#6ee7b7}.sev-b{background:#065f46;color:#34d399}.sev-mb{background:#1e3a5f;color:#93c5fd}.sev-n{background:#3f3f46;color:#a1a1aa}.sev-mbe{background:#451a03;color:#fdba74}.sev-be{background:#7f1d1d;color:#fca5a5}.sev-vbe{background:#450a0a;color:#f87171}.sev-nn{background:#1e293b;color:#475569}
+
 .imp{padding:2px 7px;border-radius:4px;font-size:.6rem;font-weight:600;display:inline-block;white-space:nowrap}.imp-st{background:#1e293b;color:#facc15;border:1px solid #713f12}.imp-lt{background:#1e293b;color:#c084fc;border:1px solid #581c87}.imp-bo{background:#1e293b;color:#fb923c;border:1px solid #9a3412}
+
 .fii-badge{display:inline-block;padding:2px 8px;border-radius:5px;font-size:.65rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;animation:fiipulse 1.5s infinite;white-space:nowrap}@keyframes fiipulse{0%,100%{opacity:1}50%{opacity:.7}}
+
 .tech-badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:.58rem;font-weight:600;background:#1e1e3f;color:#818cf8;border:1px solid #3730a3}
+
 .row-dim td{opacity:.35}.ticker-click{cursor:pointer;transition:color .15s}.ticker-click:hover{color:#6ee7b7;text-decoration:underline}
-.rc{color:#64748b;font-size:.73rem;margin-top:6px}.ft{text-align:center;color:#475569;font-size:.66rem;padding:8px 0}.es{text-align:center;color:#64748b;padding:16px;font-size:.82rem}
+
+.rc{color:#64748b;font-size:.73rem;margin-top:6px}
+.es{text-align:center;color:#64748b;padding:16px;font-size:.82rem}
+
 .btn-manage{background:#1e293b;border:1px solid #475569;border-radius:8px;padding:7px 14px;color:#94a3b8;font-size:.78rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .15s}.btn-manage:hover{border-color:#38bdf8;color:#38bdf8}
+
 .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:1000;display:none;justify-content:center;align-items:center;padding:16px}.modal-overlay.active{display:flex}.modal{background:#1e293b;border:1px solid #334155;border-radius:16px;width:100%;max-width:720px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #334155}.modal-header h2{margin:0;font-size:1.05rem;font-weight:800;color:#f1f5f9}.modal-close{background:none;border:none;color:#94a3b8;font-size:1.4rem;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1}.modal-close:hover{color:#f87171;background:#334155}.modal-body{padding:8px 12px;overflow-y:auto;flex:1}.modal-footer{padding:12px 20px;border-top:1px solid #334155;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+
 .m-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.m-input{flex-grow:1;min-width:130px;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:9px 12px;color:#f8fafc;font-size:.84rem;outline:none;text-transform:uppercase}.m-input:focus{border-color:#38bdf8}.m-input-sec{width:120px;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:9px 12px;color:#f8fafc;font-size:.78rem;outline:none}.m-btn{padding:9px 16px;border-radius:8px;border:none;font-weight:700;font-size:.78rem;cursor:pointer;transition:all .15s}.btn-add{background:#064e3b;color:#34d399}.btn-dl{background:#1e3a5f;color:#38bdf8}.btn-reset{background:#3f3f46;color:#cbd5e1}.m-tags{display:flex;flex-wrap:wrap;gap:5px;max-height:340px;overflow-y:auto;padding:4px 0}.tag{display:inline-flex;align-items:center;gap:4px;background:#334155;border-radius:6px;padding:4px 9px;font-size:.72rem;font-family:monospace;font-weight:600;color:#e2e8f0}.tag:hover{background:#475569}.tag-sec{font-size:.6rem;color:#94a3b8;font-family:sans-serif}.tag-x{background:none;border:none;color:#64748b;cursor:pointer;font-size:.8rem;font-weight:700;padding:0 2px;line-height:1}.tag-x:hover{color:#f87171}.m-count{color:#64748b;font-size:.75rem}.m-note{color:#475569;font-size:.68rem;font-style:italic}.m-search{width:100%;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:7px 10px;color:#f8fafc;font-size:.78rem;outline:none;margin-bottom:10px}
+
 .toast{position:fixed;bottom:24px;right:24px;background:#064e3b;color:#34d399;padding:10px 18px;border-radius:10px;font-size:.82rem;font-weight:600;z-index:2000;opacity:0;transform:translateY(20px);transition:all .3s;pointer-events:none;border:1px solid #065f46}.toast.show{opacity:1;transform:translateY(0)}
-/* Chart modal */
+
 .chart-modal{max-width:980px;max-height:95vh}.chart-modal .modal-body{padding:6px 12px;overflow:hidden}
 #chart-container{width:100%;height:420px;border-radius:8px;overflow:hidden;transition:height .2s ease}#rsi-container{width:100%;height:120px;border-radius:8px;overflow:hidden;margin-top:2px}
 .chart-indicators{display:flex;gap:5px;flex-wrap:wrap;padding:4px 0}.chart-ind-btn{padding:3px 8px;border-radius:6px;font-size:.62rem;font-weight:600;cursor:pointer;border:1px solid #475569;background:#0f172a;color:#94a3b8;transition:all .15s}.chart-ind-btn.active{border-color:#38bdf8;color:#38bdf8;background:#1e3a5f}.chart-ind-btn:hover{border-color:#38bdf8;color:#38bdf8}
-/* Compact chart header with info + score inline */
+
 .chart-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:2px 0;flex-wrap:wrap}
 .chart-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.68rem;color:#94a3b8}.chart-meta span{font-weight:600}.chart-meta .green{color:#34d399}.chart-meta .red{color:#f87171}
 .score-compact{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:.62rem;font-family:monospace;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:4px 8px}
@@ -42,7 +72,20 @@ table{width:100%;text-align:left;font-size:.72rem;border-collapse:collapse}th{pa
 </head>
 <body>
 <div class="mx">
-<header class="hdr"><div><h1 style="font-size:1.5rem;font-weight:800;color:#38bdf8;margin:0">📊 Multi-Layer Trading Engine v3</h1><p style="color:#94a3b8;font-size:.72rem;margin:4px 0 0">ALL tickers scored • News + Tech + Macro • Click ticker for breakdown</p></div><div class="hdr-right"><button class="btn-manage" onclick="openTickerModal()">⚙ Manage Tickers</button><div style="color:#64748b;font-size:.72rem" id="last-update"></div></div></header>
+
+<!-- HEADER -->
+<header class="hdr">
+<div>
+<h1 style="font-size:1.5rem;font-weight:800;color:#38bdf8;margin:0">XChart<span style="color:#94a3b8;font-weight:400;font-size:.9rem">.in</span> <span style="color:#334155;font-size:.75rem">|</span> <span style="color:#e2e8f0;font-size:.85rem;font-weight:600">Multi-Layer Trading Engine</span></h1>
+<p style="color:#64748b;font-size:.68rem;margin:4px 0 0">FinBERT Sentiment • MACD + ADX + SuperTrend • Sector Macro • 158 NSE/BSE Tickers</p>
+</div>
+<div class="hdr-right">
+<button class="btn-manage" onclick="openTickerModal()">⚙ Manage Tickers</button>
+<div style="color:#64748b;font-size:.72rem" id="last-update"></div>
+</div>
+</header>
+
+<!-- SUMMARY CARDS -->
 <div class="grid">
 <div class="card"><p class="cl">Sent Directional</p><h3 id="sent-rate" class="cv green">—</h3><p id="sent-sub" class="cv-sub"></p></div>
 <div class="card" style="border-color:#164e63"><p class="cl">Comp Directional</p><h3 id="comp-rate" class="cv cyan">—</h3><p id="comp-sub" class="cv-sub"></p></div>
@@ -51,14 +94,18 @@ table{width:100%;text-align:left;font-size:.72rem;border-collapse:collapse}th{pa
 <div class="card"><p class="cl">Corrected</p><h3 id="corr-count" class="cv yellow">—</h3><p id="corr-sub" class="cv-sub"></p></div>
 <div class="card"><p class="cl">Total Scored</p><h3 id="news-count" class="cv orange">—</h3><p id="news-sub" class="cv-sub"></p></div>
 </div>
+
+<!-- STREAKS -->
 <div class="sgrid">
 <div class="sp"><h3 style="color:#34d399">🔥 Top Bullish Streaks</h3><div id="bull-str"><p class="es">Builds over trading days</p></div></div>
 <div class="sp"><h3 style="color:#f87171">🔥 Top Bearish Streaks</h3><div id="bear-str"><p class="es">Builds over trading days</p></div></div>
 </div>
+
+<!-- SIGNAL TABLE -->
 <div class="tc">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px"><h2 style="font-size:1rem;font-weight:800;color:#f1f5f9;margin:0">Signal Monitor</h2></div>
 <div class="sc">
-<input type="text" id="dash-search" class="si2" placeholder="🔍 Search..." onkeyup="applyFilters()">
+<input type="text" id="dash-search" class="si2" placeholder="🔍 Search ticker or headline..." onkeyup="applyFilters()">
 <select id="dir-filter" class="fs" onchange="applyFilters()">
 <option value="all">All Tickers</option>
 <option value="news">📰 News Scored</option>
@@ -75,14 +122,38 @@ table{width:100%;text-align:left;font-size:.72rem;border-collapse:collapse}th{pa
 </div>
 <table><thead><tr>
 <th onclick="sortT(0,'s')">Ticker</th><th>Headline</th><th onclick="sortT(2,'s')" style="text-align:center">Source</th><th onclick="sortT(3,'s')">Time</th><th onclick="sortT(4,'s')" style="text-align:center">Severity</th><th onclick="sortT(5,'n')" style="text-align:center">Sent</th><th onclick="sortT(6,'n')" style="text-align:center">Tech</th><th onclick="sortT(7,'n')" style="text-align:center">Ret%</th><th onclick="sortT(8,'n')" style="text-align:center">Comp</th><th onclick="sortT(9,'s')" style="text-align:center">Signal</th><th onclick="sortT(10,'n')" style="text-align:center">Streak</th><th onclick="sortT(11,'s')" style="text-align:center">Mom</th><th onclick="sortT(12,'n')" style="text-align:center">FII/DII</th>
-</tr></thead><tbody id="rows"><tr><td colspan="13" class="es">Loading...</td></tr></tbody></table>
+</tr></thead><tbody id="rows"><tr><td colspan="13" class="es">Loading signals...</td></tr></tbody></table>
 <p id="row-count" class="rc"></p>
 </div>
-<p class="ft">Engine v3.6 • News: Sent 45% + Tech 35% + Macro 15% + Fund 5% • No-News: Tech 70% + Macro 30% (clamped ±15)</p>
+
+<!-- PROFESSIONAL FOOTER -->
+<div style="border-top:1px solid #1e293b;margin-top:30px;padding:20px 0;text-align:center">
+<p style="color:#64748b;font-size:.72rem;margin:0 0 6px;font-weight:600">XChart.in — Multi-Layer Trading Engine</p>
+<p style="color:#475569;font-size:.62rem;margin:0 0 10px;line-height:1.6">
+Composite Scoring: Sentiment 45% • Technical 35% • Macro 15% • Fundamental 5% | Tech-Only: Technical 70% • Macro 30%
+</p>
+<div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px 20px;max-width:800px;margin:0 auto 14px;text-align:left">
+<p style="color:#f87171;font-size:.62rem;font-weight:700;margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em">⚠ Disclaimer</p>
+<p style="color:#64748b;font-size:.58rem;margin:0;line-height:1.7">
+XChart.in is an AI-powered stock market analytics and educational tool. All signals, scores, and indicators are generated by machine learning algorithms (FinBERT, MACD, ADX, SuperTrend, RSI, Bollinger Bands, Ichimoku) for <strong style="color:#94a3b8">informational and educational purposes ONLY</strong>. This platform does <strong style="color:#94a3b8">NOT</strong> provide investment advice, stock recommendations, or portfolio management services. XChart.in is <strong style="color:#94a3b8">NOT</strong> registered with SEBI as a Research Analyst (RA) or Investment Adviser (IA). Users are solely responsible for their own investment and trading decisions. Past performance of signals does not guarantee future results. Trading in equities involves substantial risk of loss. Always consult a SEBI-registered financial adviser before making investment decisions.
+</p>
 </div>
+<div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+<a href="#" style="color:#475569;font-size:.6rem;text-decoration:none" onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'">Terms of Service</a>
+<span style="color:#334155;font-size:.6rem">•</span>
+<a href="#" style="color:#475569;font-size:.6rem;text-decoration:none" onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'">Privacy Policy</a>
+<span style="color:#334155;font-size:.6rem">•</span>
+<a href="#" style="color:#475569;font-size:.6rem;text-decoration:none" onmouseover="this.style.color='#94a3b8'" onmouseout="this.style.color='#475569'">Contact</a>
+</div>
+<p style="color:#334155;font-size:.56rem;margin:0">© 2026 XChart.in | Multi-Layer Trading Engine. All rights reserved. Powered by FinBERT • Built in India 🇮🇳</p>
+</div>
+
+</div>
+
 <!-- TICKER MODAL -->
-<div class="modal-overlay" id="ticker-modal" onclick="if(event.target===this)closeTickerModal()"><div class="modal"><div class="modal-header"><h2>⚙ Ticker Manager</h2><button class="modal-close" onclick="closeTickerModal()">×</button></div><div class="modal-body" style="overflow-y:auto"><div class="m-bar"><input type="text" id="new-ticker" class="m-input" placeholder="NSE ticker" onkeydown="if(event.key==='Enter')addTicker()"><input type="text" id="new-sector" class="m-input-sec" placeholder="Sector" onkeydown="if(event.key==='Enter')addTicker()"><button class="m-btn btn-add" onclick="addTicker()">+ Add</button></div><input type="text" id="tag-search" class="m-search" placeholder="🔍 Filter..." oninput="filterTags()"><div id="ticker-tags" class="m-tags"></div></div><div class="modal-footer"><div><span id="ticker-count" class="m-count">0</span><span class="m-note"> • Commit CSV to repo</span></div><div style="display:flex;gap:6px"><button class="m-btn btn-reset" onclick="resetTickers()">↻</button><button class="m-btn btn-dl" onclick="downloadTickersCSV()">⬇ CSV</button></div></div></div></div>
-<!-- CHART MODAL — no scroll -->
+<div class="modal-overlay" id="ticker-modal" onclick="if(event.target===this)closeTickerModal()"><div class="modal"><div class="modal-header"><h2>⚙ Ticker Manager</h2><button class="modal-close" onclick="closeTickerModal()">×</button></div><div class="modal-body" style="overflow-y:auto"><div class="m-bar"><input type="text" id="new-ticker" class="m-input" placeholder="NSE ticker" onkeydown="if(event.key==='Enter')addTicker()"><input type="text" id="new-sector" class="m-input-sec" placeholder="Sector" onkeydown="if(event.key==='Enter')addTicker()"><button class="m-btn btn-add" onclick="addTicker()">+ Add</button></div><input type="text" id="tag-search" class="m-search" placeholder="🔍 Filter tickers..." oninput="filterTags()"><div id="ticker-tags" class="m-tags"></div></div><div class="modal-footer"><div><span id="ticker-count" class="m-count">0</span><span class="m-note"> • Commit CSV to repo</span></div><div style="display:flex;gap:6px"><button class="m-btn btn-reset" onclick="resetTickers()">↻</button><button class="m-btn btn-dl" onclick="downloadTickersCSV()">⬇ CSV</button></div></div></div></div>
+
+<!-- CHART MODAL -->
 <div class="modal-overlay" id="chart-modal" onclick="if(event.target===this)closeChartModal()"><div class="modal chart-modal"><div class="modal-header"><h2 id="chart-title">Chart</h2><button class="modal-close" onclick="closeChartModal()">×</button></div><div class="modal-body"><div class="chart-top"><div class="chart-meta" id="chart-info"></div><div class="score-compact" id="score-compact"></div></div><div id="chart-container"></div><div id="rsi-container"></div><div class="chart-indicators">
 <button class="chart-ind-btn active" data-ind="sma9" onclick="toggleInd(this)">SMA 9</button>
 <button class="chart-ind-btn active" data-ind="sma22" onclick="toggleInd(this)">SMA 22</button>
@@ -94,6 +165,7 @@ table{width:100%;text-align:left;font-size:.72rem;border-collapse:collapse}th{pa
 <button class="chart-ind-btn" data-ind="vol" onclick="toggleInd(this)">Volume</button>
 <button class="chart-ind-btn" data-ind="rsi" onclick="toggleInd(this)">RSI</button>
 </div></div></div></div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -120,51 +192,42 @@ function sevCls(s){if(!s)return'sev-nn';let l=s.toLowerCase();if(l==='very bulli
 function svC(v){return v>0?'sc-pos':v<0?'sc-neg':'sc-zero'}
 function svF(v){return(v>0?'+':'')+v}
 
-// ═══ RENDER ALL — Honest Directional Metrics ═══
+// ═══ RENDER ALL ═══
 function renderAll(data){if(!data||!data.length)return;
 document.getElementById('last-update').textContent='Last: '+new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata'});
 let news=data.filter(r=>isNews(r)),nonNews=data.filter(r=>!isNews(r)),techScored=nonNews.filter(r=>hasComp(r));
 
-// Sentiment directional
 let sDir=0,sDirH=0;
 news.forEach(r=>{let fd=+r.Forecast_Direction,ad=+r.Actual_Direction;if(fd!==0){sDir++;if(fd===ad)sDirH++}});
 
-// Composite directional
 let cDir=0,cDirH=0,corrected=0,cBR=0,cBT=0,cBeR=0,cBeT=0;
 news.forEach(r=>{let cd=+(r.Composite_Direction!=null?r.Composite_Direction:r.Forecast_Direction),ad=+r.Actual_Direction,fd=+r.Forecast_Direction;
 if(cd!==0){cDir++;if(cd===ad)cDirH++}if(fd!==cd)corrected++;
 if(cd===1){cBT++;if(ad===1)cBR++}if(cd===-1){cBeT++;if(ad===-1)cBeR++}});
 
-// Tech-only directional
 let tDir=0,tDirH=0,tT=techScored.length;
 techScored.forEach(r=>{let cd=+r.Composite_Direction,ad=+r.Actual_Direction;if(cd!==0){tDir++;if(cd===ad)tDirH++}});
 
-// Card 1: Sent Directional
 let sDirPct=sDir>0?((sDirH/sDir)*100).toFixed(1):'N/A';
 document.getElementById('sent-rate').textContent=sDirPct+(sDir>0?'%':'');
 document.getElementById('sent-sub').textContent=sDirH+'/'+sDir+' calls hit (of '+news.length+' news)';
 
-// Card 2: Comp Directional
 let cDirPct=cDir>0?((cDirH/cDir)*100).toFixed(1):'N/A';
 document.getElementById('comp-rate').textContent=cDirPct+(cDir>0?'%':'');
 document.getElementById('comp-sub').textContent=cDirH+'/'+cDir+(cBT>0?' • Bull:'+cBR+'/'+cBT:'')+(cBeT>0?' Bear:'+cBeR+'/'+cBeT:'');
 
-// Card 3: Tech Directional
 let tDirPct=tDir>0?((tDirH/tDir)*100).toFixed(1):'N/A';
 document.getElementById('tech-rate').textContent=tDirPct+(tDir>0?'%':'');
 document.getElementById('tech-sub').textContent=tDirH+'/'+tDir+' calls (of '+tT+' scored)';
 
-// Card 4: Improvement
 let sDV=sDir>0?(sDirH/sDir)*100:0,cDV=cDir>0?(cDirH/cDir)*100:0,delta=cDV-sDV;
 document.getElementById('dir-acc').textContent=(delta>=0?'+':'')+delta.toFixed(1)+'%';
 document.getElementById('dir-acc').className='cv '+(delta>0?'green':delta<0?'red':'yellow');
 document.getElementById('dir-sub').textContent='composite vs sentiment';
 
-// Card 5: Corrected
 document.getElementById('corr-count').textContent=corrected;
 document.getElementById('corr-sub').textContent='of '+news.length+' flipped';
 
-// Card 6: Coverage
 document.getElementById('news-count').textContent=(news.length+tT)+'/'+data.length;
 document.getElementById('news-sub').textContent=news.length+' news + '+tT+' tech';
 
@@ -173,8 +236,8 @@ renderStreaks(news);renderTable(data)}
 function renderStreaks(data){
 let bull=data.filter(r=>+r.Forecast_Direction===1&&+(r.Streak_Days||0)>=2).sort((a,b)=>+b.Streak_Days-+a.Streak_Days).slice(0,8);
 let bear=data.filter(r=>+r.Forecast_Direction===-1&&+(r.Streak_Days||0)>=2).sort((a,b)=>+b.Streak_Days-+a.Streak_Days).slice(0,8);
-document.getElementById('bull-str').innerHTML=bull.length?bull.map(r=>sHTML(r,'bg')).join(''):'<p class="es">No bullish streaks</p>';
-document.getElementById('bear-str').innerHTML=bear.length?bear.map(r=>sHTML(r,'br')).join(''):'<p class="es">No bearish streaks</p>'}
+document.getElementById('bull-str').innerHTML=bull.length?bull.map(r=>sHTML(r,'bg')).join(''):'<p class="es">No bullish streaks yet</p>';
+document.getElementById('bear-str').innerHTML=bear.length?bear.map(r=>sHTML(r,'br')).join(''):'<p class="es">No bearish streaks yet</p>'}
 function sHTML(r,cls){let d=+(r.Streak_Days||0),c=+(r.Streak_Return||0),m=r.Momentum||'New';let mc=m==='Strong'?'ms':m==='Building'?'mbu':m==='Fading'?'mf':'mn';return'<div class="si"><span class="st">'+r.Ticker+'</span><span class="bd '+cls+'">'+d+'d</span><span class="sm">Cumul: '+(c>=0?'+':'')+c.toFixed(2)+'%</span><span class="mb '+mc+'">'+m+'</span></div>'}
 
 // ═══ TABLE ═══
@@ -190,22 +253,36 @@ let isTechOnly=!newsRow&&cs!==0;
 let meta=tickerMeta[r.Ticker]||{};let isFII=meta.up_true===1;let bbF=(meta.BB_Flag||'').toLowerCase();
 tr.dataset.cd=String(cd);tr.dataset.sk=String(sk);tr.dataset.news=newsRow?'1':'0';tr.dataset.tech=isTechOnly?'1':'0';tr.dataset.scored=(newsRow||isTechOnly)?'1':'0';tr.dataset.fii=isFII?'1':'0';tr.dataset.bb=bbF;tr.dataset.corrected=isCorrected?'1':'0';
 if(!newsRow&&!isTechOnly)tr.className='row-dim';
+
 let t0=ce('td');t0.className='fm ticker-click';t0.style.fontWeight='700';t0.style.color=newsRow?'#38bdf8':(isTechOnly?'#818cf8':'#475569');t0.textContent=r.Ticker||'—';if(isCorrected){let dot=ce('span');dot.className='corr-dot';t0.appendChild(dot)}t0.onclick=()=>openChart(r.Ticker);
+
 let t1=ce('td');let hl=r.Latest_Headline||'';if(nu&&hl){let a=ce('a');a.className='news-link';a.href=nu;a.target='_blank';a.rel='noopener noreferrer';a.textContent=hl;t1.appendChild(a)}else if(isTechOnly){t1.style.color='#818cf8';t1.style.fontSize='.65rem';t1.textContent='Tech+Macro scored'}else{t1.style.color='#475569';t1.textContent=hl||'—'}
+
 let t2=ce('td');t2.style.textAlign='center';if(src){let parts=src.split('|'),frag=document.createDocumentFragment();parts.forEach((p,i)=>{let sb=ce('span');sb.className='src-badge '+srcCls(p.trim());sb.textContent=p.trim();frag.appendChild(sb);if(i<parts.length-1)frag.appendChild(document.createTextNode(' '))});t2.appendChild(frag)}else if(isTechOnly){let tb2=ce('span');tb2.className='tech-badge';tb2.textContent='TECH';t2.appendChild(tb2)}else{t2.style.color='#475569';t2.textContent='—'}
+
 let t3=ce('td');t3.className='news-time';t3.textContent=nt||'—';
+
 let t4=ce('td');t4.style.textAlign='center';if(sev&&newsRow){let sb=ce('span');sb.className='sev '+sevCls(sev);sb.textContent=sev;t4.appendChild(sb)}else{t4.style.color='#475569';t4.textContent='—'}
+
 let t5=ce('td');t5.style.textAlign='center';t5.dataset.value=sc;if(newsRow){let s5=ce('span');s5.className='bd '+(sc>0?'bg':sc<0?'br':'bgy');s5.textContent=(sc>0?'+':'')+sc.toFixed(1);t5.appendChild(s5)}else{t5.style.color='#475569';t5.textContent='—'}
+
 let t6=ce('td');t6.style.textAlign='center';t6.dataset.value=techS;if(techS!==0){let s6=ce('span');s6.className='bd '+(techS>0?'bg':techS<0?'br':'bgy');s6.textContent=(techS>0?'+':'')+techS;t6.appendChild(s6)}else{t6.style.color='#475569';t6.textContent='0'}
+
 let t7=ce('td');t7.style.textAlign='center';t7.dataset.value=ret;let s7=ce('span');s7.className='bd '+(ret>0?'bg':ret<0?'br':'bgy');s7.textContent=(ret>0?'+':'')+ret.toFixed(2)+'%';t7.appendChild(s7);
+
 let t8=ce('td');t8.style.textAlign='center';t8.dataset.value=cs;if(cs!==0||newsRow){let s8=ce('span');s8.className='bd '+(cs>0?'bc':cs<0?'br':'bgy');s8.style.minWidth='48px';s8.textContent=(cs>0?'+':'')+cs.toFixed(1);t8.appendChild(s8)}else{t8.style.color='#475569';t8.textContent='—'}
+
 let t9=ce('td');t9.style.textAlign='center';if(newsRow||isTechOnly){let s9=ce('span');s9.className='bd '+(cd===1?'bg':cd===-1?'br':'bgy');s9.textContent=cd===1?'Bull':cd===-1?'Bear':'Neut';t9.appendChild(s9);if(isCorrected){let cx=ce('span');cx.style.cssText='font-size:.5rem;color:#fca5a5;margin-left:3px';cx.textContent='🔀';t9.appendChild(cx)}}else{t9.style.color='#475569';t9.textContent='—'}
+
 let t10=ce('td');t10.style.textAlign='center';t10.dataset.value=sk;if(sk>=2){let s10=ce('span');s10.className='bd '+(fd===1?'bg':fd===-1?'br':'bgy');s10.textContent=sk+'d';t10.appendChild(s10)}else{t10.style.color='#64748b';t10.textContent=sk>0?'1d':'—'}
+
 let t11=ce('td');t11.style.textAlign='center';if(mo&&mo!=='Neutral'&&mo!==''){let s11=ce('span');s11.className='mb '+(mo==='Strong'?'ms':mo==='Building'?'mbu':mo==='Fading'?'mf':'mn');s11.textContent=mo;t11.appendChild(s11)}else{t11.style.color='#64748b';t11.textContent='—'}
+
 let t12=ce('td');t12.style.textAlign='center';t12.dataset.value=isFII?1:0;if(isFII){let fb=ce('span');fb.className='fii-badge';fb.textContent='FII/DII';t12.appendChild(fb)}else{t12.style.color='#475569';t12.textContent='—'}
+
 ;[t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11,t12].forEach(c=>tr.appendChild(c));tb.appendChild(tr)});updRC()}
 
-// ═══ COMPACT SCORE (inline in chart header) ═══
+// ═══ COMPACT SCORE ═══
 function renderScoreCompact(ticker){
 let el=document.getElementById('score-compact'),row=cachedData.find(r=>r.Ticker===ticker);
 if(!row){el.innerHTML='';el.style.display='none';return}
@@ -292,7 +369,7 @@ else if(f==='fii')mf=rows[i].dataset.fii==='1';
 else if(f==='bbh')mf=rows[i].dataset.bb==='bbh';
 else if(f==='bbl')mf=rows[i].dataset.bb==='bbl';
 rows[i].style.display=(ms&&mf)?'':'none'}updRC()}
-function updRC(){let rows=document.getElementById('rows').getElementsByTagName('tr'),v=0;for(let i=0;i<rows.length;i++)if(rows[i].style.display!=='none'&&rows[i].getElementsByTagName('td').length>1)v++;document.getElementById('row-count').textContent='Showing '+v+' of '+cachedData.length}
+function updRC(){let rows=document.getElementById('rows').getElementsByTagName('tr'),v=0;for(let i=0;i<rows.length;i++)if(rows[i].style.display!=='none'&&rows[i].getElementsByTagName('td').length>1)v++;document.getElementById('row-count').textContent='Showing '+v+' of '+cachedData.length+' tickers'}
 function sortT(ci,ty){if(sortCol===ci)sortAsc=!sortAsc;else{sortCol=ci;sortAsc=true}let tb=document.getElementById('rows'),arr=Array.from(tb.getElementsByTagName('tr'));arr.sort((a,b)=>{let cA=a.getElementsByTagName('td')[ci],cB=b.getElementsByTagName('td')[ci];if(!cA||!cB)return 0;let vA,vB;if(ty==='n'){vA=parseFloat(cA.dataset.value||cA.textContent.replace(/[^0-9.\-]/g,''))||0;vB=parseFloat(cB.dataset.value||cB.textContent.replace(/[^0-9.\-]/g,''))||0}else{vA=cA.textContent.trim().toLowerCase();vB=cB.textContent.trim().toLowerCase()}if(vA<vB)return sortAsc?-1:1;if(vA>vB)return sortAsc?1:-1;return 0});arr.forEach(r=>tb.appendChild(r))}
 </script>
 </body>
