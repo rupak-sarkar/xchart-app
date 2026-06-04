@@ -227,17 +227,34 @@ def compute_all_indicators(df):
         g["Knoxville_Divergence"] = div_list
 
         # ── Gain + Up True ──
+      # ── FII/DII Burst Detection (10-day lookback) ──
         g["gain"] = c.pct_change().mul(100).round(2)
         g["up_20"] = (c > g["SMA_22"]).astype(int)
+
         up_true = []
         for i in range(len(g)):
-            if i < 3: up_true.append(0); continue
-            c0=c.iloc[i]; c1=c.iloc[i-1]; c2=c.iloc[i-2]; c3=c.iloc[i-3]
-            if pd.isna(c0) or pd.isna(c3): up_true.append(0); continue
-            if c0>c1 and c1>c2 and c2>c3:
-                cr = ((c0-c3)/c3)*100 if c3>0 else 0
-                up_true.append(1 if cr >= 20 else 0)
-            else: up_true.append(0)
+            if i < 4:
+                up_true.append(0)
+                continue
+            found = 0
+            # Check every 4-day window in the last 10 days
+            lookback = min(10, i)
+            for j in range(lookback - 3):
+                idx = i - j
+                if idx < 3:
+                    break
+                c0 = c.iloc[idx]
+                c1 = c.iloc[idx-1]
+                c2 = c.iloc[idx-2]
+                c3 = c.iloc[idx-3]
+                if pd.isna(c0) or pd.isna(c3):
+                    continue
+                if c0 > c1 and c1 > c2 and c2 > c3:
+                    cr = ((c0 - c3) / c3) * 100 if c3 > 0 else 0
+                    if cr >= 20:
+                        found = 1
+                        break
+            up_true.append(found)
         g["up_true"] = up_true
 
         frames.append(g)
