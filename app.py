@@ -32,6 +32,7 @@ TICKERS_FILE = "tickers.csv"
 HISTORY_FILE = "history.csv"
 DATA_FILE = "data.csv"
 STOCK_DATA_FILE = "stock_data.csv"
+MACRO_CACHE_FILE = "macro_cache.json"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL_NAME = "gemini-2.0-flash"
@@ -47,7 +48,6 @@ WEIGHTS_NO_NEWS = {"technical": 0.70, "macro": 0.30}
 print(f"Weights (news):    Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
 print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")
 
-# ── Sector consolidation ──
 SECTOR_MAP = {
     "Technology": ["Software - Application","Software - Infrastructure","Information Technology Services","Communication Equipment","Consumer Electronics"],
     "Healthcare": ["Drug Manufacturers - Specialty & Generic","Drug Manufacturers - General","Biotechnology","Medical Care Facilities"],
@@ -59,6 +59,19 @@ SECTOR_MAP = {
     "Real Estate": ["Real Estate - Development"],
     "Energy": ["Oil & Gas Integrated","Oil & Gas Refining & Marketing"],
     "Specialty": ["Specialty Business Services","Tools & Accessories"],
+}
+
+SECTOR_RULES = {
+    "Technology":             {"base_offset": -5, "nifty_sensitivity": 1.5, "description": "Tech: global sentiment driven"},
+    "Healthcare":             {"base_offset": +10, "nifty_sensitivity": 0.3, "description": "Pharma: defensive, low beta"},
+    "Financial Services":     {"base_offset": 0, "nifty_sensitivity": 1.2, "description": "Financials: credit cycle linked"},
+    "Industrials":            {"base_offset": +5, "nifty_sensitivity": 0.8, "description": "Industrials: govt capex driven"},
+    "Consumer Discretionary": {"base_offset": -5, "nifty_sensitivity": 1.3, "description": "Discretionary: consumption linked"},
+    "Consumer Staples":       {"base_offset": +5, "nifty_sensitivity": 0.4, "description": "Staples: defensive, low beta"},
+    "Materials":              {"base_offset": -5, "nifty_sensitivity": 1.5, "description": "Materials: commodity cycle"},
+    "Real Estate":            {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Real estate: rate sensitive"},
+    "Energy":                 {"base_offset": 0, "nifty_sensitivity": 0.8, "description": "Energy: crude linked"},
+    "Specialty":              {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Specialty: mixed drivers"},
 }
 
 SOURCE_LABELS = {"mc_topnews":"Moneycontrol","mc_business":"Moneycontrol","mc_markets":"Moneycontrol","mc_stocks":"Moneycontrol","et_markets":"Economic Times","et_stocks":"Economic Times","et_news":"Economic Times","ndtv_business":"NDTV Profit","mint_market":"LiveMint","mint_companies":"LiveMint","nse_announce":"NSE Official","nse_actions":"NSE Official","fe_markets":"Financial Express","fe_companies":"Financial Express","bl_markets":"BusinessLine","bl_stocks":"BusinessLine","bl_companies":"BusinessLine","yfinance":"Yahoo Finance","google":"Google News"}
@@ -75,11 +88,9 @@ REPORTING_VERBS = {"surged","surges","surge","jumped","jumps","jump","rallied","
 PRICE_CONTEXT = {"share","shares","stock","stocks","scrip","counter","sensex","nifty","market","index","indices","bse","nse","trading","trade","session","intraday","today","morning","afternoon","week","high","low","close","closed","closing","open","opened"}
 CATALYST_VERBS = {"wins","win","won","awarded","receives","received","secures","secured","acquires","acquired","acquire","merges","merged","merge","approves","approved","approve","clears","cleared","clear","launches","launched","launch","plans","planned","plan","expands","expanded","expand","invests","invested","invest","raises","raised","raise","signs","signed","sign","partners","partnered","partner","enters","entered","enter","files","filed","file","announces","announced","announce","declares","declared","declare","recommends","recommended","upgrades","upgraded","upgrade","downgrades","downgraded","downgrade","appoints","appointed","appoint","resigns","resigned","resign","penalizes","penalized","fines","fined","suspends","suspended","bans","banned","restructures","restructured","defaults","defaulted","commissions","commissioned","inaugurates","inaugurated","divests","divested","demerges","demerged"}
 SECTOR_IMPACT_WORDS = {"industry","sector","segment","policy","regulation","government","ministry","budget","gst","tariff","duty","subsidy","pli","rbi","sebi","ban","mandate","compliance","guideline","monsoon","crude","oil","commodity","inflation","rate cut","rate hike","forex","rupee","dollar","export","import","demand","supply"}
-
 BAD_STRINGS = ('nan', 'none', 'n/a', 'null', '')
 
 def is_bad_str(s):
-    """Check if string is empty, nan, none, etc."""
     if not s: return True
     return str(s).strip().lower() in BAD_STRINGS
 
@@ -163,7 +174,6 @@ def match_ticker_in_text(tu, tl):
         if a in tu and t in tl: return t
     return None
 
-# ── FIX 1: Sanitize sector in load_tickers ──
 def load_tickers():
     if os.path.exists(TICKERS_FILE):
         try:
@@ -344,7 +354,7 @@ def save_to_history(rows):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MULTI-LAYER SCORING ENGINE (v3.4)
+# MULTI-LAYER SCORING ENGINE (v3.5)
 # ═══════════════════════════════════════════════════════════════
 
 def call_gemini(prompt, retries=2):
@@ -365,9 +375,7 @@ def call_gemini(prompt, retries=2):
             continue
     return None
 
-
 def call_gemini_large(prompt, retries=3):
-    """Call Gemini with larger token limit for batch responses"""
     if not GEMINI_API_KEY: return None
     for attempt in range(retries + 1):
         try:
@@ -398,7 +406,6 @@ def call_gemini_large(prompt, retries=3):
             continue
     return None
 
-
 def load_stock_data_for_scoring():
     try:
         if os.path.exists(STOCK_DATA_FILE):
@@ -420,9 +427,7 @@ def load_stock_data_for_scoring():
     print("  → stock_data.csv not found")
     return pd.DataFrame()
 
-
 def get_sector_from_stock_data(ticker, stock_df):
-    """Get Industry/sector — scan all rows, filter bad strings"""
     if stock_df is None or stock_df.empty: return ""
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty: return ""
@@ -430,72 +435,56 @@ def get_sector_from_stock_data(ticker, stock_df):
         if cn not in tk_data.columns: continue
         vals = tk_data[cn].dropna().astype(str).str.strip()
         vals = vals[vals.apply(lambda x: not is_bad_str(x))]
-        if len(vals) > 0:
-            return vals.iloc[-1]
+        if len(vals) > 0: return vals.iloc[-1]
     return ""
 
-
 def get_technical_score(ticker, stock_df, debug=False):
-    """Score technical position — backward scan for sparse indicators"""
-    if stock_df is None or stock_df.empty:
-        return {"score": 0, "signals": []}
+    if stock_df is None or stock_df.empty: return {"score": 0, "signals": []}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty:
-        if debug: print(f"    DEBUG {ticker}: not found in stock_data")
+        if debug: print(f"    DEBUG {ticker}: not found")
         return {"score": 0, "signals": []}
     valid = tk_data[tk_data['Close'].notna()]
-    if valid.empty:
-        if debug: print(f"    DEBUG {ticker}: no valid Close rows")
-        return {"score": 0, "signals": []}
-
-    last = valid.iloc[-1]
-    score = 0; signals = []
-
-    def val(col_names):
-        if isinstance(col_names, str): col_names = [col_names]
-        for cn in col_names:
-            if cn in last.index:
-                v = last[cn]
+    if valid.empty: return {"score": 0, "signals": []}
+    last = valid.iloc[-1]; score = 0; signals = []
+    def val(cn):
+        if isinstance(cn, str): cn = [cn]
+        for c in cn:
+            if c in last.index:
+                v = last[c]
                 try:
                     if pd.notna(v): return v
                 except: pass
         return None
-
-    def val_scan(col_names, rows=5):
-        if isinstance(col_names, str): col_names = [col_names]
-        for cn in col_names:
-            if cn not in valid.columns: continue
-            for i in range(1, min(rows + 1, len(valid) + 1)):
-                v = valid.iloc[-i].get(cn) if cn in valid.iloc[-i].index else None
+    def val_scan(cn, rows=5):
+        if isinstance(cn, str): cn = [cn]
+        for c in cn:
+            if c not in valid.columns: continue
+            for i in range(1, min(rows+1, len(valid)+1)):
+                v = valid.iloc[-i].get(c) if c in valid.iloc[-i].index else None
                 try:
                     if v is not None and pd.notna(v) and str(v).strip() != '': return v
                 except: pass
         return None
-
-    rsi = val(['RSI_14', 'RSI', 'rsi_14'])
+    rsi = val(['RSI_14','RSI','rsi_14'])
     if debug:
         ind = get_sector_from_stock_data(ticker, stock_df)
         print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, Knox={val_scan('Knoxville_Divergence',5)}, up={val_scan('up_true',3)}, Ind={ind}")
-
     if rsi is not None:
         rsi = float(rsi)
         if rsi > 75: score -= 30; signals.append(f"RSI overbought({rsi:.0f})")
         elif rsi > 65: score -= 15; signals.append(f"RSI elevated({rsi:.0f})")
         elif rsi < 25: score += 30; signals.append(f"RSI oversold({rsi:.0f})")
         elif rsi < 35: score += 15; signals.append(f"RSI depressed({rsi:.0f})")
-
-    bb = val_scan(['BB_Flag', 'bb_flag'], rows=3)
+    bb = val_scan(['BB_Flag','bb_flag'], rows=3)
     if bb is not None:
         bb = str(bb).strip().upper()
         if bb == 'BBH': score -= 20; signals.append("BB upper band")
         elif bb == 'BBL': score += 20; signals.append("BB lower band")
-
-    close = val(['Close', 'close'])
+    close = val(['Close','close'])
     if close is not None:
         close = float(close)
-        sma22 = val(['SMA_22', 'sma_22', 'SMA22'])
-        sma50 = val(['SMA_50', 'SMA_52', 'sma_50', 'sma_52'])
-        sma200 = val(['SMA_200', 'sma_200', 'SMA200'])
+        sma22 = val(['SMA_22','sma_22']); sma50 = val(['SMA_50','SMA_52']); sma200 = val(['SMA_200','sma_200'])
         if sma22 is not None:
             if close < float(sma22): score -= 12; signals.append("Below SMA22")
             else: score += 8
@@ -504,30 +493,23 @@ def get_technical_score(ticker, stock_df, debug=False):
         if sma200 is not None:
             if close < float(sma200): score -= 20; signals.append("Below SMA200")
             else: score += 10
-
-    knox = val_scan(['Knoxville_Divergence', 'Knoxville', 'knoxville_divergence'], rows=5)
+    knox = val_scan(['Knoxville_Divergence','Knoxville'], rows=5)
     if knox is not None:
-        knox_str = str(knox).strip().lower()
-        if 'bearish' in knox_str: score -= 15; signals.append("Knox bearish div")
-        elif 'bullish' in knox_str: score += 15; signals.append("Knox bullish div")
-
-    up = val_scan(['up_true', 'Up_True', 'UP_TRUE'], rows=3)
+        ks = str(knox).strip().lower()
+        if 'bearish' in ks: score -= 15; signals.append("Knox bearish div")
+        elif 'bullish' in ks: score += 15; signals.append("Knox bullish div")
+    up = val_scan(['up_true','Up_True'], rows=3)
     if up is not None:
         try:
             if int(float(up)) == 1: score += 15; signals.append("FII/DII momentum")
         except: pass
-
     return {"score": max(-100, min(100, score)), "signals": signals}
 
-
 def score_fundamentals_rules(ticker, stock_df):
-    if stock_df is None or stock_df.empty:
-        return {"score": 0, "concern": ""}
+    if stock_df is None or stock_df.empty: return {"score": 0, "concern": ""}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
-    if tk_data.empty:
-        return {"score": 0, "concern": ""}
-    last = tk_data.iloc[-1]
-    score = 0; concerns = []
+    if tk_data.empty: return {"score": 0, "concern": ""}
+    last = tk_data.iloc[-1]; score = 0; concerns = []
     def val(names):
         if isinstance(names, str): names = [names]
         for n in names:
@@ -537,25 +519,21 @@ def score_fundamentals_rules(ticker, stock_df):
                     if pd.notna(v): return float(v)
                 except: pass
         return None
-    de = val(['Debt_Eq','debt_equity','Debt_Equity','DebtToEquity'])
+    de = val(['Debt_Eq','debt_equity','Debt_Equity'])
     if de is not None:
         if de > 200: score -= 20; concerns.append("Very high debt")
         elif de > 100: score -= 10; concerns.append("High debt")
         elif de < 30: score += 5
     return {"score": max(-100, min(100, score)), "concern": "; ".join(concerns) if concerns else ""}
 
-
 def get_nifty_change():
     try:
         h = yf.Ticker("^NSEI").history(period="5d")
         if len(h) >= 2:
             chg = round(((h['Close'].iloc[-1] - h['Close'].iloc[0]) / h['Close'].iloc[0]) * 100, 2)
-            print(f"  → Nifty 5d change: {chg:+.2f}%")
-            return chg
+            print(f"  → Nifty 5d change: {chg:+.2f}%"); return chg
     except: pass
-    print("  → Could not fetch Nifty data")
-    return 0.0
-
+    print("  → Could not fetch Nifty data"); return 0.0
 
 def get_broad_sector(sub_industry):
     if not sub_industry: return ""
@@ -563,32 +541,62 @@ def get_broad_sector(sub_industry):
         if sub_industry in subs: return broad
     return sub_industry
 
+def load_macro_cache():
+    try:
+        if os.path.exists(MACRO_CACHE_FILE):
+            with open(MACRO_CACHE_FILE, 'r') as f:
+                cache = json.load(f)
+            if cache.get("date") == TODAY_IST and cache.get("scores"):
+                print(f"  → Loaded macro cache from today ({len(cache['scores'])} sectors)")
+                return cache["scores"]
+    except: pass
+    return None
+
+def save_macro_cache(scores):
+    try:
+        with open(MACRO_CACHE_FILE, 'w') as f:
+            json.dump({"date": TODAY_IST, "scores": scores}, f)
+        print(f"  → Saved macro cache ({len(scores)} sectors)")
+    except: pass
+
+def smart_rule_based_macro(broad_list, nifty_change):
+    scores = {}
+    for sector in broad_list:
+        rules = SECTOR_RULES.get(sector, {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Mixed drivers"})
+        raw = nifty_change * rules["nifty_sensitivity"] + rules["base_offset"]
+        scores[sector] = {"score": max(-50, min(50, round(raw))), "context": rules["description"]}
+    return scores
 
 def get_macro_scores(sectors, nifty_change):
-    """Get macro scores — consolidated broad sectors, single Gemini call"""
     macro_cache = {}
     unique_sectors = list(set(s for s in sectors if s and not is_bad_str(s)))
     if not unique_sectors: return macro_cache
-
     base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
-
     sub_to_broad = {}; broad_set = set()
     for sub in unique_sectors:
-        broad = get_broad_sector(sub)
-        sub_to_broad[sub] = broad
+        broad = get_broad_sector(sub); sub_to_broad[sub] = broad
         if broad: broad_set.add(broad)
-
     broad_list = sorted(broad_set)
     print(f"  → {len(unique_sectors)} sub-industries → {len(broad_list)} broad sectors")
 
-    if not GEMINI_API_KEY:
+    # 1: Try cache
+    cached = load_macro_cache()
+    if cached:
+        broad_scores = {}
+        for sector in broad_list:
+            broad_scores[sector] = cached.get(sector, {"score": base, "context": f"Nifty {nifty_change:+.1f}%"})
         for sub in unique_sectors:
-            macro_cache[sub] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
-        print(f"  → All scored rule-based (no API key)")
+            macro_cache[sub] = broad_scores.get(sub_to_broad.get(sub,""), {"score": 0, "context": ""})
+        for sector, data in sorted(broad_scores.items(), key=lambda x: x[1]["score"]):
+            count = sum(1 for s in sub_to_broad.values() if s == sector)
+            print(f"    {sector} ({count}): {data['score']:+d} ({data['context']}) [cached]")
         return macro_cache
 
-    sector_list = "\n".join([f"  - {s}" for s in broad_list])
-    prompt = f"""You are a macro analyst for Indian equities (NSE/BSE).
+    # 2: Try Gemini
+    broad_scores = {}; gemini_success = False
+    if GEMINI_API_KEY:
+        sector_list = "\n".join([f"  - {s}" for s in broad_list])
+        prompt = f"""You are a macro analyst for Indian equities (NSE/BSE).
 Score the CURRENT short-term (1-5 day) outlook for each sector.
 
 Nifty 50 5-day change: {nifty_change:+.2f}%
@@ -597,73 +605,57 @@ For EACH sector consider: FII/DII flows, sector rotation, global cues,
 RBI policy, commodity/crude, rupee, government capex.
 
 CRITICAL:
-- Scores MUST vary across sectors. Not all sectors move the same way.
-- Defensive (Healthcare, Staples) often opposite to cyclicals (Materials, Auto).
-- IT benefits from weak rupee. Metals follow global commodity prices.
-- Even if Nifty is negative, some sectors can be positive.
+- Scores MUST vary across sectors.
+- Defensive (Healthcare, Staples) often opposite to cyclicals.
+- IT benefits from weak rupee. Metals follow commodities.
 - Score range: -50 to +50. Most between -25 and +25.
 
 Sectors:
 {sector_list}
 
-Return ONLY valid JSON with ALL sectors as keys:
-{{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, ...}}"""
+Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, ...}}"""
+        print(f"  → Calling Gemini for {len(broad_list)} broad sectors...")
+        result = call_gemini_large(prompt)
+        if result and isinstance(result, dict):
+            scored = 0
+            for sector in broad_list:
+                if sector in result and isinstance(result[sector], dict):
+                    sc = result[sector].get("score", 0)
+                    ctx = str(result[sector].get("ctx", result[sector].get("context", "")))
+                    broad_scores[sector] = {"score": max(-50, min(50, int(sc))), "context": ctx}; scored += 1
+                else:
+                    broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+            if scored > 0:
+                gemini_success = True
+                print(f"  → Gemini scored {scored}/{len(broad_list)} broad sectors")
+                save_macro_cache(broad_scores)
 
-    print(f"  → Calling Gemini for {len(broad_list)} broad sectors...")
-    broad_scores = {}
-    result = call_gemini_large(prompt)
-
-    if result and isinstance(result, dict):
-        scored = 0
-        for sector in broad_list:
-            if sector in result and isinstance(result[sector], dict):
-                sc = result[sector].get("score", 0)
-                ctx = str(result[sector].get("ctx", result[sector].get("context", "")))
-                broad_scores[sector] = {"score": max(-50, min(50, int(sc))), "context": ctx}
-                scored += 1
-            else:
-                broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
-        print(f"  → Gemini scored {scored}/{len(broad_list)} broad sectors")
-    else:
-        print(f"  → Gemini failed → rule-based fallback")
-        for sector in broad_list:
-            broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+    # 3: Smart rule-based fallback
+    if not gemini_success:
+        print(f"  → Smart rule-based scoring (sector-aware)")
+        broad_scores = smart_rule_based_macro(broad_list, nifty_change)
 
     for sub in unique_sectors:
         broad = sub_to_broad.get(sub, "")
-        if broad and broad in broad_scores:
-            macro_cache[sub] = broad_scores[broad]
-        else:
-            macro_cache[sub] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
-
+        macro_cache[sub] = broad_scores.get(broad, {"score": base, "context": f"Nifty {nifty_change:+.1f}%"})
+    tag = "gemini" if gemini_success else "rule-based"
     for sector, data in sorted(broad_scores.items(), key=lambda x: x[1]["score"]):
         count = sum(1 for s in sub_to_broad.values() if s == sector)
-        print(f"    {sector} ({count} tickers): {data['score']:+d} ({data['context']})")
-
+        print(f"    {sector} ({count}): {data['score']:+d} ({data['context']}) [{tag}]")
     return macro_cache
-
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
     w = WEIGHTS_NEWS
     if technical == 0:
-        ew = {"sentiment": w["sentiment"] + w["technical"]*0.65, "technical": 0,
-              "macro": w["macro"] + w["technical"]*0.2, "fundamental": w["fundamental"] + w["technical"]*0.15}
-    else:
-        ew = dict(w)
-    comp = (sentiment*ew["sentiment"]) + (technical*ew["technical"]) + (macro*ew["macro"]) + (fundamental*ew["fundamental"])
-    comp = round(comp, 1)
-    d = 1 if comp > 15 else (-1 if comp < -15 else 0)
-    return {"score": comp, "direction": d}
-
+        ew = {"sentiment": w["sentiment"]+w["technical"]*0.65, "technical": 0, "macro": w["macro"]+w["technical"]*0.2, "fundamental": w["fundamental"]+w["technical"]*0.15}
+    else: ew = dict(w)
+    comp = round((sentiment*ew["sentiment"])+(technical*ew["technical"])+(macro*ew["macro"])+(fundamental*ew["fundamental"]), 1)
+    return {"score": comp, "direction": 1 if comp > 15 else (-1 if comp < -15 else 0)}
 
 def compute_composite_no_news(technical, macro):
-    w = WEIGHTS_NO_NEWS
-    clamped_macro = max(-15, min(15, macro))
-    comp = (technical * w["technical"]) + (clamped_macro * w["macro"])
-    comp = round(comp, 1)
-    d = 1 if comp > 15 else (-1 if comp < -15 else 0)
-    return {"score": comp, "direction": d}
-
+    w = WEIGHTS_NO_NEWS; cm = max(-15, min(15, macro))
+    comp = round((technical*w["technical"])+(cm*w["macro"]), 1)
+    return {"score": comp, "direction": 1 if comp > 15 else (-1 if comp < -15 else 0)}
 
 def classify_composite_severity(s):
     if s >= 40: return "Strong Buy"
@@ -676,22 +668,18 @@ def classify_composite_severity(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v3.4)
+# MAIN ENGINE (v3.5)
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
     tl, sm = load_tickers(); total = len(tl)
-    print(f"PREDICTIVE Engine v3.4 - {total} tickers | {TODAY_IST}")
+    print(f"PREDICTIVE Engine v3.5 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
     print("=" * 110)
-
-    # ── PHASE 1 ──
     print("\nPHASE 1: Fetching predictive news (D-3 to 2hr cutoff)...")
     print("-" * 110)
     nc = build_news_cache(tl)
     print("-" * 110)
-
-    # ── PHASE 2 ──
     print(f"\nPHASE 2: FinBERT scoring (circular headlines filtered)...")
     print("-" * 110)
     scored=[]; filing=[]; nonews=[]; ha=0; hd=0; td2=0
@@ -701,12 +689,10 @@ def execute_sentiment_engine():
         entries, cls, fe = get_all_fresh_news(tk, nc, ret)
         base_row = {"Ticker":tk,"Sector":sm.get(tk,""),"Actual_Direction":ad,"Actual_Return_Pct":ret}
         if cls=="no_news":
-            nonews.append({**base_row,"Latest_Headline":"","News_Source":"","News_Time":"","News_URL":"","Headline_Count":0,"Forecast_Score":0.0,"Forecast_Direction":0,"Severity":"No News","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"Tech-Scored"})
-            continue
+            nonews.append({**base_row,"Latest_Headline":"","News_Source":"","News_Time":"","News_URL":"","Headline_Count":0,"Forecast_Score":0.0,"Forecast_Direction":0,"Severity":"No News","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"Tech-Scored"}); continue
         if cls=="filing_only":
             p = fe[0] if fe else {}; nu = p.get("news_url","") or get_source_search_url("NSE Official",tk)
-            filing.append({**base_row,"Latest_Headline":p.get("headline",""),"News_Source":"NSE Official","News_Time":p.get("pub_time","").replace(",",""),"News_URL":nu,"Headline_Count":len(fe),"Forecast_Score":0.0,"Forecast_Direction":0,"Severity":"Filing Only","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"Tech-Scored"})
-            continue
+            filing.append({**base_row,"Latest_Headline":p.get("headline",""),"News_Source":"NSE Official","News_Time":p.get("pub_time","").replace(",",""),"News_URL":nu,"Headline_Count":len(fe),"Forecast_Score":0.0,"Forecast_Direction":0,"Severity":"Filing Only","Impact":"","Streak_Days":0,"Streak_Return":0.0,"Momentum":"","Signal_Quality":"Tech-Scored"}); continue
         pe = max(entries, key=lambda e: e["weight"]); ps=pe["source"]; pt=pe["pub_time"]; pu=pe.get("news_url","")
         if not pu: pu = get_source_search_url(SOURCE_LABELS.get(ps,""), tk)
         if ps in ("yfinance","google"): time.sleep(0.3)
@@ -715,57 +701,41 @@ def execute_sentiment_engine():
         hit = direction==ad
         if hit: ha+=1
         if direction!=0: td2+=1; (hd:=hd+1) if hit else None
-        ab = abs(score)
-        q = "High Conviction" if ab>=60 else ("Moderate" if ab>=25 else ("Weak" if ab>=5 else "Neutral"))
+        ab = abs(score); q = "High Conviction" if ab>=60 else ("Moderate" if ab>=25 else ("Weak" if ab>=5 else "Neutral"))
         usrc = list(dict.fromkeys(SOURCE_LABELS.get(e["source"],e["source"]) for e in entries))
         dm={1:"BULL",-1:"BEAR",0:"NEUT"}; hc=len(entries); ht=f"[{hc}h]" if hc>=2 else ""
         print(f"[{len(scored)+1:3d}] {tk:<14s} {dm.get(direction,'?'):4s} {sev[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {imp:10s} {'HIT' if hit else 'MISS'} {ht}")
         scored.append({**base_row,"Latest_Headline":pe["headline"],"News_Source":" | ".join(usrc),"News_Time":pt.replace(",","") if pt else "","News_URL":pu,"Headline_Count":len(entries),"Forecast_Score":score,"Forecast_Direction":direction,"Severity":sev,"Impact":imp,"Signal_Quality":q})
 
-    # ── PHASE 3 ──
     all_rows = scored + filing + nonews
     print(f"\nPHASE 3: Multi-layer analysis (ALL {len(all_rows)} tickers)...")
     print("-" * 110)
-
     print("Loading stock data...")
     stock_df = load_stock_data_for_scoring()
-
     print("Computing technical scores for ALL tickers...")
     tech_count = 0
     for i, row in enumerate(all_rows):
         tech = get_technical_score(row["Ticker"], stock_df, debug=(i < 3))
-        row["Technical_Score"] = tech["score"]
-        row["Tech_Signals"] = " | ".join(tech["signals"]) if tech["signals"] else ""
+        row["Technical_Score"] = tech["score"]; row["Tech_Signals"] = " | ".join(tech["signals"]) if tech["signals"] else ""
         if tech["score"] != 0: tech_count += 1
     print(f"  → {tech_count}/{len(all_rows)} tickers with non-zero technical score")
-
-    print("Computing fundamental scores (rule-based from stock_data)...")
+    print("Computing fundamental scores...")
     for row in all_rows:
         fund = score_fundamentals_rules(row["Ticker"], stock_df)
-        row["Fundamental_Score"] = fund["score"]
-        row["Fund_Concern"] = fund.get("concern", "")
+        row["Fundamental_Score"] = fund["score"]; row["Fund_Concern"] = fund.get("concern", "")
 
-    # ── FIX 2: Sector mapping — don't use 'or' operator ──
     print("Building sector map...")
     all_sectors = set(); sector_count = 0
     for row in all_rows:
-        # First try tickers.csv sector map
         sector = sm.get(row["Ticker"], "")
-        # If empty or bad, try stock_data.csv
         if not sector or is_bad_str(sector):
             sector = get_sector_from_stock_data(row["Ticker"], stock_df)
-        # Final validation
-        if is_bad_str(sector):
-            sector = ""
+        if is_bad_str(sector): sector = ""
         row["_sector"] = sector
-        if sector:
-            all_sectors.add(sector)
-            sector_count += 1
+        if sector: all_sectors.add(sector); sector_count += 1
     unmapped = len(all_rows) - sector_count
     print(f"  → {sector_count}/{len(all_rows)} tickers mapped to {len(all_sectors)} sectors ({unmapped} unmapped)")
-    if all_sectors:
-        sample = list(all_sectors)[:8]
-        print(f"  → Sample: {sample}...")
+    if all_sectors: print(f"  → Sample: {list(all_sectors)[:8]}...")
 
     print("Fetching Nifty 50 performance...")
     nifty_chg = get_nifty_change()
@@ -773,17 +743,14 @@ def execute_sentiment_engine():
     macro_cache = get_macro_scores(all_sectors, nifty_chg)
     for row in all_rows:
         macro = macro_cache.get(row.get("_sector",""), {"score": 0, "context": ""})
-        row["Macro_Score"] = macro["score"]
-        row["Macro_Context"] = macro.get("context", "")
+        row["Macro_Score"] = macro["score"]; row["Macro_Context"] = macro.get("context", "")
 
     print(f"\nComputing composite signals (news: {len(scored)} | tech-only: {len(filing)+len(nonews)})...")
     print("-" * 110)
-
     cha=0; chd=0; ctd=0
     for row in scored:
         comp = compute_composite_news(row["Forecast_Score"], row["Technical_Score"], row["Macro_Score"], row["Fundamental_Score"])
-        row["Composite_Score"] = comp["score"]
-        row["Composite_Direction"] = comp["direction"]
+        row["Composite_Score"] = comp["score"]; row["Composite_Direction"] = comp["direction"]
         row["Composite_Severity"] = classify_composite_severity(comp["score"])
         c_hit = comp["direction"] == row["Actual_Direction"]
         if c_hit: cha += 1
@@ -795,8 +762,7 @@ def execute_sentiment_engine():
     t_bull=0; t_bear=0; t_neut=0; t_hit=0; t_total=0
     for row in filing + nonews:
         comp = compute_composite_no_news(row["Technical_Score"], row["Macro_Score"])
-        row["Composite_Score"] = comp["score"]
-        row["Composite_Direction"] = comp["direction"]
+        row["Composite_Score"] = comp["score"]; row["Composite_Direction"] = comp["direction"]
         row["Composite_Severity"] = classify_composite_severity(comp["score"]) if comp["score"] != 0 else ""
         row["Forecast_Direction"] = 0
         if comp["direction"] == 1: t_bull += 1
@@ -805,15 +771,11 @@ def execute_sentiment_engine():
         if comp["direction"] == row["Actual_Direction"]: t_hit += 1
         t_total += 1
 
-    for row in all_rows:
-        row.pop("_sector", None)
-
+    for row in all_rows: row.pop("_sector", None)
     scored_with_tech = [r for r in filing + nonews if r["Composite_Score"] != 0]
     print(f"\n  Tech-only scored: {len(scored_with_tech)}/{len(filing)+len(nonews)} | Bull:{t_bull} Bear:{t_bear} Neut:{t_neut}")
-    if t_total > 0:
-        print(f"  Tech-only hit rate: {t_hit}/{t_total} = {(t_hit/t_total)*100:.1f}%")
+    if t_total > 0: print(f"  Tech-only hit rate: {t_hit}/{t_total} = {(t_hit/t_total)*100:.1f}%")
 
-    # ── PHASE 4 ──
     print(f"\nPHASE 4: Streaks for {len(scored)} tickers...")
     print("-" * 110)
     hdf = load_history(); streaks = calculate_streaks(hdf, scored)
@@ -821,26 +783,21 @@ def execute_sentiment_engine():
         s = streaks.get(row["Ticker"],{})
         row["Streak_Days"]=s.get("Streak_Days",0); row["Streak_Return"]=s.get("Streak_Return",0.0); row["Momentum"]=s.get("Momentum","Neutral")
 
-    # ── OUTPUT ──
     pd.DataFrame(all_rows).to_csv(DATA_FILE, index=False)
     save_to_history(scored)
-
     sc=len(scored); fc=len(filing); nc2=len(nonews)
-    bull=sum(1 for r in scored if r["Forecast_Direction"]==1)
-    bear=sum(1 for r in scored if r["Forecast_Direction"]==-1)
-    neut=sum(1 for r in scored if r["Forecast_Direction"]==0)
+    bull=sum(1 for r in scored if r["Forecast_Direction"]==1); bear=sum(1 for r in scored if r["Forecast_Direction"]==-1); neut=sum(1 for r in scored if r["Forecast_Direction"]==0)
     hra=(ha/sc)*100 if sc>0 else 0; hrd=(hd/td2)*100 if td2>0 else 0
     chra=(cha/sc)*100 if sc>0 else 0; chrd=(chd/ctd)*100 if ctd>0 else 0
     corrected_count = sum(1 for r in scored if r["Forecast_Direction"] != r.get("Composite_Direction", r["Forecast_Direction"]))
     comp_bull = sum(1 for r in scored if r.get("Composite_Direction",0)==1)
     comp_bear = sum(1 for r in scored if r.get("Composite_Direction",0)==-1)
     total_scored = sc + len(scored_with_tech)
-
     macro_vals = [macro_cache[s]["score"] for s in macro_cache] if macro_cache else [0]
     macro_varied = len(set(macro_vals)) > 1
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v3.4 | ALL TICKERS SCORED")
+    print(f"data.csv | {TODAY_IST} | ENGINE v3.5 | ALL TICKERS SCORED")
     print(f"TICKERS: {sc} news-scored | {fc} filing | {nc2} no-news | {total_scored} total with signals")
     print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped | Macro varied: {'✅' if macro_varied else '❌ (fallback)'}")
     print(f"WEIGHTS: News→ Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
@@ -860,7 +817,6 @@ def execute_sentiment_engine():
     delta_d = chrd - hrd
     print(f"\nIMPROVEMENT: Directional {delta_d:+.1f}% ({hrd:.1f}% → {chrd:.1f}%)")
     print("=" * 110)
-
 
 if __name__ == "__main__":
     execute_sentiment_engine()
