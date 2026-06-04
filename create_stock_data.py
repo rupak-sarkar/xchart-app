@@ -42,35 +42,56 @@ def load_tickers():
     return ["RELIANCE","TCS","INFY","HDFCBANK","SBIN"]
 
 
+def get_yf_symbol(ticker):
+    """Auto-detect: numeric = BSE (.BO), alphabetic = NSE (.NS)"""
+    clean = ticker.replace('.NS', '').replace('.BO', '').strip()
+    if clean.isdigit():
+        return f"{clean}.BO", f"{clean}.NS"  # BSE first, NSE fallback
+    else:
+        return f"{clean}.NS", f"{clean}.BO"  # NSE first, BSE fallback
+
+
 def download_ticker_data(ticker, period_days):
-    try:
-        yf_t = yf.Ticker(f"{ticker}.NS")
-        end = TODAY_DATE + timedelta(days=1); start = TODAY_DATE - timedelta(days=period_days)
-        hist = yf_t.history(start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"))
-        if hist.empty or len(hist) < 2: return None, {}
-        hist = hist.reset_index(); hist["Ticker"] = ticker
-        hist["Date"] = pd.to_datetime(hist["Date"]).dt.strftime("%Y-%m-%d")
-        hist = hist[["Ticker","Date","Open","High","Low","Close","Volume"]]
-        hist[["Open","High","Low","Close"]] = hist[["Open","High","Low","Close"]].round(2)
-        hist["Volume"] = hist["Volume"].astype(int)
-        info = {}
+    primary, fallback = get_yf_symbol(ticker)
+    for symbol in [primary, fallback]:
         try:
-            si = yf_t.info
-            mc = si.get("marketCap")
-            info["Market_Cap"] = round(mc / 10_000_000, 2) if mc else None
-            raw_industry = si.get("industry")
-            info["Industry"] = sanitize_str(raw_industry)
+            yf_t = yf.Ticker(symbol)
+            end = TODAY_DATE + timedelta(days=1)
+            start = TODAY_DATE - timedelta(days=period_days)
+            hist = yf_t.history(start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"))
+            if hist.empty or len(hist) < 2:
+                continue
+            hist = hist.reset_index()
+            hist["Ticker"] = ticker  # keep original ticker name
+            hist["Date"] = pd.to_datetime(hist["Date"]).dt.strftime("%Y-%m-%d")
+            hist = hist[["Ticker", "Date", "Open", "High", "Low", "Close", "Volume"]]
+            hist[["Open", "High", "Low", "Close"]] = hist[["Open", "High", "Low", "Close"]].round(2)
+            hist["Volume"] = hist["Volume"].astype(int)
+            info = {}
             try:
-                bs = yf_t.balance_sheet
-                if not bs.empty:
-                    td = bs.loc["Total Debt"][0] if "Total Debt" in bs.index else None
-                    te = bs.loc["Stockholders Equity"][0] if "Stockholders Equity" in bs.index else (
-                        bs.loc["Total Stockholder Equity"][0] if "Total Stockholder Equity" in bs.index else None)
-                    if td and te and te != 0: info["Debt_Eq"] = round(float(td)/float(te), 2)
-            except: pass
-        except: pass
-        return hist, info
-    except: return None, {}
+                si = yf_t.info
+                mc = si.get("marketCap")
+                info["Market_Cap"] = round(mc / 10_000_000, 2) if mc else None
+                raw_industry = si.get("industry")
+                info["Industry"] = sanitize_str(raw_industry)
+                try:
+                    bs = yf_t.balance_sheet
+                    if not bs.empty:
+                        td = bs.loc["Total Debt"][0] if "Total Debt" in bs.index else None
+                        te = bs.loc["Stockholders Equity"][0] if "Stockholders Equity" in bs.index else (
+                            bs.loc["Total Stockholder Equity"][0] if "Total Stockholder Equity" in bs.index else None)
+                        if td and te and te != 0:
+                            info["Debt_Eq"] = round(float(td) / float(te), 2)
+                except:
+                    pass
+            except:
+                pass
+            if symbol != primary:
+                print(f"(via {symbol})", end=" ")
+            return hist, info
+        except:
+            continue
+    return None, {}
 
 
 def compute_all_indicators(df):
