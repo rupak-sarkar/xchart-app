@@ -63,11 +63,11 @@ SECTOR_MAP = {
 
 SECTOR_RULES = {
     "Technology":             {"base_offset": -5, "nifty_sensitivity": 1.5, "description": "Tech: global sentiment driven"},
-    "Healthcare":             {"base_offset": +10, "nifty_sensitivity": 0.3, "description": "Pharma: defensive, low beta"},
+    "Healthcare":             {"base_offset": +10, "nifty_sensitivity": 0.3, "description": "Pharma: defensive low beta"},
     "Financial Services":     {"base_offset": 0, "nifty_sensitivity": 1.2, "description": "Financials: credit cycle linked"},
     "Industrials":            {"base_offset": +5, "nifty_sensitivity": 0.8, "description": "Industrials: govt capex driven"},
     "Consumer Discretionary": {"base_offset": -5, "nifty_sensitivity": 1.3, "description": "Discretionary: consumption linked"},
-    "Consumer Staples":       {"base_offset": +5, "nifty_sensitivity": 0.4, "description": "Staples: defensive, low beta"},
+    "Consumer Staples":       {"base_offset": +5, "nifty_sensitivity": 0.4, "description": "Staples: defensive low beta"},
     "Materials":              {"base_offset": -5, "nifty_sensitivity": 1.5, "description": "Materials: commodity cycle"},
     "Real Estate":            {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Real estate: rate sensitive"},
     "Energy":                 {"base_offset": 0, "nifty_sensitivity": 0.8, "description": "Energy: crude linked"},
@@ -354,7 +354,7 @@ def save_to_history(rows):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MULTI-LAYER SCORING ENGINE (v3.5)
+# MULTI-LAYER SCORING ENGINE (v3.6)
 # ═══════════════════════════════════════════════════════════════
 
 def call_gemini(prompt, retries=2):
@@ -541,25 +541,40 @@ def get_broad_sector(sub_industry):
         if sub_industry in subs: return broad
     return sub_industry
 
+
+# ═══════════════════════════════════════════════════════════════
+# MACRO SCORING — Session-Aware Cache + Gemini + Rule Fallback
+# ═══════════════════════════════════════════════════════════════
+
 def load_macro_cache():
+    """Load cached Gemini macro scores — session-aware (pre-market vs market)"""
     try:
         if os.path.exists(MACRO_CACHE_FILE):
             with open(MACRO_CACHE_FILE, 'r') as f:
                 cache = json.load(f)
-            if cache.get("date") == TODAY_IST and cache.get("scores"):
-                print(f"  → Loaded macro cache from today ({len(cache['scores'])} sectors)")
-                return cache["scores"]
+            if cache.get("date") != TODAY_IST:
+                return None
+            cached_hour = cache.get("hour", 0)
+            current_hour = NOW_IST.hour
+            # Pre-market cache (<9:15) refreshed after market open (>=9:15)
+            if cached_hour < 9 and current_hour >= 9:
+                print(f"  → Pre-market cache found (cached {cached_hour}:00) but market open → will refresh")
+                return None
+            print(f"  → Loaded macro cache from today ({len(cache['scores'])} sectors, cached at {cached_hour}:00 IST)")
+            return cache["scores"]
     except: pass
     return None
 
 def save_macro_cache(scores):
+    """Save with hour for session-aware caching"""
     try:
         with open(MACRO_CACHE_FILE, 'w') as f:
-            json.dump({"date": TODAY_IST, "scores": scores}, f)
-        print(f"  → Saved macro cache ({len(scores)} sectors)")
+            json.dump({"date": TODAY_IST, "hour": NOW_IST.hour, "scores": scores}, f)
+        print(f"  → Saved macro cache ({len(scores)} sectors at {NOW_IST.strftime('%I:%M %p')} IST)")
     except: pass
 
 def smart_rule_based_macro(broad_list, nifty_change):
+    """Sector-aware rule-based scoring — varies by sector characteristics"""
     scores = {}
     for sector in broad_list:
         rules = SECTOR_RULES.get(sector, {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Mixed drivers"})
@@ -568,10 +583,12 @@ def smart_rule_based_macro(broad_list, nifty_change):
     return scores
 
 def get_macro_scores(sectors, nifty_change):
+    """3-tier macro: Cache → Gemini (1 call/session) → Smart rule-based"""
     macro_cache = {}
     unique_sectors = list(set(s for s in sectors if s and not is_bad_str(s)))
     if not unique_sectors: return macro_cache
     base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
+
     sub_to_broad = {}; broad_set = set()
     for sub in unique_sectors:
         broad = get_broad_sector(sub); sub_to_broad[sub] = broad
@@ -579,7 +596,7 @@ def get_macro_scores(sectors, nifty_change):
     broad_list = sorted(broad_set)
     print(f"  → {len(unique_sectors)} sub-industries → {len(broad_list)} broad sectors")
 
-    # 1: Try cache
+    # ── TIER 1: Cache ──
     cached = load_macro_cache()
     if cached:
         broad_scores = {}
@@ -592,7 +609,7 @@ def get_macro_scores(sectors, nifty_change):
             print(f"    {sector} ({count}): {data['score']:+d} ({data['context']}) [cached]")
         return macro_cache
 
-    # 2: Try Gemini
+    # ── TIER 2: Gemini ──
     broad_scores = {}; gemini_success = False
     if GEMINI_API_KEY:
         sector_list = "\n".join([f"  - {s}" for s in broad_list])
@@ -630,9 +647,9 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
                 print(f"  → Gemini scored {scored}/{len(broad_list)} broad sectors")
                 save_macro_cache(broad_scores)
 
-    # 3: Smart rule-based fallback
+    # ── TIER 3: Smart rule-based ──
     if not gemini_success:
-        print(f"  → Smart rule-based scoring (sector-aware)")
+        print(f"  → Smart rule-based scoring (sector-aware fallback)")
         broad_scores = smart_rule_based_macro(broad_list, nifty_change)
 
     for sub in unique_sectors:
@@ -643,6 +660,11 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
         count = sum(1 for s in sub_to_broad.values() if s == sector)
         print(f"    {sector} ({count}): {data['score']:+d} ({data['context']}) [{tag}]")
     return macro_cache
+
+
+# ═══════════════════════════════════════════════════════════════
+# COMPOSITE
+# ═══════════════════════════════════════════════════════════════
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
     w = WEIGHTS_NEWS
@@ -668,18 +690,20 @@ def classify_composite_severity(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v3.5)
+# MAIN ENGINE (v3.6)
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
     tl, sm = load_tickers(); total = len(tl)
-    print(f"PREDICTIVE Engine v3.5 - {total} tickers | {TODAY_IST}")
+    print(f"PREDICTIVE Engine v3.6 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
     print("=" * 110)
+
     print("\nPHASE 1: Fetching predictive news (D-3 to 2hr cutoff)...")
     print("-" * 110)
     nc = build_news_cache(tl)
     print("-" * 110)
+
     print(f"\nPHASE 2: FinBERT scoring (circular headlines filtered)...")
     print("-" * 110)
     scored=[]; filing=[]; nonews=[]; ha=0; hd=0; td2=0
@@ -712,6 +736,7 @@ def execute_sentiment_engine():
     print("-" * 110)
     print("Loading stock data...")
     stock_df = load_stock_data_for_scoring()
+
     print("Computing technical scores for ALL tickers...")
     tech_count = 0
     for i, row in enumerate(all_rows):
@@ -719,6 +744,7 @@ def execute_sentiment_engine():
         row["Technical_Score"] = tech["score"]; row["Tech_Signals"] = " | ".join(tech["signals"]) if tech["signals"] else ""
         if tech["score"] != 0: tech_count += 1
     print(f"  → {tech_count}/{len(all_rows)} tickers with non-zero technical score")
+
     print("Computing fundamental scores...")
     for row in all_rows:
         fund = score_fundamentals_rules(row["Ticker"], stock_df)
@@ -740,9 +766,9 @@ def execute_sentiment_engine():
     print("Fetching Nifty 50 performance...")
     nifty_chg = get_nifty_change()
     print(f"Computing macro context ({len(all_sectors)} sectors)...")
-    macro_cache = get_macro_scores(all_sectors, nifty_chg)
+    macro_scores = get_macro_scores(all_sectors, nifty_chg)
     for row in all_rows:
-        macro = macro_cache.get(row.get("_sector",""), {"score": 0, "context": ""})
+        macro = macro_scores.get(row.get("_sector",""), {"score": 0, "context": ""})
         row["Macro_Score"] = macro["score"]; row["Macro_Context"] = macro.get("context", "")
 
     print(f"\nComputing composite signals (news: {len(scored)} | tech-only: {len(filing)+len(nonews)})...")
@@ -793,13 +819,14 @@ def execute_sentiment_engine():
     comp_bull = sum(1 for r in scored if r.get("Composite_Direction",0)==1)
     comp_bear = sum(1 for r in scored if r.get("Composite_Direction",0)==-1)
     total_scored = sc + len(scored_with_tech)
-    macro_vals = [macro_cache[s]["score"] for s in macro_cache] if macro_cache else [0]
+    macro_vals = [macro_scores[s]["score"] for s in macro_scores] if macro_scores else [0]
     macro_varied = len(set(macro_vals)) > 1
+    macro_source = "gemini" if any("[cached]" not in str(v) for v in macro_vals) else "cache"
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v3.5 | ALL TICKERS SCORED")
+    print(f"data.csv | {TODAY_IST} | ENGINE v3.6 | ALL TICKERS SCORED")
     print(f"TICKERS: {sc} news-scored | {fc} filing | {nc2} no-news | {total_scored} total with signals")
-    print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped | Macro varied: {'✅' if macro_varied else '❌ (fallback)'}")
+    print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped | Macro varied: {'✅' if macro_varied else '❌ (uniform)'}")
     print(f"WEIGHTS: News→ Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
     print(f"         No-News→ Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} (clamped ±15)")
     print()
