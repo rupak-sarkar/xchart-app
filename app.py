@@ -526,32 +526,120 @@ def get_nifty_change():
 
 
 def get_macro_scores(sectors, nifty_change):
+    """Get macro scores — BATCHED: 1-2 Gemini calls instead of 51"""
     macro_cache = {}
     unique_sectors = list(set(s for s in sectors if s and s.strip()))
-    if not unique_sectors: return macro_cache
+    if not unique_sectors:
+        return macro_cache
+
+    # Rule-based fallback
+    base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
+
     if not GEMINI_API_KEY:
-        base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
         for sector in unique_sectors:
             macro_cache[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
         print(f"  → {len(unique_sectors)} sectors scored (rule-based)")
         return macro_cache
-    print(f"  → Scoring {len(unique_sectors)} sectors via Gemini...")
-    for sector in unique_sectors:
+
+    # Batch: send all sectors in chunks of ~25
+    chunk_size = 25
+    chunks = [unique_sectors[i:i+chunk_size] for i in range(0, len(unique_sectors), chunk_size)]
+    print(f"  → Scoring {len(unique_sectors)} sectors via Gemini ({len(chunks)} batch calls)...")
+
+    for ci, chunk in enumerate(chunks):
+        sector_list = "\n".join([f"  - {s}" for s in chunk])
         prompt = f"""You are a macro analyst for Indian equities.
-Score the CURRENT short-term market environment for "{sector}" sector in India.
+Score the CURRENT short-term (1-5 day) market environment for each sector below.
+
 Nifty 50 5-day change: {nifty_change:+.2f}%
-Consider: FII/DII flows, sector rotation, global cues, RBI policy, commodity/crude.
-Score -100 (very hostile) to +100 (very supportive). Be realistic: most between -30 and +30.
-Return ONLY JSON: {{"score": <integer>, "context": "<max 10 words>"}}"""
-        result = call_gemini(prompt)
-        if result and "score" in result:
-            macro_cache[sector] = {"score": max(-100, min(100, int(result["score"]))), "context": str(result.get("context",""))}
+
+Consider for EACH sector: FII/DII flows, sector rotation, global cues,
+RBI policy, commodity/crude impact, rupee, government policy.
+
+IMPORTANT:
+- Scores should VARY across sectors. Not all sectors move the same way.
+- Defensive sectors (pharma, FMCG) should score differently from cyclicals (metals, auto).
+- IT/tech should reflect global tech sentiment + rupee movement.
+- Be realistic: most between -30 and +30. Some outliers OK.
+- If Nifty is slightly negative, some sectors can still be positive.
+
+Sectors to score:
+{sector_list}
+
+Return ONLY a JSON object with sector names as keys:
+{{"sector_name": {{"score": <integer -100 to 100>, "context": "<max 8 words>"}}, ...}}"""
+
+        result = call_gemini_large(prompt)
+        if result and isinstance(result, dict):
+            scored_count = 0
+            for sector in chunk:
+                if sector in result and isinstance(result[sector], dict):
+                    sc = result[sector].get("score", 0)
+                    ctx = str(result[sector].get("context", ""))
+                    macro_cache[sector] = {"score": max(-100, min(100, int(sc))), "context": ctx}
+                    scored_count += 1
+                else:
+                    macro_cache[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+            print(f"    Batch {ci+1}: {scored_count}/{len(chunk)} sectors scored via Gemini")
         else:
-            base = 10 if nifty_change > 0.5 else (-10 if nifty_change < -0.5 else 0)
-            macro_cache[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+            print(f"    Batch {ci+1}: Gemini failed → rule-based fallback")
+            for sector in chunk:
+                macro_cache[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
         time.sleep(GEMINI_DELAY)
+
+    # Print sample scores
+    samples = list(macro_cache.items())[:8]
+    for sector, data in samples:
+        print(f"    {sector}: {data['score']:+d} ({data['context']})")
+    if len(macro_cache) > 8:
+        print(f"    ... and {len(macro_cache)-8} more")
+
     return macro_cache
 
+
+def call_gemini_large(prompt, retries=2):
+    """Call Gemini with larger token limit for batch responses"""
+    if not GEMINI_API_KEY:
+        return None
+    for attempt in range(retries + 1):
+        try:
+            resp = requests.post(
+                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2000}
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=60
+            )
+            if resp.status_code == 429:
+                print(f"    Rate limited, waiting 10s (attempt {attempt+1})...")
+                time.sleep(10)
+                continue
+            resp.raise_for_status()
+            text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            # Extract JSON — may be wrapped in ```json ... ```
+            text = re.sub(r'```json\s*', '', text)
+            text = re.sub(r'```\s*', '', text)
+            text = text.strip()
+            # Find the outermost { ... }
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                json_str = text[start:end+1]
+                return json.loads(json_str)
+            return None
+        except json.JSONDecodeError as e:
+            print(f"    JSON parse error: {e}")
+            if attempt < retries:
+                time.sleep(3)
+            continue
+        except Exception as e:
+            print(f"    Gemini error: {e}")
+            if attempt < retries:
+                time.sleep(3)
+            continue
+    return None
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
     w = WEIGHTS_NEWS
