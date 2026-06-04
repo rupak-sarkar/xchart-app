@@ -5,7 +5,7 @@ import requests
 import re
 import time
 import json
-import urllib.parsenews): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")import urllib.parse
+import urllib.parse
 
 SECTOR_MAP = {
     "Technology": ["Software - Application","Software - Infrastructure","Information Technology Services","Communication Equipment","Consumer Electronics"],
