@@ -47,7 +47,19 @@ WEIGHTS_NO_NEWS = {"technical": 0.70, "macro": 0.30}
 print(f"Weights (news):    Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
 print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")
 
-INVALID_SECTOR_STRINGS = {'nan', 'none', 'n/a', '', 'null', 'undefined'}
+# ── Sector consolidation: yfinance sub-industries → broad sectors ──
+SECTOR_MAP = {
+    "Technology": ["Software - Application","Software - Infrastructure","Information Technology Services","Communication Equipment","Consumer Electronics"],
+    "Healthcare": ["Drug Manufacturers - Specialty & Generic","Drug Manufacturers - General","Biotechnology","Medical Care Facilities"],
+    "Financial Services": ["Capital Markets","Asset Management","Financial Data & Stock Exchanges","Insurance - Life","Insurance - Diversified"],
+    "Industrials": ["Specialty Industrial Machinery","Aerospace & Defense","Engineering & Construction","Farm & Heavy Construction Machinery","Electrical Equipment & Parts","Conglomerates","Integrated Freight & Logistics","Marine Shipping","Staffing & Employment Services"],
+    "Consumer Discretionary": ["Auto Manufacturers","Auto Parts","Apparel Retail","Apparel Manufacturing","Footwear & Accessories","Luxury Goods","Furnishings, Fixtures & Appliances","Lodging","Entertainment","Publishing"],
+    "Consumer Staples": ["Packaged Foods","Beverages - Non-Alcoholic","Beverages - Wineries & Distilleries","Household & Personal Products","Agricultural Inputs"],
+    "Materials": ["Steel","Copper","Chemicals","Specialty Chemicals","Building Materials","Building Products & Equipment","Packaging & Containers","Textile Manufacturing"],
+    "Real Estate": ["Real Estate - Development"],
+    "Energy": ["Oil & Gas Integrated","Oil & Gas Refining & Marketing"],
+    "Specialty": ["Specialty Business Services","Tools & Accessories"],
+}
 
 SOURCE_LABELS = {"mc_topnews":"Moneycontrol","mc_business":"Moneycontrol","mc_markets":"Moneycontrol","mc_stocks":"Moneycontrol","et_markets":"Economic Times","et_stocks":"Economic Times","et_news":"Economic Times","ndtv_business":"NDTV Profit","mint_market":"LiveMint","mint_companies":"LiveMint","nse_announce":"NSE Official","nse_actions":"NSE Official","fe_markets":"Financial Express","fe_companies":"Financial Express","bl_markets":"BusinessLine","bl_stocks":"BusinessLine","bl_companies":"BusinessLine","yfinance":"Yahoo Finance","google":"Google News"}
 SOURCE_SEARCH_URLS = {"Moneycontrol":"https://www.moneycontrol.com/news/tags/{ticker}.html","Economic Times":"https://economictimes.indiatimes.com/topic/{ticker}","NDTV Profit":"https://www.ndtvprofit.com/search?q={ticker}","LiveMint":"https://www.livemint.com/Search/Link/Keyword/{ticker}","NSE Official":"https://www.nseindia.com/get-quotes/equity?symbol={ticker}","Yahoo Finance":"https://finance.yahoo.com/quote/{ticker}.NS/news/","Google News":"https://news.google.com/search?q={ticker}+NSE+stock+india&hl=en-IN","Financial Express":"https://www.financialexpress.com/about/{ticker}/","BusinessLine":"https://www.thehindubusinessline.com/topic/{ticker}/"}
@@ -63,23 +75,6 @@ REPORTING_VERBS = {"surged","surges","surge","jumped","jumps","jump","rallied","
 PRICE_CONTEXT = {"share","shares","stock","stocks","scrip","counter","sensex","nifty","market","index","indices","bse","nse","trading","trade","session","intraday","today","morning","afternoon","week","high","low","close","closed","closing","open","opened"}
 CATALYST_VERBS = {"wins","win","won","awarded","receives","received","secures","secured","acquires","acquired","acquire","merges","merged","merge","approves","approved","approve","clears","cleared","clear","launches","launched","launch","plans","planned","plan","expands","expanded","expand","invests","invested","invest","raises","raised","raise","signs","signed","sign","partners","partnered","partner","enters","entered","enter","files","filed","file","announces","announced","announce","declares","declared","declare","recommends","recommended","upgrades","upgraded","upgrade","downgrades","downgraded","downgrade","appoints","appointed","appoint","resigns","resigned","resign","penalizes","penalized","fines","fined","suspends","suspended","bans","banned","restructures","restructured","defaults","defaulted","commissions","commissioned","inaugurates","inaugurated","divests","divested","demerges","demerged"}
 SECTOR_IMPACT_WORDS = {"industry","sector","segment","policy","regulation","government","ministry","budget","gst","tariff","duty","subsidy","pli","rbi","sebi","ban","mandate","compliance","guideline","monsoon","crude","oil","commodity","inflation","rate cut","rate hike","forex","rupee","dollar","export","import","demand","supply"}
-
-
-# ═══════════════════════════════════════════════════════════════
-# UTILITY: Clean sector string
-# ═══════════════════════════════════════════════════════════════
-
-def clean_sector(s):
-    """Return empty string if sector is invalid/nan"""
-    if s is None: return ""
-    if not isinstance(s, str):
-        try:
-            if pd.isna(s): return ""
-        except: pass
-        s = str(s)
-    s = s.strip()
-    if s.lower() in INVALID_SECTOR_STRINGS: return ""
-    return s
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -173,8 +168,7 @@ def load_tickers():
             sm = {}
             if 'Sector' in df.columns:
                 for _, r in df.iterrows():
-                    tk = str(r['Ticker']).strip().upper().replace('.NS','')
-                    sc = clean_sector(r.get('Sector',''))
+                    tk = str(r['Ticker']).strip().upper().replace('.NS',''); sc = str(r.get('Sector','')).strip()
                     if tk and sc: sm[tk] = sc
             print(f"Loaded {len(u)} tickers from {TICKERS_FILE}"); return u, sm
         except Exception as e: print(f"Error: {e}")
@@ -339,7 +333,7 @@ def save_to_history(rows):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MULTI-LAYER SCORING ENGINE (v3.2)
+# MULTI-LAYER SCORING ENGINE (v3.3)
 # ═══════════════════════════════════════════════════════════════
 
 def call_gemini(prompt, retries=2):
@@ -361,29 +355,54 @@ def call_gemini(prompt, retries=2):
     return None
 
 
+def call_gemini_large(prompt, retries=3):
+    """Call Gemini with larger token limit + longer timeout for batch"""
+    if not GEMINI_API_KEY: return None
+    for attempt in range(retries + 1):
+        try:
+            resp = requests.post(f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                json={"contents":[{"parts":[{"text":prompt}]}],
+                      "generationConfig":{"temperature":0.2,"maxOutputTokens":2000}},
+                headers={"Content-Type":"application/json"}, timeout=60)
+            if resp.status_code == 429:
+                wait = 15 if attempt == 0 else 30
+                print(f"    Rate limited, waiting {wait}s (attempt {attempt+1}/{retries+1})...")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            text = re.sub(r'```json\s*', '', text)
+            text = re.sub(r'```\s*', '', text).strip()
+            start = text.find('{'); end = text.rfind('}')
+            if start != -1 and end != -1:
+                return json.loads(text[start:end+1])
+            return None
+        except json.JSONDecodeError as e:
+            print(f"    JSON parse error: {e}")
+            if attempt < retries: time.sleep(5)
+            continue
+        except Exception as e:
+            print(f"    Gemini error: {e}")
+            if attempt < retries: time.sleep(5)
+            continue
+    return None
+
+
 def load_stock_data_for_scoring():
     try:
         if os.path.exists(STOCK_DATA_FILE):
             df = pd.read_csv(STOCK_DATA_FILE)
             if 'Ticker' in df.columns:
                 df['Ticker'] = df['Ticker'].astype(str).str.replace('.NS','',regex=False).str.strip().str.upper()
-                # Clean Industry column at load time
-                for cn in ['Industry','industry','Sector','sector']:
-                    if cn in df.columns:
-                        df[cn] = df[cn].astype(str).apply(lambda x: '' if x.strip().lower() in INVALID_SECTOR_STRINGS else x.strip())
                 print(f"  → Loaded stock_data.csv: {df['Ticker'].nunique()} tickers, {len(df)} rows")
                 print(f"  → Columns: {', '.join(df.columns[:20])}...")
                 key_cols = ['RSI_14','BB_Flag','SMA_22','SMA_50','SMA_52','SMA_200','Knoxville_Divergence','up_true','Close','Industry']
                 found = [c for c in key_cols if c in df.columns]
-                missing = [c for c in key_cols if c not in df.columns]
                 print(f"  → Found: {found}")
-                if missing: print(f"  → Missing: {missing}")
-                # Count valid industries
                 if 'Industry' in df.columns:
-                    valid_ind = df.groupby('Ticker')['Industry'].apply(lambda x: x[x!=''].iloc[-1] if len(x[x!=''])>0 else '').reset_index()
-                    ind_count = valid_ind[valid_ind['Industry']!=''].shape[0]
-                    unique_ind = valid_ind[valid_ind['Industry']!='']['Industry'].nunique()
-                    print(f"  → Industries: {ind_count} tickers mapped to {unique_ind} unique sectors")
+                    ind_valid = df[df['Close'].notna()].groupby('Ticker')['Industry'].last()
+                    ind_valid = ind_valid[(ind_valid != '') & (ind_valid.str.lower() != 'nan') & ind_valid.notna()]
+                    print(f"  → Industries: {len(ind_valid)} tickers mapped to {ind_valid.nunique()} unique sectors")
                 return df
     except Exception as e:
         print(f"  → Could not load stock_data.csv: {e}")
@@ -392,21 +411,21 @@ def load_stock_data_for_scoring():
 
 
 def get_sector_from_stock_data(ticker, stock_df):
-    """Get Industry/sector — scan all rows, filter nan/none strings"""
+    """Get Industry/sector — scan all rows, filter nan strings"""
     if stock_df is None or stock_df.empty: return ""
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty: return ""
     for cn in ['Industry', 'industry', 'Sector', 'sector']:
         if cn not in tk_data.columns: continue
-        vals = tk_data[cn].astype(str).str.strip()
-        vals = vals[(vals != '') & (~vals.str.lower().isin(INVALID_SECTOR_STRINGS))]
+        vals = tk_data[cn].dropna().astype(str).str.strip()
+        vals = vals[(vals != '') & (vals.str.lower() != 'nan') & (vals.str.lower() != 'none') & (vals.str.lower() != 'n/a')]
         if len(vals) > 0:
             return vals.iloc[-1]
     return ""
 
 
 def get_technical_score(ticker, stock_df, debug=False):
-    """Score technical position — scans backward for BB_Flag, Knox, up_true"""
+    """Score technical position — backward scan for sparse indicators"""
     if stock_df is None or stock_df.empty:
         return {"score": 0, "signals": []}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
@@ -438,13 +457,15 @@ def get_technical_score(ticker, stock_df, debug=False):
             for i in range(1, min(rows + 1, len(valid) + 1)):
                 v = valid.iloc[-i].get(cn) if cn in valid.iloc[-i].index else None
                 try:
-                    if v is not None and pd.notna(v) and str(v).strip() not in ('', 'nan', 'None'): return v
+                    if v is not None and pd.notna(v) and str(v).strip() != '': return v
                 except: pass
         return None
 
     rsi = val(['RSI_14', 'RSI', 'rsi_14'])
+    ind = get_sector_from_stock_data(ticker, stock_df) if debug else ""
     if debug:
-        print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, Knox={val_scan('Knoxville_Divergence',5)}, up={val_scan('up_true',3)}, Ind={get_sector_from_stock_data(ticker, stock_df)}")
+        print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, Knox={val_scan('Knoxville_Divergence',5)}, up={val_scan('up_true',3)}, Ind={ind}")
+
     if rsi is not None:
         rsi = float(rsi)
         if rsi > 75: score -= 30; signals.append(f"RSI overbought({rsi:.0f})")
@@ -489,6 +510,7 @@ def get_technical_score(ticker, stock_df, debug=False):
 
 
 def score_fundamentals_rules(ticker, stock_df):
+    """Lightweight valuation from stock_data.csv — no API call"""
     if stock_df is None or stock_df.empty:
         return {"score": 0, "concern": ""}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
@@ -525,123 +547,99 @@ def get_nifty_change():
     return 0.0
 
 
+def get_broad_sector(sub_industry):
+    """Map yfinance sub-industry to broad sector"""
+    if not sub_industry: return ""
+    for broad, subs in SECTOR_MAP.items():
+        if sub_industry in subs: return broad
+    return sub_industry
+
+
 def get_macro_scores(sectors, nifty_change):
-    """Get macro scores — BATCHED: 1-2 Gemini calls instead of 51"""
+    """Get macro scores — consolidated sectors, single Gemini batch"""
     macro_cache = {}
     unique_sectors = list(set(s for s in sectors if s and s.strip()))
-    if not unique_sectors:
-        return macro_cache
+    if not unique_sectors: return macro_cache
 
-    # Rule-based fallback
     base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
 
+    # Map sub-industries to broad sectors
+    sub_to_broad = {}; broad_set = set()
+    for sub in unique_sectors:
+        broad = get_broad_sector(sub)
+        sub_to_broad[sub] = broad
+        if broad: broad_set.add(broad)
+
+    broad_list = sorted(broad_set)
+    print(f"  → {len(unique_sectors)} sub-industries → {len(broad_list)} broad sectors")
+
     if not GEMINI_API_KEY:
-        for sector in unique_sectors:
-            macro_cache[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
-        print(f"  → {len(unique_sectors)} sectors scored (rule-based)")
+        for sub in unique_sectors:
+            macro_cache[sub] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+        print(f"  → All scored rule-based (no API key)")
         return macro_cache
 
-    # Batch: send all sectors in chunks of ~25
-    chunk_size = 25
-    chunks = [unique_sectors[i:i+chunk_size] for i in range(0, len(unique_sectors), chunk_size)]
-    print(f"  → Scoring {len(unique_sectors)} sectors via Gemini ({len(chunks)} batch calls)...")
-
-    for ci, chunk in enumerate(chunks):
-        sector_list = "\n".join([f"  - {s}" for s in chunk])
-        prompt = f"""You are a macro analyst for Indian equities.
-Score the CURRENT short-term (1-5 day) market environment for each sector below.
+    # Single Gemini call
+    sector_list = "\n".join([f"  - {s}" for s in broad_list])
+    prompt = f"""You are a macro analyst for Indian equities (NSE/BSE).
+Score the CURRENT short-term (1-5 day) outlook for each sector.
 
 Nifty 50 5-day change: {nifty_change:+.2f}%
 
-Consider for EACH sector: FII/DII flows, sector rotation, global cues,
-RBI policy, commodity/crude impact, rupee, government policy.
+For EACH sector consider: FII/DII flows, sector rotation, global cues,
+RBI policy, commodity/crude, rupee, government capex.
 
-IMPORTANT:
-- Scores should VARY across sectors. Not all sectors move the same way.
-- Defensive sectors (pharma, FMCG) should score differently from cyclicals (metals, auto).
-- IT/tech should reflect global tech sentiment + rupee movement.
-- Be realistic: most between -30 and +30. Some outliers OK.
-- If Nifty is slightly negative, some sectors can still be positive.
+CRITICAL:
+- Scores MUST vary across sectors. Not all sectors move the same way.
+- Defensive (Healthcare, Staples) often opposite to cyclicals (Materials, Auto).
+- IT benefits from weak rupee. Metals follow global commodity prices.
+- Even if Nifty is negative, some sectors can be positive.
+- Score range: -50 to +50. Most between -25 and +25.
 
-Sectors to score:
+Sectors:
 {sector_list}
 
-Return ONLY a JSON object with sector names as keys:
-{{"sector_name": {{"score": <integer -100 to 100>, "context": "<max 8 words>"}}, ...}}"""
+Return ONLY valid JSON with ALL sectors as keys:
+{{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, ...}}"""
 
-        result = call_gemini_large(prompt)
-        if result and isinstance(result, dict):
-            scored_count = 0
-            for sector in chunk:
-                if sector in result and isinstance(result[sector], dict):
-                    sc = result[sector].get("score", 0)
-                    ctx = str(result[sector].get("context", ""))
-                    macro_cache[sector] = {"score": max(-100, min(100, int(sc))), "context": ctx}
-                    scored_count += 1
-                else:
-                    macro_cache[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
-            print(f"    Batch {ci+1}: {scored_count}/{len(chunk)} sectors scored via Gemini")
+    print(f"  → Calling Gemini for {len(broad_list)} broad sectors...")
+    broad_scores = {}
+    result = call_gemini_large(prompt)
+
+    if result and isinstance(result, dict):
+        scored = 0
+        for sector in broad_list:
+            if sector in result and isinstance(result[sector], dict):
+                sc = result[sector].get("score", 0)
+                ctx = str(result[sector].get("ctx", result[sector].get("context", "")))
+                broad_scores[sector] = {"score": max(-50, min(50, int(sc))), "context": ctx}
+                scored += 1
+            else:
+                broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+        print(f"  → Gemini scored {scored}/{len(broad_list)} broad sectors")
+    else:
+        print(f"  → Gemini failed → rule-based fallback")
+        for sector in broad_list:
+            broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+
+    # Map broad scores back to sub-industries
+    for sub in unique_sectors:
+        broad = sub_to_broad.get(sub, "")
+        if broad and broad in broad_scores:
+            macro_cache[sub] = broad_scores[broad]
         else:
-            print(f"    Batch {ci+1}: Gemini failed → rule-based fallback")
-            for sector in chunk:
-                macro_cache[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
-        time.sleep(GEMINI_DELAY)
+            macro_cache[sub] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
 
-    # Print sample scores
-    samples = list(macro_cache.items())[:8]
-    for sector, data in samples:
-        print(f"    {sector}: {data['score']:+d} ({data['context']})")
-    if len(macro_cache) > 8:
-        print(f"    ... and {len(macro_cache)-8} more")
+    # Print scores
+    for sector, data in sorted(broad_scores.items(), key=lambda x: x[1]["score"]):
+        count = sum(1 for s in sub_to_broad.values() if s == sector)
+        print(f"    {sector} ({count} tickers): {data['score']:+d} ({data['context']})")
 
     return macro_cache
 
 
-def call_gemini_large(prompt, retries=2):
-    """Call Gemini with larger token limit for batch responses"""
-    if not GEMINI_API_KEY:
-        return None
-    for attempt in range(retries + 1):
-        try:
-            resp = requests.post(
-                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-                json={
-                    "contents": [{"parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2000}
-                },
-                headers={"Content-Type": "application/json"},
-                timeout=60
-            )
-            if resp.status_code == 429:
-                print(f"    Rate limited, waiting 10s (attempt {attempt+1})...")
-                time.sleep(10)
-                continue
-            resp.raise_for_status()
-            text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            # Extract JSON — may be wrapped in ```json ... ```
-            text = re.sub(r'```json\s*', '', text)
-            text = re.sub(r'```\s*', '', text)
-            text = text.strip()
-            # Find the outermost { ... }
-            start = text.find('{')
-            end = text.rfind('}')
-            if start != -1 and end != -1:
-                json_str = text[start:end+1]
-                return json.loads(json_str)
-            return None
-        except json.JSONDecodeError as e:
-            print(f"    JSON parse error: {e}")
-            if attempt < retries:
-                time.sleep(3)
-            continue
-        except Exception as e:
-            print(f"    Gemini error: {e}")
-            if attempt < retries:
-                time.sleep(3)
-            continue
-    return None
-
 def compute_composite_news(sentiment, technical, macro, fundamental):
+    """Composite for tickers WITH news"""
     w = WEIGHTS_NEWS
     if technical == 0:
         ew = {"sentiment": w["sentiment"] + w["technical"]*0.65, "technical": 0,
@@ -655,6 +653,7 @@ def compute_composite_news(sentiment, technical, macro, fundamental):
 
 
 def compute_composite_no_news(technical, macro):
+    """Composite for tickers WITHOUT news — tech-dominant, clamped macro"""
     w = WEIGHTS_NO_NEWS
     clamped_macro = max(-15, min(15, macro))
     comp = (technical * w["technical"]) + (clamped_macro * w["macro"])
@@ -674,12 +673,12 @@ def classify_composite_severity(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v3.2)
+# MAIN ENGINE (v3.3)
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
     tl, sm = load_tickers(); total = len(tl)
-    print(f"PREDICTIVE Engine v3.2 - {total} tickers | {TODAY_IST}")
+    print(f"PREDICTIVE Engine v3.3 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
     print("=" * 110)
 
@@ -725,7 +724,6 @@ def execute_sentiment_engine():
     print(f"\nPHASE 3: Multi-layer analysis (ALL {len(all_rows)} tickers)...")
     print("-" * 110)
 
-    # 3a: Technical
     print("Loading stock data...")
     stock_df = load_stock_data_for_scoring()
     print("Computing technical scores for ALL tickers...")
@@ -737,29 +735,26 @@ def execute_sentiment_engine():
         if tech["score"] != 0: tech_count += 1
     print(f"  → {tech_count}/{len(all_rows)} tickers with non-zero technical score")
 
-    # 3b: Fundamental
     print("Computing fundamental scores (rule-based from stock_data)...")
     for row in all_rows:
         fund = score_fundamentals_rules(row["Ticker"], stock_df)
         row["Fundamental_Score"] = fund["score"]
         row["Fund_Concern"] = fund.get("concern", "")
 
-    # 3c: Sector mapping + Macro
     print("Building sector map...")
-    all_sectors = set()
-    sector_count = 0
-    unmapped = 0
+    all_sectors = set(); sector_count = 0
     for row in all_rows:
-        sector = clean_sector(sm.get(row["Ticker"], "")) or get_sector_from_stock_data(row["Ticker"], stock_df)
+        sector = sm.get(row["Ticker"], "") or get_sector_from_stock_data(row["Ticker"], stock_df)
+        if sector and sector.lower() in ('nan', 'none', 'n/a', ''):
+            sector = ""
         row["_sector"] = sector
         if sector:
             all_sectors.add(sector)
             sector_count += 1
-        else:
-            unmapped += 1
+    unmapped = len(all_rows) - sector_count
     print(f"  → {sector_count}/{len(all_rows)} tickers mapped to {len(all_sectors)} sectors ({unmapped} unmapped)")
-    if len(all_sectors) <= 5:
-        print(f"  → Sectors: {all_sectors}")
+    if len(all_sectors) <= 8:
+        print(f"  → Sample: {list(all_sectors)[:8]}...")
     else:
         print(f"  → Sample: {list(all_sectors)[:8]}...")
 
@@ -767,14 +762,11 @@ def execute_sentiment_engine():
     nifty_chg = get_nifty_change()
     print(f"Computing macro context ({len(all_sectors)} sectors)...")
     macro_cache = get_macro_scores(all_sectors, nifty_chg)
-    for sk, sv in macro_cache.items():
-        print(f"    {sk}: {sv['score']:+d} ({sv.get('context','')})")
     for row in all_rows:
         macro = macro_cache.get(row.get("_sector",""), {"score": 0, "context": ""})
         row["Macro_Score"] = macro["score"]
         row["Macro_Context"] = macro.get("context", "")
 
-    # 3d: Composite
     print(f"\nComputing composite signals (news: {len(scored)} | tech-only: {len(filing)+len(nonews)})...")
     print("-" * 110)
 
@@ -835,10 +827,14 @@ def execute_sentiment_engine():
     comp_bear = sum(1 for r in scored if r.get("Composite_Direction",0)==-1)
     total_scored = sc + len(scored_with_tech)
 
+    # Macro stats
+    macro_vals = [macro_cache[s]["score"] for s in macro_cache]
+    macro_varied = len(set(macro_vals)) > 1
+
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v3.2 | ALL TICKERS SCORED")
+    print(f"data.csv | {TODAY_IST} | ENGINE v3.3 | ALL TICKERS SCORED")
     print(f"TICKERS: {sc} news-scored | {fc} filing | {nc2} no-news | {total_scored} total with signals")
-    print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped")
+    print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped | Macro varied: {'✅' if macro_varied else '❌ (fallback)'}")
     print(f"WEIGHTS: News→ Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
     print(f"         No-News→ Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} (clamped ±15)")
     print()
