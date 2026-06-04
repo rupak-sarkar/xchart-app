@@ -489,12 +489,19 @@ def compute_aggregated_score(entries):
 
 
 def get_live_price_return(tk):
-    try:
-        h = yf.Ticker(f"{tk}.NS").history(period="5d")
-        if len(h) >= 2:
-            return round(((h['Close'].iloc[-1] - h['Close'].iloc[-2]) / h['Close'].iloc[-2]) * 100, 2)
-    except:
-        pass
+    """Try NSE first, fallback to BSE for numeric tickers"""
+    clean = tk.replace('.NS', '').replace('.BO', '').strip()
+    if clean.isdigit():
+        symbols = [f"{clean}.BO", f"{clean}.NS"]
+    else:
+        symbols = [f"{clean}.NS", f"{clean}.BO"]
+    for symbol in symbols:
+        try:
+            h = yf.Ticker(symbol).history(period="5d")
+            if len(h) >= 2:
+                return round(((h['Close'].iloc[-1] - h['Close'].iloc[-2]) / h['Close'].iloc[-2]) * 100, 2)
+        except:
+            continue
     return 0.0
 
 
