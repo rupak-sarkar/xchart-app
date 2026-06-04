@@ -47,6 +47,8 @@ WEIGHTS_NO_NEWS = {"technical": 0.70, "macro": 0.30}
 print(f"Weights (news):    Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
 print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")
 
+INVALID_SECTOR_STRINGS = {'nan', 'none', 'n/a', '', 'null', 'undefined'}
+
 SOURCE_LABELS = {"mc_topnews":"Moneycontrol","mc_business":"Moneycontrol","mc_markets":"Moneycontrol","mc_stocks":"Moneycontrol","et_markets":"Economic Times","et_stocks":"Economic Times","et_news":"Economic Times","ndtv_business":"NDTV Profit","mint_market":"LiveMint","mint_companies":"LiveMint","nse_announce":"NSE Official","nse_actions":"NSE Official","fe_markets":"Financial Express","fe_companies":"Financial Express","bl_markets":"BusinessLine","bl_stocks":"BusinessLine","bl_companies":"BusinessLine","yfinance":"Yahoo Finance","google":"Google News"}
 SOURCE_SEARCH_URLS = {"Moneycontrol":"https://www.moneycontrol.com/news/tags/{ticker}.html","Economic Times":"https://economictimes.indiatimes.com/topic/{ticker}","NDTV Profit":"https://www.ndtvprofit.com/search?q={ticker}","LiveMint":"https://www.livemint.com/Search/Link/Keyword/{ticker}","NSE Official":"https://www.nseindia.com/get-quotes/equity?symbol={ticker}","Yahoo Finance":"https://finance.yahoo.com/quote/{ticker}.NS/news/","Google News":"https://news.google.com/search?q={ticker}+NSE+stock+india&hl=en-IN","Financial Express":"https://www.financialexpress.com/about/{ticker}/","BusinessLine":"https://www.thehindubusinessline.com/topic/{ticker}/"}
 SOURCE_WEIGHTS = {"mc_topnews":1.5,"mc_business":1.3,"mc_markets":1.2,"mc_stocks":1.2,"et_markets":1.4,"et_stocks":1.3,"et_news":1.3,"ndtv_business":1.2,"mint_market":1.2,"mint_companies":1.1,"nse_announce":0.8,"nse_actions":0.7,"fe_markets":1.3,"fe_companies":1.2,"bl_markets":1.3,"bl_stocks":1.3,"bl_companies":1.2,"yfinance":1.0,"google":1.0}
@@ -61,6 +63,23 @@ REPORTING_VERBS = {"surged","surges","surge","jumped","jumps","jump","rallied","
 PRICE_CONTEXT = {"share","shares","stock","stocks","scrip","counter","sensex","nifty","market","index","indices","bse","nse","trading","trade","session","intraday","today","morning","afternoon","week","high","low","close","closed","closing","open","opened"}
 CATALYST_VERBS = {"wins","win","won","awarded","receives","received","secures","secured","acquires","acquired","acquire","merges","merged","merge","approves","approved","approve","clears","cleared","clear","launches","launched","launch","plans","planned","plan","expands","expanded","expand","invests","invested","invest","raises","raised","raise","signs","signed","sign","partners","partnered","partner","enters","entered","enter","files","filed","file","announces","announced","announce","declares","declared","declare","recommends","recommended","upgrades","upgraded","upgrade","downgrades","downgraded","downgrade","appoints","appointed","appoint","resigns","resigned","resign","penalizes","penalized","fines","fined","suspends","suspended","bans","banned","restructures","restructured","defaults","defaulted","commissions","commissioned","inaugurates","inaugurated","divests","divested","demerges","demerged"}
 SECTOR_IMPACT_WORDS = {"industry","sector","segment","policy","regulation","government","ministry","budget","gst","tariff","duty","subsidy","pli","rbi","sebi","ban","mandate","compliance","guideline","monsoon","crude","oil","commodity","inflation","rate cut","rate hike","forex","rupee","dollar","export","import","demand","supply"}
+
+
+# ═══════════════════════════════════════════════════════════════
+# UTILITY: Clean sector string
+# ═══════════════════════════════════════════════════════════════
+
+def clean_sector(s):
+    """Return empty string if sector is invalid/nan"""
+    if s is None: return ""
+    if not isinstance(s, str):
+        try:
+            if pd.isna(s): return ""
+        except: pass
+        s = str(s)
+    s = s.strip()
+    if s.lower() in INVALID_SECTOR_STRINGS: return ""
+    return s
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -154,7 +173,8 @@ def load_tickers():
             sm = {}
             if 'Sector' in df.columns:
                 for _, r in df.iterrows():
-                    tk = str(r['Ticker']).strip().upper().replace('.NS',''); sc = str(r.get('Sector','')).strip()
+                    tk = str(r['Ticker']).strip().upper().replace('.NS','')
+                    sc = clean_sector(r.get('Sector',''))
                     if tk and sc: sm[tk] = sc
             print(f"Loaded {len(u)} tickers from {TICKERS_FILE}"); return u, sm
         except Exception as e: print(f"Error: {e}")
@@ -319,7 +339,7 @@ def save_to_history(rows):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MULTI-LAYER SCORING ENGINE (v3.1)
+# MULTI-LAYER SCORING ENGINE (v3.2)
 # ═══════════════════════════════════════════════════════════════
 
 def call_gemini(prompt, retries=2):
@@ -347,13 +367,23 @@ def load_stock_data_for_scoring():
             df = pd.read_csv(STOCK_DATA_FILE)
             if 'Ticker' in df.columns:
                 df['Ticker'] = df['Ticker'].astype(str).str.replace('.NS','',regex=False).str.strip().str.upper()
+                # Clean Industry column at load time
+                for cn in ['Industry','industry','Sector','sector']:
+                    if cn in df.columns:
+                        df[cn] = df[cn].astype(str).apply(lambda x: '' if x.strip().lower() in INVALID_SECTOR_STRINGS else x.strip())
                 print(f"  → Loaded stock_data.csv: {df['Ticker'].nunique()} tickers, {len(df)} rows")
                 print(f"  → Columns: {', '.join(df.columns[:20])}...")
-                key_cols = ['RSI_14','BB_Flag','SMA_22','SMA_50','SMA_52','SMA_200','Knoxville_Divergence','up_true','Close']
+                key_cols = ['RSI_14','BB_Flag','SMA_22','SMA_50','SMA_52','SMA_200','Knoxville_Divergence','up_true','Close','Industry']
                 found = [c for c in key_cols if c in df.columns]
                 missing = [c for c in key_cols if c not in df.columns]
                 print(f"  → Found: {found}")
                 if missing: print(f"  → Missing: {missing}")
+                # Count valid industries
+                if 'Industry' in df.columns:
+                    valid_ind = df.groupby('Ticker')['Industry'].apply(lambda x: x[x!=''].iloc[-1] if len(x[x!=''])>0 else '').reset_index()
+                    ind_count = valid_ind[valid_ind['Industry']!=''].shape[0]
+                    unique_ind = valid_ind[valid_ind['Industry']!='']['Industry'].nunique()
+                    print(f"  → Industries: {ind_count} tickers mapped to {unique_ind} unique sectors")
                 return df
     except Exception as e:
         print(f"  → Could not load stock_data.csv: {e}")
@@ -361,22 +391,20 @@ def load_stock_data_for_scoring():
     return pd.DataFrame()
 
 
-# ── FIX 2: Scan ALL rows for sector ──
 def get_sector_from_stock_data(ticker, stock_df):
-    """Get Industry/sector — scan all rows for non-null value"""
+    """Get Industry/sector — scan all rows, filter nan/none strings"""
     if stock_df is None or stock_df.empty: return ""
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty: return ""
     for cn in ['Industry', 'industry', 'Sector', 'sector']:
         if cn not in tk_data.columns: continue
-        vals = tk_data[cn].dropna().astype(str).str.strip()
-        vals = vals[vals != '']
+        vals = tk_data[cn].astype(str).str.strip()
+        vals = vals[(vals != '') & (~vals.str.lower().isin(INVALID_SECTOR_STRINGS))]
         if len(vals) > 0:
             return vals.iloc[-1]
     return ""
 
 
-# ── FIX 1: Technical with backward scan ──
 def get_technical_score(ticker, stock_df, debug=False):
     """Score technical position — scans backward for BB_Flag, Knox, up_true"""
     if stock_df is None or stock_df.empty:
@@ -404,21 +432,19 @@ def get_technical_score(ticker, stock_df, debug=False):
         return None
 
     def val_scan(col_names, rows=5):
-        """Scan backward up to N rows for a non-null value"""
         if isinstance(col_names, str): col_names = [col_names]
         for cn in col_names:
             if cn not in valid.columns: continue
             for i in range(1, min(rows + 1, len(valid) + 1)):
                 v = valid.iloc[-i].get(cn) if cn in valid.iloc[-i].index else None
                 try:
-                    if v is not None and pd.notna(v) and str(v).strip() != '': return v
+                    if v is not None and pd.notna(v) and str(v).strip() not in ('', 'nan', 'None'): return v
                 except: pass
         return None
 
-    # RSI
     rsi = val(['RSI_14', 'RSI', 'rsi_14'])
     if debug:
-        print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, Knox={val_scan('Knoxville_Divergence',5)}, up={val_scan('up_true',3)}")
+        print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, Knox={val_scan('Knoxville_Divergence',5)}, up={val_scan('up_true',3)}, Ind={get_sector_from_stock_data(ticker, stock_df)}")
     if rsi is not None:
         rsi = float(rsi)
         if rsi > 75: score -= 30; signals.append(f"RSI overbought({rsi:.0f})")
@@ -426,14 +452,12 @@ def get_technical_score(ticker, stock_df, debug=False):
         elif rsi < 25: score += 30; signals.append(f"RSI oversold({rsi:.0f})")
         elif rsi < 35: score += 15; signals.append(f"RSI depressed({rsi:.0f})")
 
-    # BB Flag — scan backward 3 rows
     bb = val_scan(['BB_Flag', 'bb_flag'], rows=3)
     if bb is not None:
         bb = str(bb).strip().upper()
         if bb == 'BBH': score -= 20; signals.append("BB upper band")
         elif bb == 'BBL': score += 20; signals.append("BB lower band")
 
-    # Price vs SMAs
     close = val(['Close', 'close'])
     if close is not None:
         close = float(close)
@@ -449,14 +473,12 @@ def get_technical_score(ticker, stock_df, debug=False):
             if close < float(sma200): score -= 20; signals.append("Below SMA200")
             else: score += 10
 
-    # Knoxville — scan backward 5 rows
     knox = val_scan(['Knoxville_Divergence', 'Knoxville', 'knoxville_divergence'], rows=5)
     if knox is not None:
         knox = str(knox).strip().lower()
         if knox in ('bearish', 'bear'): score -= 15; signals.append("Knox bearish div")
         elif knox in ('bullish', 'bull'): score += 15; signals.append("Knox bullish div")
 
-    # FII/DII — scan backward 3 rows
     up = val_scan(['up_true', 'Up_True', 'UP_TRUE'], rows=3)
     if up is not None:
         try:
@@ -467,7 +489,6 @@ def get_technical_score(ticker, stock_df, debug=False):
 
 
 def score_fundamentals_rules(ticker, stock_df):
-    """Lightweight valuation from stock_data.csv — no API call"""
     if stock_df is None or stock_df.empty:
         return {"score": 0, "concern": ""}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
@@ -533,7 +554,6 @@ Return ONLY JSON: {{"score": <integer>, "context": "<max 10 words>"}}"""
 
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
-    """Composite for tickers WITH news"""
     w = WEIGHTS_NEWS
     if technical == 0:
         ew = {"sentiment": w["sentiment"] + w["technical"]*0.65, "technical": 0,
@@ -546,9 +566,7 @@ def compute_composite_news(sentiment, technical, macro, fundamental):
     return {"score": comp, "direction": d}
 
 
-# ── FIX 3: Clamped macro for tech-only ──
 def compute_composite_no_news(technical, macro):
-    """Composite for tickers WITHOUT news — tech-dominant, clamped macro"""
     w = WEIGHTS_NO_NEWS
     clamped_macro = max(-15, min(15, macro))
     comp = (technical * w["technical"]) + (clamped_macro * w["macro"])
@@ -568,12 +586,12 @@ def classify_composite_severity(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v3.1)
+# MAIN ENGINE (v3.2)
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
     tl, sm = load_tickers(); total = len(tl)
-    print(f"PREDICTIVE Engine v3.1 - {total} tickers | {TODAY_IST}")
+    print(f"PREDICTIVE Engine v3.2 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
     print("=" * 110)
 
@@ -619,7 +637,7 @@ def execute_sentiment_engine():
     print(f"\nPHASE 3: Multi-layer analysis (ALL {len(all_rows)} tickers)...")
     print("-" * 110)
 
-    # 3a: Technical for ALL
+    # 3a: Technical
     print("Loading stock data...")
     stock_df = load_stock_data_for_scoring()
     print("Computing technical scores for ALL tickers...")
@@ -631,31 +649,38 @@ def execute_sentiment_engine():
         if tech["score"] != 0: tech_count += 1
     print(f"  → {tech_count}/{len(all_rows)} tickers with non-zero technical score")
 
-    # 3b: Fundamental (lightweight, from stock_data)
+    # 3b: Fundamental
     print("Computing fundamental scores (rule-based from stock_data)...")
     for row in all_rows:
         fund = score_fundamentals_rules(row["Ticker"], stock_df)
         row["Fundamental_Score"] = fund["score"]
         row["Fund_Concern"] = fund.get("concern", "")
 
-    # 3c: Sector mapping + Macro — FIX 2
+    # 3c: Sector mapping + Macro
     print("Building sector map...")
     all_sectors = set()
     sector_count = 0
+    unmapped = 0
     for row in all_rows:
-        sector = sm.get(row["Ticker"], "") or get_sector_from_stock_data(row["Ticker"], stock_df)
+        sector = clean_sector(sm.get(row["Ticker"], "")) or get_sector_from_stock_data(row["Ticker"], stock_df)
         row["_sector"] = sector
         if sector:
             all_sectors.add(sector)
             sector_count += 1
-    print(f"  → {sector_count}/{len(all_rows)} tickers mapped to {len(all_sectors)} sectors")
+        else:
+            unmapped += 1
+    print(f"  → {sector_count}/{len(all_rows)} tickers mapped to {len(all_sectors)} sectors ({unmapped} unmapped)")
     if len(all_sectors) <= 5:
         print(f"  → Sectors: {all_sectors}")
+    else:
+        print(f"  → Sample: {list(all_sectors)[:8]}...")
 
     print("Fetching Nifty 50 performance...")
     nifty_chg = get_nifty_change()
     print(f"Computing macro context ({len(all_sectors)} sectors)...")
     macro_cache = get_macro_scores(all_sectors, nifty_chg)
+    for sk, sv in macro_cache.items():
+        print(f"    {sk}: {sv['score']:+d} ({sv.get('context','')})")
     for row in all_rows:
         macro = macro_cache.get(row.get("_sector",""), {"score": 0, "context": ""})
         row["Macro_Score"] = macro["score"]
@@ -723,10 +748,11 @@ def execute_sentiment_engine():
     total_scored = sc + len(scored_with_tech)
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v3.1 | ALL TICKERS SCORED")
+    print(f"data.csv | {TODAY_IST} | ENGINE v3.2 | ALL TICKERS SCORED")
     print(f"TICKERS: {sc} news-scored | {fc} filing | {nc2} no-news | {total_scored} total with signals")
+    print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped")
     print(f"WEIGHTS: News→ Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
-    print(f"         No-News→ Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} (macro clamped ±15)")
+    print(f"         No-News→ Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} (clamped ±15)")
     print()
     print(f"SENTIMENT-ONLY ({sc} with news):")
     print(f"  Overall:     {ha}/{sc} = {hra:.1f}%  |  Directional: {hd}/{td2} = {hrd:.1f}%")
