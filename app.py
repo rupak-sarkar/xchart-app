@@ -5,48 +5,7 @@ import requests
 import re
 import time
 import json
-import urllib.parse
-import os
-from datetime import datetime, timezone, timedelta
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
-
-# ═══════════════════════════════════════════════════════════════
-# CONFIGURATION
-# ═══════════════════════════════════════════════════════════════
-
-BROWSER_HEADERS = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36","Accept":"application/rss+xml, application/xml, text/xml, */*","Accept-Language":"en-IN,en;q=0.9"}
-feedparser.USER_AGENT = BROWSER_HEADERS["User-Agent"]
-print("Initializing FinBERT...")
-FINBERT_MODEL = "ProsusAI/finbert"
-tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
-model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
-IST = timezone(timedelta(hours=5, minutes=30))
-NOW_IST = datetime.now(IST)
-TODAY_IST = NOW_IST.strftime("%Y-%m-%d")
-TODAY_DATE = NOW_IST.date()
-NEWS_START_DATE = TODAY_DATE - timedelta(days=3)
-NEWS_CUTOFF_TIME = NOW_IST - timedelta(hours=2)
-print(f"News window: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%Y-%m-%d %I:%M %p')} IST")
-TICKERS_FILE = "tickers.csv"
-HISTORY_FILE = "history.csv"
-DATA_FILE = "data.csv"
-STOCK_DATA_FILE = "stock_data.csv"
-MACRO_CACHE_FILE = "macro_cache.json"
-
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL_NAME = "gemini-2.0-flash"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent"
-GEMINI_DELAY = 4
-if GEMINI_API_KEY:
-    print(f"Gemini API: enabled for macro ({GEMINI_MODEL_NAME})")
-else:
-    print("Gemini API: not configured → rule-based macro")
-
-WEIGHTS_NEWS = {"sentiment": 0.45, "technical": 0.35, "macro": 0.15, "fundamental": 0.05}
-WEIGHTS_NO_NEWS = {"technical": 0.70, "macro": 0.30}
-print(f"Weights (news):    Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
-print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")
+import urllib.parsenews): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")import urllib.parse
 
 SECTOR_MAP = {
     "Technology": ["Software - Application","Software - Infrastructure","Information Technology Services","Communication Equipment","Consumer Electronics"],
@@ -354,7 +313,7 @@ def save_to_history(rows):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MULTI-LAYER SCORING ENGINE (v3.6)
+# MULTI-LAYER SCORING ENGINE (v3.7)
 # ═══════════════════════════════════════════════════════════════
 
 def call_gemini(prompt, retries=2):
@@ -414,9 +373,14 @@ def load_stock_data_for_scoring():
                 df['Ticker'] = df['Ticker'].astype(str).str.replace('.NS','',regex=False).str.strip().str.upper()
                 print(f"  → Loaded stock_data.csv: {df['Ticker'].nunique()} tickers, {len(df)} rows")
                 print(f"  → Columns: {', '.join(df.columns[:20])}...")
-                key_cols = ['RSI_14','BB_Flag','SMA_22','SMA_50','SMA_52','SMA_200','Knoxville_Divergence','up_true','Close','Industry']
+                key_cols = ['RSI_14','BB_Flag','SMA_22','SMA_50','SMA_52','SMA_200',
+                            'Knoxville_Divergence','up_true','Close','Industry',
+                            'MACD_Line','MACD_Signal','MACD_Hist','ADX_14','ST_Direction',
+                            'EMA_9','EMA_21','SuperTrend','OBV','ATR_14']
                 found = [c for c in key_cols if c in df.columns]
-                print(f"  → Found: {found}")
+                missing = [c for c in key_cols if c not in df.columns]
+                print(f"  → Found: {len(found)}/{len(key_cols)} key columns")
+                if missing: print(f"  → Missing: {missing}")
                 if 'Industry' in df.columns:
                     ind_valid = df[df['Close'].notna()].groupby('Ticker')['Industry'].last()
                     ind_valid = ind_valid[ind_valid.apply(lambda x: not is_bad_str(x))]
@@ -438,7 +402,9 @@ def get_sector_from_stock_data(ticker, stock_df):
         if len(vals) > 0: return vals.iloc[-1]
     return ""
 
+
 def get_technical_score(ticker, stock_df, debug=False):
+    """Score technical position — v3.7: MACD + ADX + SuperTrend + EMA + OBV"""
     if stock_df is None or stock_df.empty: return {"score": 0, "signals": []}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty:
@@ -447,6 +413,7 @@ def get_technical_score(ticker, stock_df, debug=False):
     valid = tk_data[tk_data['Close'].notna()]
     if valid.empty: return {"score": 0, "signals": []}
     last = valid.iloc[-1]; score = 0; signals = []
+
     def val(cn):
         if isinstance(cn, str): cn = [cn]
         for c in cn:
@@ -456,6 +423,7 @@ def get_technical_score(ticker, stock_df, debug=False):
                     if pd.notna(v): return v
                 except: pass
         return None
+
     def val_scan(cn, rows=5):
         if isinstance(cn, str): cn = [cn]
         for c in cn:
@@ -466,44 +434,109 @@ def get_technical_score(ticker, stock_df, debug=False):
                     if v is not None and pd.notna(v) and str(v).strip() != '': return v
                 except: pass
         return None
-    rsi = val(['RSI_14','RSI','rsi_14'])
+
+    def fv(cn):
+        v = val(cn)
+        if v is not None:
+            try: return float(v)
+            except: pass
+        return None
+
+    rsi = fv(['RSI_14','RSI','rsi_14'])
+    adx = fv(['ADX_14'])
+    st_dir = val(['ST_Direction'])
+    macd_line = fv(['MACD_Line'])
+    macd_signal = fv(['MACD_Signal'])
+    macd_hist = fv(['MACD_Hist'])
+    ema9 = fv(['EMA_9'])
+    ema21 = fv(['EMA_21'])
+
     if debug:
         ind = get_sector_from_stock_data(ticker, stock_df)
-        print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, Knox={val_scan('Knoxville_Divergence',5)}, up={val_scan('up_true',3)}, Ind={ind}")
+        print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag',3)}, MACD={macd_line}/{macd_signal}, ADX={adx}, ST={st_dir}, EMA9/21={ema9}/{ema21}, Ind={ind}")
+
+    # ── RSI (±30) ──
     if rsi is not None:
-        rsi = float(rsi)
         if rsi > 75: score -= 30; signals.append(f"RSI overbought({rsi:.0f})")
         elif rsi > 65: score -= 15; signals.append(f"RSI elevated({rsi:.0f})")
         elif rsi < 25: score += 30; signals.append(f"RSI oversold({rsi:.0f})")
         elif rsi < 35: score += 15; signals.append(f"RSI depressed({rsi:.0f})")
+
+    # ── Bollinger Bands (±20) ──
     bb = val_scan(['BB_Flag','bb_flag'], rows=3)
     if bb is not None:
         bb = str(bb).strip().upper()
         if bb == 'BBH': score -= 20; signals.append("BB upper band")
         elif bb == 'BBL': score += 20; signals.append("BB lower band")
-    close = val(['Close','close'])
+
+    # ── SMA Position (±42 max) ──
+    close = fv(['Close','close'])
     if close is not None:
-        close = float(close)
-        sma22 = val(['SMA_22','sma_22']); sma50 = val(['SMA_50','SMA_52']); sma200 = val(['SMA_200','sma_200'])
+        sma22 = fv(['SMA_22','sma_22']); sma50 = fv(['SMA_50','SMA_52']); sma200 = fv(['SMA_200','sma_200'])
         if sma22 is not None:
-            if close < float(sma22): score -= 12; signals.append("Below SMA22")
+            if close < sma22: score -= 12; signals.append("Below SMA22")
             else: score += 8
         if sma50 is not None:
-            if close < float(sma50): score -= 10; signals.append("Below SMA50")
+            if close < sma50: score -= 10; signals.append("Below SMA50")
         if sma200 is not None:
-            if close < float(sma200): score -= 20; signals.append("Below SMA200")
+            if close < sma200: score -= 20; signals.append("Below SMA200")
             else: score += 10
+
+    # ── MACD Crossover (±15) + Histogram (±5) ──
+    if macd_line is not None and macd_signal is not None:
+        if macd_line > macd_signal:
+            score += 15; signals.append("MACD bullish")
+        else:
+            score -= 15; signals.append("MACD bearish")
+    if macd_hist is not None:
+        if macd_hist > 0: score += 5
+        else: score -= 5
+
+    # ── EMA Crossover 9/21 (±12) ──
+    if ema9 is not None and ema21 is not None:
+        if ema9 > ema21:
+            score += 12; signals.append("EMA golden")
+        else:
+            score -= 12; signals.append("EMA death")
+
+    # ── SuperTrend Direction (±10) ──
+    if st_dir is not None:
+        try:
+            st = int(float(st_dir))
+            if st == 1: score += 10; signals.append("SuperTrend↑")
+            elif st == -1: score -= 10; signals.append("SuperTrend↓")
+        except: pass
+
+    # ── ADX Trend Filter — reduces counter-trend conviction ──
+    if adx is not None and adx > 25 and st_dir is not None:
+        try:
+            st = int(float(st_dir))
+            if st == 1 and score < 0:
+                penalty = min(20, int(abs(score) * 0.3))
+                score += penalty
+                signals.append(f"ADX↑{adx:.0f}+{penalty}")
+            elif st == -1 and score > 0:
+                penalty = min(20, int(abs(score) * 0.3))
+                score -= penalty
+                signals.append(f"ADX↓{adx:.0f}-{penalty}")
+        except: pass
+
+    # ── Knoxville Divergence (±15) ──
     knox = val_scan(['Knoxville_Divergence','Knoxville'], rows=5)
     if knox is not None:
         ks = str(knox).strip().lower()
-        if 'bearish' in ks: score -= 15; signals.append("Knox bearish div")
-        elif 'bullish' in ks: score += 15; signals.append("Knox bullish div")
+        if 'bearish' in ks: score -= 15; signals.append("Knox bearish")
+        elif 'bullish' in ks: score += 15; signals.append("Knox bullish")
+
+    # ── FII/DII Momentum (+15) ──
     up = val_scan(['up_true','Up_True'], rows=3)
     if up is not None:
         try:
-            if int(float(up)) == 1: score += 15; signals.append("FII/DII momentum")
+            if int(float(up)) == 1: score += 15; signals.append("FII/DII↑")
         except: pass
+
     return {"score": max(-100, min(100, score)), "signals": signals}
+
 
 def score_fundamentals_rules(ticker, stock_df):
     if stock_df is None or stock_df.empty: return {"score": 0, "concern": ""}
@@ -543,22 +576,19 @@ def get_broad_sector(sub_industry):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MACRO SCORING — Session-Aware Cache + Gemini + Rule Fallback
+# MACRO SCORING
 # ═══════════════════════════════════════════════════════════════
 
 def load_macro_cache():
-    """Load cached Gemini macro scores — session-aware (pre-market vs market)"""
     try:
         if os.path.exists(MACRO_CACHE_FILE):
             with open(MACRO_CACHE_FILE, 'r') as f:
                 cache = json.load(f)
-            if cache.get("date") != TODAY_IST:
-                return None
+            if cache.get("date") != TODAY_IST: return None
             cached_hour = cache.get("hour", 0)
             current_hour = NOW_IST.hour
-            # Pre-market cache (<9:15) refreshed after market open (>=9:15)
             if cached_hour < 9 and current_hour >= 9:
-                print(f"  → Pre-market cache found (cached {cached_hour}:00) but market open → will refresh")
+                print(f"  → Pre-market cache (cached {cached_hour}:00) → market open → will refresh")
                 return None
             print(f"  → Loaded macro cache from today ({len(cache['scores'])} sectors, cached at {cached_hour}:00 IST)")
             return cache["scores"]
@@ -566,7 +596,6 @@ def load_macro_cache():
     return None
 
 def save_macro_cache(scores):
-    """Save with hour for session-aware caching"""
     try:
         with open(MACRO_CACHE_FILE, 'w') as f:
             json.dump({"date": TODAY_IST, "hour": NOW_IST.hour, "scores": scores}, f)
@@ -574,7 +603,6 @@ def save_macro_cache(scores):
     except: pass
 
 def smart_rule_based_macro(broad_list, nifty_change):
-    """Sector-aware rule-based scoring — varies by sector characteristics"""
     scores = {}
     for sector in broad_list:
         rules = SECTOR_RULES.get(sector, {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Mixed drivers"})
@@ -583,12 +611,10 @@ def smart_rule_based_macro(broad_list, nifty_change):
     return scores
 
 def get_macro_scores(sectors, nifty_change):
-    """3-tier macro: Cache → Gemini (1 call/session) → Smart rule-based"""
     macro_cache = {}
     unique_sectors = list(set(s for s in sectors if s and not is_bad_str(s)))
     if not unique_sectors: return macro_cache
     base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
-
     sub_to_broad = {}; broad_set = set()
     for sub in unique_sectors:
         broad = get_broad_sector(sub); sub_to_broad[sub] = broad
@@ -596,7 +622,6 @@ def get_macro_scores(sectors, nifty_change):
     broad_list = sorted(broad_set)
     print(f"  → {len(unique_sectors)} sub-industries → {len(broad_list)} broad sectors")
 
-    # ── TIER 1: Cache ──
     cached = load_macro_cache()
     if cached:
         broad_scores = {}
@@ -609,7 +634,6 @@ def get_macro_scores(sectors, nifty_change):
             print(f"    {sector} ({count}): {data['score']:+d} ({data['context']}) [cached]")
         return macro_cache
 
-    # ── TIER 2: Gemini ──
     broad_scores = {}; gemini_success = False
     if GEMINI_API_KEY:
         sector_list = "\n".join([f"  - {s}" for s in broad_list])
@@ -647,7 +671,6 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
                 print(f"  → Gemini scored {scored}/{len(broad_list)} broad sectors")
                 save_macro_cache(broad_scores)
 
-    # ── TIER 3: Smart rule-based ──
     if not gemini_success:
         print(f"  → Smart rule-based scoring (sector-aware fallback)")
         broad_scores = smart_rule_based_macro(broad_list, nifty_change)
@@ -690,13 +713,14 @@ def classify_composite_severity(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v3.6)
+# MAIN ENGINE (v3.7)
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
     tl, sm = load_tickers(); total = len(tl)
-    print(f"PREDICTIVE Engine v3.6 - {total} tickers | {TODAY_IST}")
+    print(f"PREDICTIVE Engine v3.7 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
+    print(f"Tech indicators: RSI + BB + SMA + MACD + EMA + SuperTrend + ADX + Knox + FII/DII")
     print("=" * 110)
 
     print("\nPHASE 1: Fetching predictive news (D-3 to 2hr cutoff)...")
@@ -821,12 +845,12 @@ def execute_sentiment_engine():
     total_scored = sc + len(scored_with_tech)
     macro_vals = [macro_scores[s]["score"] for s in macro_scores] if macro_scores else [0]
     macro_varied = len(set(macro_vals)) > 1
-    macro_source = "gemini" if any("[cached]" not in str(v) for v in macro_vals) else "cache"
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v3.6 | ALL TICKERS SCORED")
+    print(f"data.csv | {TODAY_IST} | ENGINE v3.7 | ALL TICKERS SCORED")
     print(f"TICKERS: {sc} news-scored | {fc} filing | {nc2} no-news | {total_scored} total with signals")
     print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped | Macro varied: {'✅' if macro_varied else '❌ (uniform)'}")
+    print(f"TECH: RSI+BB+SMA+MACD+EMA+SuperTrend+ADX+Knox+FII/DII")
     print(f"WEIGHTS: News→ Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
     print(f"         No-News→ Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} (clamped ±15)")
     print()
@@ -847,3 +871,43 @@ def execute_sentiment_engine():
 
 if __name__ == "__main__":
     execute_sentiment_engine()
+import os
+from datetime import datetime, timezone, timedelta
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+
+# ═══════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════
+
+BROWSER_HEADERS = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36","Accept":"application/rss+xml, application/xml, text/xml, */*","Accept-Language":"en-IN,en;q=0.9"}
+feedparser.USER_AGENT = BROWSER_HEADERS["User-Agent"]
+print("Initializing FinBERT...")
+FINBERT_MODEL = "ProsusAI/finbert"
+tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
+model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+IST = timezone(timedelta(hours=5, minutes=30))
+NOW_IST = datetime.now(IST)
+TODAY_IST = NOW_IST.strftime("%Y-%m-%d")
+TODAY_DATE = NOW_IST.date()
+NEWS_START_DATE = TODAY_DATE - timedelta(days=3)
+NEWS_CUTOFF_TIME = NOW_IST - timedelta(hours=2)
+print(f"News window: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%Y-%m-%d %I:%M %p')} IST")
+TICKERS_FILE = "tickers.csv"
+HISTORY_FILE = "history.csv"
+DATA_FILE = "data.csv"
+STOCK_DATA_FILE = "stock_data.csv"
+MACRO_CACHE_FILE = "macro_cache.json"
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL_NAME = "gemini-2.0-flash"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL_NAME}:generateContent"
+GEMINI_DELAY = 4
+if GEMINI_API_KEY:
+    print(f"Gemini API: enabled for macro ({GEMINI_MODEL_NAME})")
+else:
+    print("Gemini API: not configured → rule-based macro")
+
+WEIGHTS_NEWS = {"sentiment": 0.45, "technical": 0.35, "macro": 0.15, "fundamental": 0.05}
+WEIGHTS_NO_NEWS = {"technical": 0.70, "macro": 0.30}
+print(f"Weights (news):    Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
