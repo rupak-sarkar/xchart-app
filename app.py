@@ -1219,6 +1219,20 @@ def compute_composite_news(sentiment, technical, macro, fundamental):
         }
     else:
         ew = dict(w)
+
+    # ── Conflict dampening: when sentiment and technical strongly disagree ──
+    if sentiment != 0 and technical != 0:
+        sent_dir = 1 if sentiment > 0 else -1
+        tech_dir = 1 if technical > 0 else -1
+        if sent_dir != tech_dir:
+            # They disagree — check severity of conflict
+            conflict = abs(sentiment) + abs(technical)
+            if conflict > 80:
+                # Strong conflict: reduce sentiment weight, boost technical
+                dampen = 0.6  # reduce sentiment influence by 40%
+                ew["sentiment"] = w["sentiment"] * dampen
+                ew["technical"] = w["technical"] + w["sentiment"] * (1 - dampen)
+
     comp = round(
         (sentiment * ew["sentiment"]) +
         (technical * ew["technical"]) +
