@@ -8,18 +8,7 @@ import json
 import urllib.parse
 import os
 import numpy as np
-from datetime import datetime, timezone, timedelta
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
-
-print("Initializing FinBERT...")
-FINBERT_MODEL = "ProsusAI/finbert"
-tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
-model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
-
-IST = timezone(timedelta(hours=5, minutes=30))
-NOW_IST = datetime.now(IST)
-TODAY_IST = NOW_IST.strftime("%Y-%m-%d")
+from datetime import datetime, timezone,from datetime import datetime, timezone, timedelta
 TODAY_DATE = NOW_IST.date()
 NEWS_START_DATE = TODAY_DATE - timedelta(days=3)
 NEWS_CUTOFF_TIME = NOW_IST - timedelta(hours=2)
@@ -48,17 +37,12 @@ if GEMINI_API_KEY:
 else:
     print("Gemini API: not configured -> rule-based macro")
 
-# ═══ v3.9 WEIGHTS: Tech dominant, Sent minimal, Fund includes FII/DII ═══
 WEIGHTS_NEWS = {"technical": 0.65, "sentiment": 0.10, "macro": 0.15, "fundamental": 0.10}
 WEIGHTS_NO_NEWS = {"technical": 0.75, "macro": 0.15, "fundamental": 0.10}
 
 print(f"Weights (news):    Tech={WEIGHTS_NEWS['technical']:.0%} Sent={WEIGHTS_NEWS['sentiment']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
 print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} Fund={WEIGHTS_NO_NEWS['fundamental']:.0%}")
 
-
-# ═══════════════════════════════════════════════════════════════
-# SECTOR MAPS + RULES
-# ═══════════════════════════════════════════════════════════════
 
 SECTOR_MAP = {
     "Technology": ["Software - Application", "Software - Infrastructure", "Information Technology Services", "Communication Equipment", "Consumer Electronics"],
@@ -85,11 +69,6 @@ SECTOR_RULES = {
     "Energy": {"base_offset": 0, "nifty_sensitivity": 0.8, "description": "Energy: crude linked"},
     "Specialty": {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Specialty: mixed drivers"},
 }
-
-
-# ═══════════════════════════════════════════════════════════════
-# NEWS CONFIG (unchanged)
-# ═══════════════════════════════════════════════════════════════
 
 SOURCE_LABELS = {
     "mc_topnews": "Moneycontrol", "mc_business": "Moneycontrol", "mc_markets": "Moneycontrol", "mc_stocks": "Moneycontrol",
@@ -144,11 +123,6 @@ ALL_FEEDS = {
     "bl_stocks": "https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss",
     "bl_companies": "https://www.thehindubusinessline.com/companies/feeder/default.rss"
 }
-
-
-# ═══════════════════════════════════════════════════════════════
-# KEYWORD SETS (unchanged)
-# ═══════════════════════════════════════════════════════════════
 
 NSE_NOISE_KEYWORDS = [
     "board meeting intimation", "intimation of board meeting", "outcome of board meeting",
@@ -283,8 +257,20 @@ def is_bad_str(s):
     return str(s).strip().lower() in BAD_STRINGS
 
 
+def safe_int(val, default=0):
+    """Safely convert value to int, handling NaN and other edge cases"""
+    try:
+        if val is None:
+            return default
+        if isinstance(val, float) and pd.isna(val):
+            return default
+        return int(float(val))
+    except (ValueError, TypeError):
+        return default
+
+
 # ═══════════════════════════════════════════════════════════════
-# HEADLINE CLASSIFICATION (unchanged)
+# HEADLINE CLASSIFICATION
 # ═══════════════════════════════════════════════════════════════
 
 def classify_headline(headline, actual_return=None):
@@ -329,37 +315,54 @@ def classify_nse_headline(hl):
 
 
 def classify_severity(s):
-    if s >= 60: return "Very Bullish"
-    elif s >= 25: return "Bullish"
-    elif s >= 5: return "Mildly Bullish"
-    elif s >= -5: return "Neutral"
-    elif s >= -25: return "Mildly Bearish"
-    elif s >= -60: return "Bearish"
-    else: return "Very Bearish"
+    if s >= 60:
+        return "Very Bullish"
+    elif s >= 25:
+        return "Bullish"
+    elif s >= 5:
+        return "Mildly Bullish"
+    elif s >= -5:
+        return "Neutral"
+    elif s >= -25:
+        return "Mildly Bearish"
+    elif s >= -60:
+        return "Bearish"
+    else:
+        return "Very Bearish"
 
 
 def classify_impact(entries):
     c = " ".join(e["headline"] for e in entries).lower()
     s = sum(1 for kw in SHORT_TERM_KEYWORDS if kw in c)
     l = sum(1 for kw in LONG_TERM_KEYWORDS if kw in c)
-    if s > 0 and l > 0: return "Both"
-    elif l > 0: return "Long-term"
-    elif s > 0: return "Short-term"
+    if s > 0 and l > 0:
+        return "Both"
+    elif l > 0:
+        return "Long-term"
+    elif s > 0:
+        return "Short-term"
     return "Short-term"
 
 
 def classify_composite_severity(s):
-    if s >= 40: return "Strong Buy"
-    elif s >= 20: return "Buy"
-    elif s >= 8: return "Mild Buy"
-    elif s >= -8: return "Neutral"
-    elif s >= -20: return "Mild Sell"
-    elif s >= -40: return "Sell"
-    else: return "Strong Sell"
+    if s >= 40:
+        return "Strong Buy"
+    elif s >= 20:
+        return "Buy"
+    elif s >= 8:
+        return "Mild Buy"
+    elif s >= -8:
+        return "Neutral"
+    elif s >= -20:
+        return "Mild Sell"
+    elif s >= -40:
+        return "Sell"
+    else:
+        return "Strong Sell"
 
 
 # ═══════════════════════════════════════════════════════════════
-# NEWS UTILITY FUNCTIONS (unchanged)
+# NEWS UTILITY FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
 
 def extract_pub_datetime_full(entry):
@@ -368,18 +371,25 @@ def extract_pub_datetime_full(entry):
         try:
             d = datetime(*p[:6], tzinfo=timezone.utc).astimezone(IST)
             return d, d.strftime("%d %b %Y %I:%M %p")
-        except: pass
+        except:
+            pass
     return None, ""
 
-def extract_news_url(e): return e.get("link", e.get("id", ""))
+
+def extract_news_url(e):
+    return e.get("link", e.get("id", ""))
+
 
 def is_in_news_window(d):
-    if d is None: return True
+    if d is None:
+        return True
     return datetime.combine(NEWS_START_DATE, datetime.min.time()).replace(tzinfo=IST) <= d <= NEWS_CUTOFF_TIME
+
 
 def get_source_search_url(sl, tk):
     t = SOURCE_SEARCH_URLS.get(sl, "")
     return t.replace("{ticker}", tk) if t else ""
+
 
 def fetch_rss_with_headers(url, label, timeout=15):
     try:
@@ -388,19 +398,24 @@ def fetch_rss_with_headers(url, label, timeout=15):
         return feedparser.parse(r.content)
     except requests.exceptions.RequestException as e:
         print(f"   {label}: {e}")
-        try: return feedparser.parse(url)
-        except: return None
+        try:
+            return feedparser.parse(url)
+        except:
+            return None
+
 
 def match_ticker_in_text(tu, tl):
     for t in sorted(tl, key=len, reverse=True):
-        if re.search(r'\b' + re.escape(t.upper()) + r'\b', tu): return t
+        if re.search(r'\b' + re.escape(t.upper()) + r'\b', tu):
+            return t
     for a, t in COMPANY_ALIASES.items():
-        if a in tu and t in tl: return t
+        if a in tu and t in tl:
+            return t
     return None
 
 
 # ═══════════════════════════════════════════════════════════════
-# TICKER LOADING (unchanged)
+# TICKER LOADING
 # ═══════════════════════════════════════════════════════════════
 
 def load_tickers():
@@ -411,114 +426,173 @@ def load_tickers():
             if 'Ticker' not in df.columns:
                 df.rename(columns={df.columns[0]: 'Ticker'}, inplace=True)
             tks = [t.replace('.NS', '') for t in df['Ticker'].dropna().str.strip().str.upper().tolist() if t]
-            s = set(); u = []
+            s = set()
+            u = []
             for t in tks:
-                if t not in s: s.add(t); u.append(t)
+                if t not in s:
+                    s.add(t)
+                    u.append(t)
             sm = {}
             if 'Sector' in df.columns:
                 for _, r in df.iterrows():
                     tk = str(r['Ticker']).strip().upper().replace('.NS', '')
                     sc = str(r.get('Sector', '')).strip()
-                    if tk and sc and not is_bad_str(sc): sm[tk] = sc
+                    if tk and sc and not is_bad_str(sc):
+                        sm[tk] = sc
             print(f"Loaded {len(u)} tickers from {TICKERS_FILE} (sector map: {len(sm)} entries)")
             return u, sm
-        except Exception as e: print(f"Error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
     return ["RELIANCE", "TCS", "INFY", "HDFCBANK", "SBIN", "ICICIBANK", "ITC"], {}
 
 
 # ═══════════════════════════════════════════════════════════════
-# FINBERT SCORING (unchanged)
+# FINBERT SCORING
 # ═══════════════════════════════════════════════════════════════
 
 def score_single_headline(hl):
-    if not hl: return 0.0
+    if not hl:
+        return 0.0
     try:
         i = tokenizer([hl], padding=True, truncation=True, max_length=512, return_tensors="pt")
-        with torch.no_grad(): o = model(**i)
+        with torch.no_grad():
+            o = model(**i)
         p = torch.nn.functional.softmax(o.logits, dim=-1)
         return (p[0][0].item() - p[0][1].item()) * 100.0
-    except: return 0.0
+    except:
+        return 0.0
+
 
 def compute_aggregated_score(entries):
-    if not entries: return 0.0, 0
-    tw = 0.0; ws = 0.0
+    if not entries:
+        return 0.0, 0
+    tw = 0.0
+    ws = 0.0
     for e in entries:
         r = score_single_headline(e["headline"])
-        w = e.get("weight", 1.0); ws += r * w; tw += w
-    if tw == 0: return 0.0, 0
+        w = e.get("weight", 1.0)
+        ws += r * w
+        tw += w
+    if tw == 0:
+        return 0.0, 0
     s = ws / tw
     return round(s, 1), 1 if s > 5 else (-1 if s < -5 else 0)
 
+
 def get_live_price_return(tk):
     clean = tk.replace('.NS', '').replace('.BO', '').strip()
-    if clean.isdigit(): symbols = [f"{clean}.BO", f"{clean}.NS"]
-    else: symbols = [f"{clean}.NS", f"{clean}.BO"]
+    if clean.isdigit():
+        symbols = [f"{clean}.BO", f"{clean}.NS"]
+    else:
+        symbols = [f"{clean}.NS", f"{clean}.BO"]
     for symbol in symbols:
         try:
             h = yf.Ticker(symbol).history(period="5d")
-            if len(h) >= 2: return round(((h['Close'].iloc[-1] - h['Close'].iloc[-2]) / h['Close'].iloc[-2]) * 100, 2)
-        except: continue
+            if len(h) >= 2:
+                return round(((h['Close'].iloc[-1] - h['Close'].iloc[-2]) / h['Close'].iloc[-2]) * 100, 2)
+        except:
+            continue
     return 0.0
 
 
 # ═══════════════════════════════════════════════════════════════
-# NEWS CACHE BUILDING (unchanged)
+# NEWS CACHE BUILDING
 # ═══════════════════════════════════════════════════════════════
 
 def build_news_cache(tl):
-    cache = {}; st = {"sc": 0, "iw": 0, "rp": 0, "nn": 0, "kp": 0, "sl": 0}
+    cache = {}
+    st = {"sc": 0, "iw": 0, "rp": 0, "nn": 0, "kp": 0, "sl": 0}
     for sk, url in ALL_FEEDS.items():
         print(f"Fetching {sk}...")
         feed = fetch_rss_with_headers(url, sk)
-        if not feed or not feed.entries: print(f"   {sk}: No entries"); continue
-        mc = 0; rp = 0; stc = 0; nc = 0
+        if not feed or not feed.entries:
+            print(f"   {sk}: No entries")
+            continue
+        mc = 0
+        rp = 0
+        stc = 0
+        nc = 0
         for entry in feed.entries:
-            title = entry.get("title", ""); desc = entry.get("description", entry.get("summary", ""))
-            ft = f"{title} {desc}".upper(); mt = match_ticker_in_text(ft, tl)
-            if not mt or not title.strip(): continue
-            st["sc"] += 1; di, pt = extract_pub_datetime_full(entry)
-            if not is_in_news_window(di): stc += 1; st["sl"] += 1; continue
-            st["iw"] += 1; hl = title.strip().replace(",", ";"); nu = extract_news_url(entry)
+            title = entry.get("title", "")
+            desc = entry.get("description", entry.get("summary", ""))
+            ft = f"{title} {desc}".upper()
+            mt = match_ticker_in_text(ft, tl)
+            if not mt or not title.strip():
+                continue
+            st["sc"] += 1
+            di, pt = extract_pub_datetime_full(entry)
+            if not is_in_news_window(di):
+                stc += 1
+                st["sl"] += 1
+                continue
+            st["iw"] += 1
+            hl = title.strip().replace(",", ";")
+            nu = extract_news_url(entry)
             hc, _ = classify_headline(hl)
-            if hc == "reporting": rp += 1; st["rp"] += 1; continue
+            if hc == "reporting":
+                rp += 1
+                st["rp"] += 1
+                continue
             if sk in NSE_SOURCES:
                 if classify_nse_headline(hl) == "noise":
-                    nc += 1; st["nn"] += 1; fk = f"_filing_{mt}"
-                    if fk not in cache: cache[fk] = []
-                    cache[fk].append({"headline": hl, "source": sk, "pub_time": pt, "weight": 0.0, "nse_class": "noise", "news_url": nu}); continue
-            w = SOURCE_WEIGHTS.get(sk, 1.0); ex = cache.get(mt, [])
+                    nc += 1
+                    st["nn"] += 1
+                    fk = f"_filing_{mt}"
+                    if fk not in cache:
+                        cache[fk] = []
+                    cache[fk].append({"headline": hl, "source": sk, "pub_time": pt, "weight": 0.0, "nse_class": "noise", "news_url": nu})
+                    continue
+            w = SOURCE_WEIGHTS.get(sk, 1.0)
+            ex = cache.get(mt, [])
             if not any(e["headline"].lower() == hl.lower() for e in ex):
-                if mt not in cache: cache[mt] = []
-                cache[mt].append({"headline": hl, "source": sk, "pub_time": pt, "weight": w, "nse_class": "actionable" if sk in NSE_SOURCES else "news", "news_url": nu}); mc += 1; st["kp"] += 1
+                if mt not in cache:
+                    cache[mt] = []
+                cache[mt].append({"headline": hl, "source": sk, "pub_time": pt, "weight": w, "nse_class": "actionable" if sk in NSE_SOURCES else "news", "news_url": nu})
+                mc += 1
+                st["kp"] += 1
         notes = []
-        if stc: notes.append(f"{stc} outside window")
-        if rp: notes.append(f"{rp} reporting")
-        if nc: notes.append(f"{nc} NSE noise")
+        if stc:
+            notes.append(f"{stc} outside window")
+        if rp:
+            notes.append(f"{rp} reporting")
+        if nc:
+            notes.append(f"{nc} NSE noise")
         print(f"   {sk}: {mc} predictive from {len(feed.entries)}" + (f" ({', '.join(notes)})" if notes else ""))
         time.sleep(0.3)
     rl = {k for k in cache if not k.startswith("_filing_")}
     print(f"\nCache: {len(rl)}/{len(tl)} predictive | Scanned:{st['sc']} Reporting:{st['rp']} NSEnoise:{st['nn']} Kept:{st['kp']}")
     return cache
 
+
 def get_yfinance_news(tk, ar=None):
     try:
         news = getattr(yf.Ticker(f"{tk}.NS"), 'news', None)
         if news and isinstance(news, list):
             for item in news:
-                if not isinstance(item, dict): continue
+                if not isinstance(item, dict):
+                    continue
                 hl = item.get("title", item.get("headline", ""))
-                if not hl: continue
+                if not hl:
+                    continue
                 hc, _ = classify_headline(hl, ar)
-                if hc == "reporting": continue
+                if hc == "reporting":
+                    continue
                 nu = item.get("link", item.get("url", ""))
                 pts = item.get("providerPublishTime") or item.get("publish_time")
-                pt = ""; di = None
+                pt = ""
+                di = None
                 if pts:
-                    try: di = datetime.fromtimestamp(int(pts), tz=IST); pt = di.strftime("%d %b %Y %I:%M %p")
-                    except: pass
-                if is_in_news_window(di): return hl.replace(",", ";"), pt, nu
-    except: pass
+                    try:
+                        di = datetime.fromtimestamp(int(pts), tz=IST)
+                        pt = di.strftime("%d %b %Y %I:%M %p")
+                    except:
+                        pass
+                if is_in_news_window(di):
+                    return hl.replace(",", ";"), pt, nu
+    except:
+        pass
     return None, "", ""
+
 
 def get_google_news(tk, ar=None):
     try:
@@ -527,17 +601,22 @@ def get_google_news(tk, ar=None):
         if feed and feed.entries:
             for entry in feed.entries[:5]:
                 di, pt = extract_pub_datetime_full(entry)
-                if not is_in_news_window(di): continue
+                if not is_in_news_window(di):
+                    continue
                 hl = re.sub(r'\s+-\s+[^:\-]+$', '', entry.title)
                 hc, _ = classify_headline(hl, ar)
-                if hc == "reporting": continue
+                if hc == "reporting":
+                    continue
                 return hl.replace(",", ";"), pt, extract_news_url(entry)
-    except: pass
+    except:
+        pass
     return None, "", ""
+
 
 def get_all_fresh_news(tk, cache, ar=None):
     entries = []
-    if tk in cache: entries.extend(cache[tk])
+    if tk in cache:
+        entries.extend(cache[tk])
     hl, pt, nu = get_yfinance_news(tk, ar)
     if hl and not any(e["headline"].lower() == hl.lower() for e in entries):
         entries.append({"headline": hl, "source": "yfinance", "pub_time": pt, "weight": 1.0, "nse_class": "news", "news_url": nu})
@@ -548,13 +627,16 @@ def get_all_fresh_news(tk, cache, ar=None):
     if ar is not None and entries:
         entries = [e for e in entries if classify_headline(e["headline"], ar)[0] != "reporting"]
     fe = cache.get(f"_filing_{tk}", [])
-    if entries: return entries, "actionable", fe
-    elif fe: return fe, "filing_only", fe
-    else: return [], "no_news", []
+    if entries:
+        return entries, "actionable", fe
+    elif fe:
+        return fe, "filing_only", fe
+    else:
+        return [], "no_news", []
 
 
 # ═══════════════════════════════════════════════════════════════
-# HISTORY + STREAKS (unchanged)
+# HISTORY + STREAKS
 # ═══════════════════════════════════════════════════════════════
 
 def load_history():
@@ -564,85 +646,128 @@ def load_history():
             dates = sorted(df['Date'].unique(), reverse=True)[:30]
             df = df[df['Date'].isin(dates)]
         return df
-    except FileNotFoundError: return pd.DataFrame()
+    except FileNotFoundError:
+        return pd.DataFrame()
+
 
 def calculate_streaks(hdf, tr):
     streaks = {}
     for row in tr:
-        tk = row["Ticker"]; td = row["Forecast_Direction"]; ts = row["Forecast_Score"]; trr = row["Actual_Return_Pct"]
+        tk = row["Ticker"]
+        td = row["Forecast_Direction"]
+        ts = row["Forecast_Score"]
+        trr = row["Actual_Return_Pct"]
         th = pd.DataFrame()
         if not hdf.empty and 'Ticker' in hdf.columns:
             th = hdf[(hdf['Ticker'] == tk) & (hdf['Date'] != TODAY_IST)].sort_values('Date', ascending=False)
-        sd = 1; sr = trr
+        sd = 1
+        sr = trr
         if not th.empty:
             for _, hr in th.iterrows():
-                if int(hr.get('Forecast_Direction', 0)) == td and td != 0: sd += 1; sr += float(hr.get('Actual_Return_Pct', 0))
-                else: break
+                if safe_int(hr.get('Forecast_Direction', 0)) == td and td != 0:
+                    sd += 1
+                    sr += float(hr.get('Actual_Return_Pct', 0))
+                else:
+                    break
         ps = float(th.iloc[0].get('Forecast_Score', 0)) if not th.empty else None
-        if td == 0: m = "Neutral"
-        elif sd == 1: m = "New"
+        if td == 0:
+            m = "Neutral"
+        elif sd == 1:
+            m = "New"
         elif ps is not None:
-            if td == 1: m = ("Strong" if sd >= 3 else "Building") if ts >= ps else "Fading"
-            elif td == -1: m = ("Strong" if sd >= 3 else "Building") if ts <= ps else "Fading"
-            else: m = "Neutral"
-        else: m = "New"
+            if td == 1:
+                m = ("Strong" if sd >= 3 else "Building") if ts >= ps else "Fading"
+            elif td == -1:
+                m = ("Strong" if sd >= 3 else "Building") if ts <= ps else "Fading"
+            else:
+                m = "Neutral"
+        else:
+            m = "New"
         streaks[tk] = {"Streak_Days": sd if td != 0 else 0, "Streak_Return": round(sr, 2), "Momentum": m}
     return streaks
 
+
 def save_to_history(rows):
-    hdf = load_history(); tdf = pd.DataFrame(rows); tdf['Date'] = TODAY_IST
-    if not hdf.empty and 'Date' in hdf.columns: hdf = hdf[hdf['Date'] != TODAY_IST]
+    hdf = load_history()
+    tdf = pd.DataFrame(rows)
+    tdf['Date'] = TODAY_IST
+    if not hdf.empty and 'Date' in hdf.columns:
+        hdf = hdf[hdf['Date'] != TODAY_IST]
     c = pd.concat([hdf, tdf], ignore_index=True)
     if 'Date' in c.columns:
-        dates = sorted(c['Date'].unique(), reverse=True)[:30]; c = c[c['Date'].isin(dates)]
+        dates = sorted(c['Date'].unique(), reverse=True)[:30]
+        c = c[c['Date'].isin(dates)]
     c.to_csv(HISTORY_FILE, index=False)
     print(f"History: {len(c)} rows / {c['Date'].nunique() if 'Date' in c.columns else 1} days")
 
 
 # ═══════════════════════════════════════════════════════════════
-# GEMINI API (unchanged)
+# GEMINI API
 # ═══════════════════════════════════════════════════════════════
 
 def call_gemini(prompt, retries=2):
-    if not GEMINI_API_KEY: return None
+    if not GEMINI_API_KEY:
+        return None
     for attempt in range(retries + 1):
         try:
-            resp = requests.post(f"{GEMINI_URL}?key={GEMINI_API_KEY}", json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "maxOutputTokens": 200}}, headers={"Content-Type": "application/json"}, timeout=30)
-            if resp.status_code == 429: time.sleep(6); continue
+            resp = requests.post(
+                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1, "maxOutputTokens": 200}},
+                headers={"Content-Type": "application/json"}, timeout=30)
+            if resp.status_code == 429:
+                time.sleep(6)
+                continue
             resp.raise_for_status()
             text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             jm = re.search(r'\{[^}]+\}', text)
-            if jm: return json.loads(jm.group())
+            if jm:
+                return json.loads(jm.group())
             return None
         except Exception:
-            if attempt < retries: time.sleep(3); continue
+            if attempt < retries:
+                time.sleep(3)
+            continue
     return None
 
+
 def call_gemini_large(prompt, retries=3):
-    if not GEMINI_API_KEY: return None
+    if not GEMINI_API_KEY:
+        return None
     for attempt in range(retries + 1):
         try:
-            resp = requests.post(f"{GEMINI_URL}?key={GEMINI_API_KEY}", json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2000}}, headers={"Content-Type": "application/json"}, timeout=60)
+            resp = requests.post(
+                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2000}},
+                headers={"Content-Type": "application/json"}, timeout=60)
             if resp.status_code == 429:
                 wait = 15 if attempt == 0 else 30
-                print(f"    Rate limited, waiting {wait}s (attempt {attempt+1}/{retries+1})..."); time.sleep(wait); continue
+                print(f"    Rate limited, waiting {wait}s (attempt {attempt+1}/{retries+1})...")
+                time.sleep(wait)
+                continue
             resp.raise_for_status()
             text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            text = re.sub(r'```json\s*', '', text); text = re.sub(r'```\s*', '', text).strip()
-            start = text.find('{'); end = text.rfind('}')
-            if start != -1 and end != -1: return json.loads(text[start:end + 1])
+            text = re.sub(r'```json\s*', '', text)
+            text = re.sub(r'```\s*', '', text).strip()
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                return json.loads(text[start:end + 1])
             return None
         except json.JSONDecodeError as e:
             print(f"    JSON parse error: {e}")
-            if attempt < retries: time.sleep(5); continue
+            if attempt < retries:
+                time.sleep(5)
+            continue
         except Exception as e:
             print(f"    Gemini error: {e}")
-            if attempt < retries: time.sleep(5); continue
+            if attempt < retries:
+                time.sleep(5)
+            continue
     return None
 
 
 # ═══════════════════════════════════════════════════════════════
-# STOCK DATA + TECHNICAL SCORING (v3.9 - REVISED)
+# STOCK DATA + TECHNICAL SCORING (v3.9)
 # ═══════════════════════════════════════════════════════════════
 
 def load_stock_data_for_scoring():
@@ -661,45 +786,57 @@ def load_stock_data_for_scoring():
                     ind_valid = ind_valid[ind_valid.apply(lambda x: not is_bad_str(x))]
                     print(f"  -> Industries: {len(ind_valid)} tickers mapped to {ind_valid.nunique()} unique sectors")
                 return df
-    except Exception as e: print(f"  -> Could not load stock_data.csv: {e}")
-    print("  -> stock_data.csv not found"); return pd.DataFrame()
+    except Exception as e:
+        print(f"  -> Could not load stock_data.csv: {e}")
+    print("  -> stock_data.csv not found")
+    return pd.DataFrame()
+
 
 def get_sector_from_stock_data(ticker, stock_df):
-    if stock_df is None or stock_df.empty: return ""
+    if stock_df is None or stock_df.empty:
+        return ""
     tk_data = stock_df[stock_df['Ticker'] == ticker]
-    if tk_data.empty: return ""
+    if tk_data.empty:
+        return ""
     for cn in ['Industry', 'industry', 'Sector', 'sector']:
-        if cn not in tk_data.columns: continue
+        if cn not in tk_data.columns:
+            continue
         vals = tk_data[cn].dropna().astype(str).str.strip()
         vals = vals[vals.apply(lambda x: not is_bad_str(x))]
-        if len(vals) > 0: return vals.iloc[-1]
+        if len(vals) > 0:
+            return vals.iloc[-1]
     return ""
 
 
 def compute_tech_score_from_row(row, history_rows=None):
-    """v3.9: Pure technical scoring - NO FII/DII (moved to fundamental)
-    Enhanced: BB reversal, Knox reversal, 5-day momentum, momentum-aware RSI"""
+    """v3.9: Pure technical - NO FII/DII. Enhanced BB/Knox reversal + 5d momentum"""
     score = 0
     signals = []
 
     def fv(names):
-        if isinstance(names, str): names = [names]
+        if isinstance(names, str):
+            names = [names]
         for n in names:
             v = row.get(n)
             if v is not None:
                 try:
-                    if pd.notna(v): return float(v)
-                except: pass
+                    if pd.notna(v):
+                        return float(v)
+                except:
+                    pass
         return None
 
     def sv(names):
-        if isinstance(names, str): names = [names]
+        if isinstance(names, str):
+            names = [names]
         for n in names:
             v = row.get(n)
             if v is not None:
                 try:
-                    if pd.notna(v) and str(v).strip() != '': return str(v)
-                except: pass
+                    if pd.notna(v) and str(v).strip() != '':
+                        return str(v)
+                except:
+                    pass
         return None
 
     rsi = fv(['RSI_14', 'RSI'])
@@ -712,10 +849,14 @@ def compute_tech_score_from_row(row, history_rows=None):
     ema21 = fv(['EMA_21'])
     close = fv(['Close'])
 
-    # ── 5-DAY MOMENTUM (new: captures trend persistence) ──
-    mom_5d = fv(['gain'])  # from stock_data gain column
+    # ── 5-DAY MOMENTUM ──
+    mom_5d = fv(['gain'])
     if mom_5d is None and history_rows is not None and len(history_rows) >= 6:
-        prev_close = history_rows.iloc[-6].get('Close') if len(history_rows) >= 6 else None
+        prev_close = None
+        try:
+            prev_close = history_rows.iloc[-6].get('Close')
+        except:
+            pass
         if prev_close and close and prev_close > 0:
             mom_5d = ((close - prev_close) / prev_close) * 100
 
@@ -733,14 +874,14 @@ def compute_tech_score_from_row(row, history_rows=None):
             score -= 10
             signals.append(f"Mom5d down {mom_5d:.1f}%")
 
-    # ── RSI (momentum-aware: don't fight strong trends) ──
+    # ── RSI (momentum-aware) ──
     if rsi is not None:
         strong_uptrend = mom_5d is not None and mom_5d > 3
         strong_downtrend = mom_5d is not None and mom_5d < -3
 
         if rsi > 75:
             if strong_uptrend:
-                score -= 10  # mild penalty in strong uptrend (momentum > mean reversion)
+                score -= 10
                 signals.append(f"RSI OB({rsi:.0f}) trend-dampened")
             else:
                 score -= 30
@@ -751,7 +892,7 @@ def compute_tech_score_from_row(row, history_rows=None):
                 signals.append(f"RSI elevated({rsi:.0f})")
         elif rsi < 25:
             if strong_downtrend:
-                score += 10  # mild bonus in strong downtrend
+                score += 10
                 signals.append(f"RSI OS({rsi:.0f}) trend-dampened")
             else:
                 score += 30
@@ -761,14 +902,12 @@ def compute_tech_score_from_row(row, history_rows=None):
                 score += 15
                 signals.append(f"RSI depressed({rsi:.0f})")
 
-    # ── BOLLINGER BANDS (REVERSAL SIGNALS - enhanced) ──
+    # ── BOLLINGER BANDS (REVERSAL) ──
     bb = sv(['BB_Flag'])
     if bb is not None:
         bbs = bb.strip().upper()
         if bbs == 'BBL':
-            # Price at lower band = potential bullish reversal
             bb_score = 25
-            # Stronger signal if RSI also oversold
             if rsi is not None and rsi < 35:
                 bb_score = 35
                 signals.append(f"BB Low + RSI({rsi:.0f}) = strong reversal")
@@ -776,9 +915,7 @@ def compute_tech_score_from_row(row, history_rows=None):
                 signals.append("BB Low (bullish reversal)")
             score += bb_score
         elif bbs == 'BBH':
-            # Price at upper band = potential bearish reversal
             bb_score = -25
-            # Stronger signal if RSI also overbought
             if rsi is not None and rsi > 65:
                 bb_score = -35
                 signals.append(f"BB High + RSI({rsi:.0f}) = strong reversal")
@@ -786,60 +923,82 @@ def compute_tech_score_from_row(row, history_rows=None):
                 signals.append("BB High (bearish reversal)")
             score += bb_score
 
-    # ── SMA POSITION (unchanged) ──
+    # ── SMA POSITION ──
     if close is not None:
         sma22 = fv(['SMA_22'])
         sma50 = fv(['SMA_50', 'SMA_52'])
         sma200 = fv(['SMA_200'])
         if sma22 is not None:
-            if close < sma22: score -= 12; signals.append("Below SMA22")
-            else: score += 8
+            if close < sma22:
+                score -= 12
+                signals.append("Below SMA22")
+            else:
+                score += 8
         if sma50 is not None:
-            if close < sma50: score -= 10; signals.append("Below SMA50")
+            if close < sma50:
+                score -= 10
+                signals.append("Below SMA50")
         if sma200 is not None:
-            if close < sma200: score -= 20; signals.append("Below SMA200")
-            else: score += 10
+            if close < sma200:
+                score -= 20
+                signals.append("Below SMA200")
+            else:
+                score += 10
 
-    # ── MACD (unchanged) ──
+    # ── MACD ──
     if macd_line is not None and macd_signal is not None:
-        if macd_line > macd_signal: score += 15; signals.append("MACD bullish")
-        else: score -= 15; signals.append("MACD bearish")
+        if macd_line > macd_signal:
+            score += 15
+            signals.append("MACD bullish")
+        else:
+            score -= 15
+            signals.append("MACD bearish")
     if macd_hist is not None:
         score += 5 if macd_hist > 0 else -5
 
-    # ── EMA CROSSOVER (unchanged) ──
+    # ── EMA CROSSOVER ──
     if ema9 is not None and ema21 is not None:
-        if ema9 > ema21: score += 12; signals.append("EMA golden")
-        else: score -= 12; signals.append("EMA death")
+        if ema9 > ema21:
+            score += 12
+            signals.append("EMA golden")
+        else:
+            score -= 12
+            signals.append("EMA death")
 
-    # ── SUPERTREND (unchanged) ──
+    # ── SUPERTREND ──
     if st_dir is not None:
         try:
             st = int(float(st_dir))
-            if st == 1: score += 10; signals.append("SuperTrend up")
-            elif st == -1: score -= 10; signals.append("SuperTrend down")
-        except: pass
+            if st == 1:
+                score += 10
+                signals.append("SuperTrend up")
+            elif st == -1:
+                score -= 10
+                signals.append("SuperTrend down")
+        except:
+            pass
 
-    # ── ADX TREND STRENGTH FILTER (unchanged) ──
+    # ── ADX TREND STRENGTH ──
     if adx is not None and adx > 25 and st_dir is not None:
         try:
             st = int(float(st_dir))
             if st == 1 and score < 0:
                 penalty = min(20, int(abs(score) * 0.3))
-                score += penalty; signals.append(f"ADX trend +{penalty}")
+                score += penalty
+                signals.append(f"ADX trend +{penalty}")
             elif st == -1 and score > 0:
                 penalty = min(20, int(abs(score) * 0.3))
-                score -= penalty; signals.append(f"ADX trend -{penalty}")
-        except: pass
+                score -= penalty
+                signals.append(f"ADX trend -{penalty}")
+        except:
+            pass
 
-    # ── KNOXVILLE DIVERGENCE (ENHANCED REVERSAL - v3.9) ──
+    # ── KNOXVILLE DIVERGENCE (REVERSAL) ──
     knox = sv(['Knoxville_Divergence'])
     if knox is not None:
         ks = knox.lower()
         if 'bearish' in ks:
-            # Bearish Knox = momentum fading despite price rise = reversal coming
             knox_score = -20
-            # Stronger if price is extended (above SMA22 + high RSI)
             if rsi is not None and rsi > 60:
                 knox_score = -30
                 signals.append(f"Knox bearish + RSI({rsi:.0f}) = strong reversal")
@@ -847,7 +1006,6 @@ def compute_tech_score_from_row(row, history_rows=None):
                 signals.append("Knox bearish divergence")
             score += knox_score
         elif 'bullish' in ks:
-            # Bullish Knox = momentum building despite price fall = reversal coming
             knox_score = 20
             if rsi is not None and rsi < 40:
                 knox_score = 30
@@ -856,19 +1014,20 @@ def compute_tech_score_from_row(row, history_rows=None):
                 signals.append("Knox bullish divergence")
             score += knox_score
 
-    # ── NO FII/DII HERE (moved to fundamental scoring) ──
-
     return max(-100, min(100, score)), signals
 
 
 def get_technical_score(ticker, stock_df, debug=False):
-    if stock_df is None or stock_df.empty: return {"score": 0, "signals": []}
+    if stock_df is None or stock_df.empty:
+        return {"score": 0, "signals": []}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty:
-        if debug: print(f"    DEBUG {ticker}: not found")
+        if debug:
+            print(f"    DEBUG {ticker}: not found")
         return {"score": 0, "signals": []}
     valid = tk_data[tk_data['Close'].notna()]
-    if valid.empty: return {"score": 0, "signals": []}
+    if valid.empty:
+        return {"score": 0, "signals": []}
 
     last = valid.iloc[-1]
     score, signals = compute_tech_score_from_row(last, valid)
@@ -881,48 +1040,62 @@ def get_technical_score(ticker, stock_df, debug=False):
 
 
 def score_fundamentals_rules(ticker, stock_df):
-    """v3.9: Fundamental scoring now includes FII/DII institutional flow"""
-    if stock_df is None or stock_df.empty: return {"score": 0, "concern": ""}
+    """v3.9: Fundamental = Debt + FII/DII + OBV"""
+    if stock_df is None or stock_df.empty:
+        return {"score": 0, "concern": ""}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
-    if tk_data.empty: return {"score": 0, "concern": ""}
+    if tk_data.empty:
+        return {"score": 0, "concern": ""}
 
     valid = tk_data[tk_data['Close'].notna()]
-    if valid.empty: return {"score": 0, "concern": ""}
+    if valid.empty:
+        return {"score": 0, "concern": ""}
     last = valid.iloc[-1]
 
     score = 0
     concerns = []
 
     def fv(names):
-        if isinstance(names, str): names = [names]
+        if isinstance(names, str):
+            names = [names]
         for n in names:
             if n in last.index:
                 v = last[n]
                 try:
-                    if pd.notna(v): return float(v)
-                except: pass
+                    if pd.notna(v):
+                        return float(v)
+                except:
+                    pass
         return None
 
     # Debt/Equity
     de = fv(['Debt_Eq', 'debt_equity', 'Debt_Equity'])
     if de is not None:
-        if de > 200: score -= 20; concerns.append("Very high debt")
-        elif de > 100: score -= 10; concerns.append("High debt")
-        elif de < 30: score += 5
+        if de > 200:
+            score -= 20
+            concerns.append("Very high debt")
+        elif de > 100:
+            score -= 10
+            concerns.append("High debt")
+        elif de < 30:
+            score += 5
 
-    # ── FII/DII INSTITUTIONAL FLOW (moved from technical) ──
+    # FII/DII Institutional Flow
     up = fv(['up_true', 'Up_True'])
     if up is not None:
         try:
             if int(float(up)) == 1:
                 score += 30
                 concerns.append("FII/DII accumulation detected")
-        except: pass
+        except:
+            pass
 
-    # OBV trend (accumulation/distribution)
+    # OBV trend
     obv = fv(['OBV'])
     if obv is not None and len(valid) >= 6:
-        obv_prev = valid.iloc[-6].get('OBV') if 'OBV' in valid.columns else None
+        obv_prev = None
+        if 'OBV' in valid.columns:
+            obv_prev = valid.iloc[-6].get('OBV')
         if obv_prev is not None and pd.notna(obv_prev) and obv_prev != 0:
             obv_change = ((obv - obv_prev) / abs(obv_prev)) * 100
             if obv_change > 10:
@@ -940,37 +1113,51 @@ def get_nifty_change():
         h = yf.Ticker("^NSEI").history(period="5d")
         if len(h) >= 2:
             chg = round(((h['Close'].iloc[-1] - h['Close'].iloc[0]) / h['Close'].iloc[0]) * 100, 2)
-            print(f"  -> Nifty 5d change: {chg:+.2f}%"); return chg
-    except: pass
-    print("  -> Could not fetch Nifty data"); return 0.0
+            print(f"  -> Nifty 5d change: {chg:+.2f}%")
+            return chg
+    except:
+        pass
+    print("  -> Could not fetch Nifty data")
+    return 0.0
+
 
 def get_broad_sector(sub_industry):
-    if not sub_industry: return ""
+    if not sub_industry:
+        return ""
     for broad, subs in SECTOR_MAP.items():
-        if sub_industry in subs: return broad
+        if sub_industry in subs:
+            return broad
     return sub_industry
 
 
 # ═══════════════════════════════════════════════════════════════
-# MACRO SCORING (unchanged)
+# MACRO SCORING
 # ═══════════════════════════════════════════════════════════════
 
 def load_macro_cache():
     try:
         if os.path.exists(MACRO_CACHE_FILE):
-            with open(MACRO_CACHE_FILE, 'r') as f: cache = json.load(f)
-            if cache.get("date") != TODAY_IST: return None
+            with open(MACRO_CACHE_FILE, 'r') as f:
+                cache = json.load(f)
+            if cache.get("date") != TODAY_IST:
+                return None
             cached_hour = cache.get("hour", 0)
-            if cached_hour < 9 and NOW_IST.hour >= 9: return None
+            if cached_hour < 9 and NOW_IST.hour >= 9:
+                return None
             print(f"  -> Loaded macro cache ({len(cache['scores'])} sectors, cached at {cached_hour}:00 IST)")
             return cache["scores"]
-    except: pass
+    except:
+        pass
     return None
+
 
 def save_macro_cache(scores):
     try:
-        with open(MACRO_CACHE_FILE, 'w') as f: json.dump({"date": TODAY_IST, "hour": NOW_IST.hour, "scores": scores}, f)
-    except: pass
+        with open(MACRO_CACHE_FILE, 'w') as f:
+            json.dump({"date": TODAY_IST, "hour": NOW_IST.hour, "scores": scores}, f)
+    except:
+        pass
+
 
 def smart_rule_based_macro(broad_list, nifty_change):
     scores = {}
@@ -980,15 +1167,22 @@ def smart_rule_based_macro(broad_list, nifty_change):
         scores[sector] = {"score": max(-50, min(50, round(raw))), "context": rules["description"]}
     return scores
 
+
 def get_macro_scores(sectors, nifty_change):
     macro_cache = {}
     unique_sectors = list(set(s for s in sectors if s and not is_bad_str(s)))
-    if not unique_sectors: return macro_cache
+    if not unique_sectors:
+        return macro_cache
+
     base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
-    sub_to_broad = {}; broad_set = set()
+
+    sub_to_broad = {}
+    broad_set = set()
     for sub in unique_sectors:
-        broad = get_broad_sector(sub); sub_to_broad[sub] = broad
-        if broad: broad_set.add(broad)
+        broad = get_broad_sector(sub)
+        sub_to_broad[sub] = broad
+        if broad:
+            broad_set.add(broad)
     broad_list = sorted(broad_set)
     print(f"  -> {len(unique_sectors)} sub-industries -> {len(broad_list)} broad sectors")
 
@@ -1004,7 +1198,8 @@ def get_macro_scores(sectors, nifty_change):
             print(f"    {sector} ({count}): {data['score']:+d} ({data['context']}) [cached]")
         return macro_cache
 
-    broad_scores = {}; gemini_success = False
+    broad_scores = {}
+    gemini_success = False
     if GEMINI_API_KEY:
         sector_list = "\n".join([f"  - {s}" for s in broad_list])
         prompt = f"""You are a macro analyst for Indian equities (NSE/BSE).
@@ -1022,11 +1217,15 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
             scored = 0
             for sector in broad_list:
                 if sector in result and isinstance(result[sector], dict):
-                    sc = result[sector].get("score", 0); ctx = str(result[sector].get("ctx", result[sector].get("context", "")))
-                    broad_scores[sector] = {"score": max(-50, min(50, int(sc))), "context": ctx}; scored += 1
-                else: broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
+                    sc = result[sector].get("score", 0)
+                    ctx = str(result[sector].get("ctx", result[sector].get("context", "")))
+                    broad_scores[sector] = {"score": max(-50, min(50, int(sc))), "context": ctx}
+                    scored += 1
+                else:
+                    broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
             if scored > 0:
-                gemini_success = True; print(f"  -> Gemini scored {scored}/{len(broad_list)} broad sectors")
+                gemini_success = True
+                print(f"  -> Gemini scored {scored}/{len(broad_list)} broad sectors")
                 save_macro_cache(broad_scores)
 
     if not gemini_success:
@@ -1045,19 +1244,16 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
 
 
 # ═══════════════════════════════════════════════════════════════
-# COMPOSITE SCORING (v3.9 - simplified, tech dominant)
+# COMPOSITE SCORING (v3.9)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
     w = dict(WEIGHTS_NEWS)
 
-    # At 10% sentiment weight, minimal adjustment needed
-    # Only amplify when ALL signals agree strongly
     if technical != 0 and sentiment != 0:
         tech_dir = 1 if technical > 0 else -1
         sent_dir = 1 if sentiment > 0 else -1
         if tech_dir == sent_dir and abs(sentiment) > 50:
-            # Strong agreement: slight boost
             w["technical"] = WEIGHTS_NEWS["technical"] + 0.05
             w["sentiment"] = WEIGHTS_NEWS["sentiment"] + 0.05
             w["macro"] = WEIGHTS_NEWS["macro"] - 0.05
@@ -1075,7 +1271,6 @@ def compute_composite_news(sentiment, technical, macro, fundamental):
 
 
 def compute_composite_no_news(technical, macro, fundamental=0):
-    """v3.9: Now includes fundamental (FII/DII + debt)"""
     w = WEIGHTS_NO_NEWS
     cm = max(-15, min(15, macro))
     comp = round(
@@ -1089,7 +1284,7 @@ def compute_composite_no_news(technical, macro, fundamental=0):
 
 
 # ═══════════════════════════════════════════════════════════════
-# PREDICTION ACCURACY (v3.9 - threshold +-0.5%)
+# PREDICTION ACCURACY (v3.9 - BUGFIXED)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_prediction_accuracy(hdf, today_rows, stock_df):
@@ -1103,47 +1298,64 @@ def compute_prediction_accuracy(hdf, today_rows, stock_df):
 
 
 def backtest_technical(stock_df, forward_days=5, test_days=60):
-    """v3.9: Threshold +-0.5%, uses compute_tech_score_from_row"""
     print(f"\n  -- TECHNICAL BACKTEST ({test_days}-day, {forward_days}-day forward, +-0.5% threshold) --")
-    if stock_df is None or stock_df.empty: print(f"  No stock data"); return
+    if stock_df is None or stock_df.empty:
+        print(f"  No stock data")
+        return
 
-    total_hit = 0; total_dir = 0; total_tests = 0; total_neutral = 0
+    total_hit = 0
+    total_dir = 0
+    total_tests = 0
+    total_neutral = 0
     ticker_results = {}
     tickers = stock_df['Ticker'].unique()
 
     for tk in tickers:
         tk_data = stock_df[stock_df['Ticker'] == tk].sort_values('Date').reset_index(drop=True)
         valid = tk_data[tk_data['Close'].notna()].reset_index(drop=True)
-        if len(valid) < test_days + forward_days + 20: continue
-        tk_hits = 0; tk_dir = 0; tk_tests = 0
+        if len(valid) < test_days + forward_days + 20:
+            continue
+
+        tk_hits = 0
+        tk_dir = 0
+        tk_tests = 0
         start_idx = max(20, len(valid) - test_days - forward_days)
 
         for i in range(start_idx, len(valid) - forward_days):
             row = valid.iloc[i]
             current_close = row.get('Close')
             future_close = valid.iloc[i + forward_days].get('Close')
-            if pd.isna(current_close) or pd.isna(future_close): continue
+            if pd.isna(current_close) or pd.isna(future_close):
+                continue
 
             forward_ret = ((future_close - current_close) / current_close) * 100
             actual_dir = 1 if forward_ret > 0.5 else (-1 if forward_ret < -0.5 else 0)
 
-            # Pass history rows for momentum calculation
-            history_slice = valid.iloc[max(0, i-10):i+1] if i >= 6 else None
+            history_slice = valid.iloc[max(0, i - 10):i + 1] if i >= 6 else None
             tech_score, _ = compute_tech_score_from_row(row, history_slice)
             pred_dir = 1 if tech_score > 15 else (-1 if tech_score < -15 else 0)
 
-            tk_tests += 1; total_tests += 1
+            tk_tests += 1
+            total_tests += 1
             if pred_dir == 0:
                 total_neutral += 1
-                if actual_dir == 0: tk_hits += 1; total_hit += 1
+                if actual_dir == 0:
+                    tk_hits += 1
+                    total_hit += 1
                 continue
-            tk_dir += 1; total_dir += 1
-            if pred_dir == actual_dir: tk_hits += 1; total_hit += 1
+            tk_dir += 1
+            total_dir += 1
+            if pred_dir == actual_dir:
+                tk_hits += 1
+                total_hit += 1
 
         if tk_dir > 0:
             ticker_results[tk] = {"tests": tk_tests, "dir": tk_dir, "hits": tk_hits, "pct": (tk_hits / tk_tests) * 100}
 
-    if total_tests == 0: print(f"  No backtest data"); return
+    if total_tests == 0:
+        print(f"  No backtest data")
+        return
+
     dir_pct = (total_hit / total_dir * 100) if total_dir > 0 else 0
     overall_pct = (total_hit / total_tests * 100)
 
@@ -1155,106 +1367,180 @@ def backtest_technical(stock_df, forward_days=5, test_days=60):
 
     if ticker_results:
         sorted_tk = sorted(ticker_results.items(), key=lambda x: x[1]["pct"], reverse=True)
-        print(f"\n  Top 5:"); 
-        for tk, r in sorted_tk[:5]: print(f"    {tk:<14s} {r['hits']}/{r['tests']} = {r['pct']:.0f}% ({r['dir']} dir)")
+        print(f"\n  Top 5:")
+        for tk, r in sorted_tk[:5]:
+            print(f"    {tk:<14s} {r['hits']}/{r['tests']} = {r['pct']:.0f}% ({r['dir']} dir)")
         print(f"  Bottom 5:")
-        for tk, r in sorted_tk[-5:]: print(f"    {tk:<14s} {r['hits']}/{r['tests']} = {r['pct']:.0f}% ({r['dir']} dir)")
+        for tk, r in sorted_tk[-5:]:
+            print(f"    {tk:<14s} {r['hits']}/{r['tests']} = {r['pct']:.0f}% ({r['dir']} dir)")
 
 
 def compute_composite_multiday(hdf, today_rows):
     print(f"\n  -- COMPOSITE MULTI-DAY ACCURACY --")
-    today_df = pd.DataFrame(today_rows); today_df['Date'] = TODAY_IST
-    if hdf.empty or 'Date' not in hdf.columns: all_data = today_df
+    today_df = pd.DataFrame(today_rows)
+    today_df['Date'] = TODAY_IST
+    if hdf.empty or 'Date' not in hdf.columns:
+        all_data = today_df
     else:
-        past = hdf[hdf['Date'] != TODAY_IST]; all_data = pd.concat([past, today_df], ignore_index=True)
+        past = hdf[hdf['Date'] != TODAY_IST]
+        all_data = pd.concat([past, today_df], ignore_index=True)
     dates = sorted(all_data['Date'].unique())
-    if len(dates) < 2: print(f"  Need 2+ trading days (have {len(dates)})"); return
+    if len(dates) < 2:
+        print(f"  Need 2+ trading days (have {len(dates)})")
+        return
 
     # Next-day
     print(f"\n  Next-Day (D -> D+1):")
-    nd_hit = 0; nd_dir = 0
+    nd_hit = 0
+    nd_dir = 0
     for i in range(len(dates) - 1):
         sig_rows = all_data[all_data['Date'] == dates[i]]
         act_rows = all_data[all_data['Date'] == dates[i + 1]]
-        if sig_rows.empty or act_rows.empty: continue
-        act_map = {ar.get('Ticker', ''): int(ar.get('Actual_Direction', 0)) for _, ar in act_rows.iterrows() if ar.get('Ticker', '')}
-        d_hit = 0; d_dir = 0
+        if sig_rows.empty or act_rows.empty:
+            continue
+        act_map = {}
+        for _, ar in act_rows.iterrows():
+            tk = ar.get('Ticker', '')
+            if tk:
+                act_map[tk] = safe_int(ar.get('Actual_Direction', 0))
+        d_hit = 0
+        d_dir = 0
         for _, sr in sig_rows.iterrows():
             tk = sr.get('Ticker', '')
-            if tk not in act_map: continue
-            prev_cd = int(sr.get('Composite_Direction', sr.get('Forecast_Direction', 0)))
+            if tk not in act_map:
+                continue
+            prev_cd = safe_int(sr.get('Composite_Direction', sr.get('Forecast_Direction', 0)))
             if prev_cd != 0:
-                d_dir += 1; nd_dir += 1
-                if prev_cd == act_map[tk]: d_hit += 1; nd_hit += 1
-        d_pct = f"{d_hit}/{d_dir}={d_hit/d_dir*100:.0f}%" if d_dir > 0 else "no dir"
+                d_dir += 1
+                nd_dir += 1
+                if prev_cd == act_map[tk]:
+                    d_hit += 1
+                    nd_hit += 1
+        if d_dir > 0:
+            d_pct = f"{d_hit}/{d_dir}={d_hit*100//d_dir}%"
+        else:
+            d_pct = "no dir"
         print(f"    {dates[i]} -> {dates[i+1]}: {d_pct}")
-    if nd_dir > 0: print(f"    AGGREGATE: {nd_hit}/{nd_dir} = {nd_hit/nd_dir*100:.1f}%")
+    if nd_dir > 0:
+        print(f"    AGGREGATE: {nd_hit}/{nd_dir} = {nd_hit/nd_dir*100:.1f}%")
+    else:
+        print(f"    No directional calls to evaluate")
 
     # 3-day cumulative
     if len(dates) >= 4:
         print(f"\n  3-Day Cumulative (D -> D+1..D+3):")
-        td_hit = 0; td_dir = 0
+        td_hit = 0
+        td_dir = 0
         for i in range(len(dates) - 3):
             sig_rows = all_data[all_data['Date'] == dates[i]]
             for _, sr in sig_rows.iterrows():
-                tk = sr.get('Ticker', ''); prev_cd = int(sr.get('Composite_Direction', sr.get('Forecast_Direction', 0)))
-                if prev_cd == 0: continue
-                cum_ret = 0.0; found = False
+                tk = sr.get('Ticker', '')
+                prev_cd = safe_int(sr.get('Composite_Direction', sr.get('Forecast_Direction', 0)))
+                if prev_cd == 0:
+                    continue
+                cum_ret = 0.0
+                found = False
                 for j in range(i + 1, min(i + 4, len(dates))):
                     d_rows = all_data[(all_data['Date'] == dates[j]) & (all_data['Ticker'] == tk)]
-                    if not d_rows.empty: cum_ret += float(d_rows.iloc[0].get('Actual_Return_Pct', 0.0)); found = True
-                if not found: continue
+                    if not d_rows.empty:
+                        try:
+                            cum_ret += float(d_rows.iloc[0].get('Actual_Return_Pct', 0.0))
+                        except:
+                            pass
+                        found = True
+                if not found:
+                    continue
                 actual_dir = 1 if cum_ret > 0.5 else (-1 if cum_ret < -0.5 else 0)
                 td_dir += 1
-                if prev_cd == actual_dir: td_hit += 1
-        if td_dir > 0: print(f"    3-day: {td_hit}/{td_dir} = {td_hit/td_dir*100:.1f}%")
+                if prev_cd == actual_dir:
+                    td_hit += 1
+        if td_dir > 0:
+            print(f"    3-day: {td_hit}/{td_dir} = {td_hit/td_dir*100:.1f}%")
+        else:
+            print(f"    Not enough data yet")
 
     # 5-day cumulative
     if len(dates) >= 6:
         print(f"\n  5-Day Cumulative (D -> D+1..D+5):")
-        fd_hit = 0; fd_dir = 0
+        fd_hit = 0
+        fd_dir = 0
         for i in range(len(dates) - 5):
             sig_rows = all_data[all_data['Date'] == dates[i]]
             for _, sr in sig_rows.iterrows():
-                tk = sr.get('Ticker', ''); prev_cd = int(sr.get('Composite_Direction', sr.get('Forecast_Direction', 0)))
-                if prev_cd == 0: continue
-                cum_ret = 0.0; found = False
+                tk = sr.get('Ticker', '')
+                prev_cd = safe_int(sr.get('Composite_Direction', sr.get('Forecast_Direction', 0)))
+                if prev_cd == 0:
+                    continue
+                cum_ret = 0.0
+                found = False
                 for j in range(i + 1, min(i + 6, len(dates))):
                     d_rows = all_data[(all_data['Date'] == dates[j]) & (all_data['Ticker'] == tk)]
-                    if not d_rows.empty: cum_ret += float(d_rows.iloc[0].get('Actual_Return_Pct', 0.0)); found = True
-                if not found: continue
+                    if not d_rows.empty:
+                        try:
+                            cum_ret += float(d_rows.iloc[0].get('Actual_Return_Pct', 0.0))
+                        except:
+                            pass
+                        found = True
+                if not found:
+                    continue
                 actual_dir = 1 if cum_ret > 0.5 else (-1 if cum_ret < -0.5 else 0)
                 fd_dir += 1
-                if prev_cd == actual_dir: fd_hit += 1
-        if fd_dir > 0: print(f"    5-day: {fd_hit}/{fd_dir} = {fd_hit/fd_dir*100:.1f}%")
+                if prev_cd == actual_dir:
+                    fd_hit += 1
+        if fd_dir > 0:
+            print(f"    5-day: {fd_hit}/{fd_dir} = {fd_hit/fd_dir*100:.1f}%")
+        else:
+            print(f"    Not enough data yet (need 6+ trading days)")
 
 
 def compute_news_impact(hdf, today_rows):
     print(f"\n  -- NEWS SENTIMENT IMPACT (1-3 day) --")
-    today_df = pd.DataFrame(today_rows); today_df['Date'] = TODAY_IST
-    if hdf.empty or 'Date' not in hdf.columns: all_data = today_df
+    today_df = pd.DataFrame(today_rows)
+    today_df['Date'] = TODAY_IST
+    if hdf.empty or 'Date' not in hdf.columns:
+        all_data = today_df
     else:
-        past = hdf[hdf['Date'] != TODAY_IST]; all_data = pd.concat([past, today_df], ignore_index=True)
+        past = hdf[hdf['Date'] != TODAY_IST]
+        all_data = pd.concat([past, today_df], ignore_index=True)
     dates = sorted(all_data['Date'].unique())
-    if len(dates) < 2: print(f"  Need 2+ days"); return
+    if len(dates) < 2:
+        print(f"  Need 2+ days")
+        return
 
     for window in [1, 2, 3]:
-        if len(dates) < window + 1: continue
-        w_hit = 0; w_dir = 0
+        if len(dates) < window + 1:
+            continue
+        w_hit = 0
+        w_dir = 0
         for i in range(len(dates) - window):
             sig_rows = all_data[all_data['Date'] == dates[i]]
             for _, sr in sig_rows.iterrows():
-                prev_fd = int(sr.get('Forecast_Direction', 0))
-                if prev_fd == 0: continue
-                tk = sr.get('Ticker', ''); cum_ret = 0.0; found = False
+                prev_fd = safe_int(sr.get('Forecast_Direction', 0))
+                if prev_fd == 0:
+                    continue
+                tk = sr.get('Ticker', '')
+                cum_ret = 0.0
+                found = False
                 for j in range(i + 1, min(i + window + 1, len(dates))):
                     d_rows = all_data[(all_data['Date'] == dates[j]) & (all_data['Ticker'] == tk)]
-                    if not d_rows.empty: cum_ret += float(d_rows.iloc[0].get('Actual_Return_Pct', 0.0)); found = True
-                if not found: continue
+                    if not d_rows.empty:
+                        try:
+                            cum_ret += float(d_rows.iloc[0].get('Actual_Return_Pct', 0.0))
+                        except:
+                            pass
+                        found = True
+                if not found:
+                    continue
                 actual_dir = 1 if cum_ret > 0.5 else (-1 if cum_ret < -0.5 else 0)
                 w_dir += 1
-                if prev_fd == actual_dir: w_hit += 1
-        if w_dir > 0: print(f"  {window}-day: {w_hit}/{w_dir} = {w_hit/w_dir*100:.1f}%")
+                if prev_fd == actual_dir:
+                    w_hit += 1
+        if w_dir > 0:
+            print(f"  {window}-day: {w_hit}/{w_dir} = {w_hit/w_dir*100:.1f}%")
+        else:
+            print(f"  {window}-day: no data")
+
+    print(f"  (Measures: did sentiment predict 1/2/3 day direction?)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1266,7 +1552,7 @@ def execute_sentiment_engine():
     total = len(tl)
     print(f"PREDICTIVE Engine v3.9 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
-    print(f"Tech: RSI+BB(reversal)+SMA+MACD+EMA+SuperTrend+ADX+Knox(reversal)+Mom5d (PRIMARY)")
+    print(f"Tech: RSI(mom-aware)+BB(reversal)+SMA+MACD+EMA+ST+ADX+Knox(reversal)+Mom5d (PRIMARY)")
     print(f"Fund: Debt/Eq + FII/DII + OBV")
     print("=" * 110)
 
@@ -1279,8 +1565,12 @@ def execute_sentiment_engine():
     # PHASE 2
     print(f"\nPHASE 2: FinBERT scoring (circular headlines filtered)...")
     print("-" * 110)
-    scored = []; filing = []; nonews = []
-    ha = 0; hd = 0; td2 = 0
+    scored = []
+    filing = []
+    nonews = []
+    ha = 0
+    hd = 0
+    td2 = 0
 
     for idx, tk in enumerate(tl, 1):
         ret = get_live_price_return(tk)
@@ -1289,34 +1579,63 @@ def execute_sentiment_engine():
         base_row = {"Ticker": tk, "Sector": sm.get(tk, ""), "Actual_Direction": ad, "Actual_Return_Pct": ret}
 
         if cls == "no_news":
-            nonews.append({**base_row, "Latest_Headline": "", "News_Source": "", "News_Time": "", "News_URL": "", "Headline_Count": 0, "Forecast_Score": 0.0, "Forecast_Direction": 0, "Severity": "No News", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0, "Momentum": "", "Signal_Quality": "Tech-Scored"})
-            continue
-        if cls == "filing_only":
-            p = fe[0] if fe else {}; nu = p.get("news_url", "") or get_source_search_url("NSE Official", tk)
-            filing.append({**base_row, "Latest_Headline": p.get("headline", ""), "News_Source": "NSE Official", "News_Time": p.get("pub_time", "").replace(",", ""), "News_URL": nu, "Headline_Count": len(fe), "Forecast_Score": 0.0, "Forecast_Direction": 0, "Severity": "Filing Only", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0, "Momentum": "", "Signal_Quality": "Tech-Scored"})
+            nonews.append({
+                **base_row, "Latest_Headline": "", "News_Source": "", "News_Time": "", "News_URL": "",
+                "Headline_Count": 0, "Forecast_Score": 0.0, "Forecast_Direction": 0,
+                "Severity": "No News", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0,
+                "Momentum": "", "Signal_Quality": "Tech-Scored"
+            })
             continue
 
-        pe = max(entries, key=lambda e: e["weight"]); ps = pe["source"]; pt = pe["pub_time"]
+        if cls == "filing_only":
+            p = fe[0] if fe else {}
+            nu = p.get("news_url", "") or get_source_search_url("NSE Official", tk)
+            filing.append({
+                **base_row, "Latest_Headline": p.get("headline", ""), "News_Source": "NSE Official",
+                "News_Time": p.get("pub_time", "").replace(",", ""), "News_URL": nu,
+                "Headline_Count": len(fe), "Forecast_Score": 0.0, "Forecast_Direction": 0,
+                "Severity": "Filing Only", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0,
+                "Momentum": "", "Signal_Quality": "Tech-Scored"
+            })
+            continue
+
+        pe = max(entries, key=lambda e: e["weight"])
+        ps = pe["source"]
+        pt = pe["pub_time"]
         pu = pe.get("news_url", "")
-        if not pu: pu = get_source_search_url(SOURCE_LABELS.get(ps, ""), tk)
-        if ps in ("yfinance", "google"): time.sleep(0.3)
+        if not pu:
+            pu = get_source_search_url(SOURCE_LABELS.get(ps, ""), tk)
+        if ps in ("yfinance", "google"):
+            time.sleep(0.3)
 
         score, direction = compute_aggregated_score(entries)
-        sev = classify_severity(score); imp = classify_impact(entries)
+        sev = classify_severity(score)
+        imp = classify_impact(entries)
         hit = direction == ad
-        if hit: ha += 1
+        if hit:
+            ha += 1
         if direction != 0:
             td2 += 1
-            if hit: hd += 1
+            if hit:
+                hd += 1
 
         ab = abs(score)
         q = "High Conviction" if ab >= 60 else ("Moderate" if ab >= 25 else ("Weak" if ab >= 5 else "Neutral"))
         usrc = list(dict.fromkeys(SOURCE_LABELS.get(e["source"], e["source"]) for e in entries))
         dm = {1: "BULL", -1: "BEAR", 0: "NEUT"}
-        hc = len(entries); ht = f"[{hc}h]" if hc >= 2 else ""
+        hc = len(entries)
+        ht = f"[{hc}h]" if hc >= 2 else ""
+
         print(f"[{len(scored)+1:3d}] {tk:<14s} {dm.get(direction, '?'):4s} {sev[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {imp:10s} {'HIT' if hit else 'MISS'} {ht}")
 
-        scored.append({**base_row, "Latest_Headline": pe["headline"], "News_Source": " | ".join(usrc), "News_Time": pt.replace(",", "") if pt else "", "News_URL": pu, "Headline_Count": len(entries), "Forecast_Score": score, "Forecast_Direction": direction, "Severity": sev, "Impact": imp, "Signal_Quality": q})
+        scored.append({
+            **base_row, "Latest_Headline": pe["headline"],
+            "News_Source": " | ".join(usrc),
+            "News_Time": pt.replace(",", "") if pt else "",
+            "News_URL": pu, "Headline_Count": len(entries),
+            "Forecast_Score": score, "Forecast_Direction": direction,
+            "Severity": sev, "Impact": imp, "Signal_Quality": q
+        })
 
     # PHASE 3
     all_rows = scored + filing + nonews
@@ -1332,7 +1651,8 @@ def execute_sentiment_engine():
         tech = get_technical_score(row["Ticker"], stock_df, debug=(i < 3))
         row["Technical_Score"] = tech["score"]
         row["Tech_Signals"] = " | ".join(tech["signals"]) if tech["signals"] else ""
-        if tech["score"] != 0: tech_count += 1
+        if tech["score"] != 0:
+            tech_count += 1
     print(f"  -> {tech_count}/{len(all_rows)} tickers with non-zero technical score")
 
     print("Computing fundamental scores (v3.9: +FII/DII, +OBV, +Debt)...")
@@ -1344,13 +1664,18 @@ def execute_sentiment_engine():
     print(f"  -> {fund_nonzero}/{len(all_rows)} tickers with non-zero fundamental score")
 
     print("Building sector map...")
-    all_sectors = set(); sector_count = 0
+    all_sectors = set()
+    sector_count = 0
     for row in all_rows:
         sector = sm.get(row["Ticker"], "")
-        if not sector or is_bad_str(sector): sector = get_sector_from_stock_data(row["Ticker"], stock_df)
-        if is_bad_str(sector): sector = ""
+        if not sector or is_bad_str(sector):
+            sector = get_sector_from_stock_data(row["Ticker"], stock_df)
+        if is_bad_str(sector):
+            sector = ""
         row["_sector"] = sector
-        if sector: all_sectors.add(sector); sector_count += 1
+        if sector:
+            all_sectors.add(sector)
+            sector_count += 1
     unmapped = len(all_rows) - sector_count
     print(f"  -> {sector_count}/{len(all_rows)} mapped to {len(all_sectors)} sectors ({unmapped} unmapped)")
 
@@ -1361,42 +1686,59 @@ def execute_sentiment_engine():
     macro_scores = get_macro_scores(all_sectors, nifty_chg)
     for row in all_rows:
         macro = macro_scores.get(row.get("_sector", ""), {"score": 0, "context": ""})
-        row["Macro_Score"] = macro["score"]; row["Macro_Context"] = macro.get("context", "")
+        row["Macro_Score"] = macro["score"]
+        row["Macro_Context"] = macro.get("context", "")
 
     print(f"\nComputing composite signals (news: {len(scored)} | tech-only: {len(filing) + len(nonews)})...")
     print("-" * 110)
 
-    cha = 0; chd = 0; ctd = 0
+    cha = 0
+    chd = 0
+    ctd = 0
     for row in scored:
         comp = compute_composite_news(row["Forecast_Score"], row["Technical_Score"], row["Macro_Score"], row["Fundamental_Score"])
-        row["Composite_Score"] = comp["score"]; row["Composite_Direction"] = comp["direction"]
+        row["Composite_Score"] = comp["score"]
+        row["Composite_Direction"] = comp["direction"]
         row["Composite_Severity"] = classify_composite_severity(comp["score"])
         c_hit = comp["direction"] == row["Actual_Direction"]
-        if c_hit: cha += 1
+        if c_hit:
+            cha += 1
         if comp["direction"] != 0:
             ctd += 1
-            if c_hit: chd += 1
+            if c_hit:
+                chd += 1
         dm2 = {1: "BULL", -1: "BEAR", 0: "NEUT"}
         corrected = " <- CORRECTED" if row["Forecast_Direction"] != comp["direction"] else ""
         print(f"  [{scored.index(row)+1:3d}] {row['Ticker']:<14s} Tech:{row['Technical_Score']:+4d} Sent:{row['Forecast_Score']:+6.1f}({dm2[row['Forecast_Direction']]}) Macro:{row['Macro_Score']:+4d} Fund:{row['Fundamental_Score']:+4d} -> Comp:{comp['score']:+6.1f} {dm2[comp['direction']]} {'HIT' if c_hit else 'MISS'}{corrected}")
 
-    t_bull = 0; t_bear = 0; t_neut = 0; t_hit = 0; t_total = 0
+    t_bull = 0
+    t_bear = 0
+    t_neut = 0
+    t_hit = 0
+    t_total = 0
     for row in filing + nonews:
         comp = compute_composite_no_news(row["Technical_Score"], row["Macro_Score"], row["Fundamental_Score"])
-        row["Composite_Score"] = comp["score"]; row["Composite_Direction"] = comp["direction"]
+        row["Composite_Score"] = comp["score"]
+        row["Composite_Direction"] = comp["direction"]
         row["Composite_Severity"] = classify_composite_severity(comp["score"]) if comp["score"] != 0 else ""
         row["Forecast_Direction"] = 0
-        if comp["direction"] == 1: t_bull += 1
-        elif comp["direction"] == -1: t_bear += 1
-        else: t_neut += 1
-        if comp["direction"] == row["Actual_Direction"]: t_hit += 1
+        if comp["direction"] == 1:
+            t_bull += 1
+        elif comp["direction"] == -1:
+            t_bear += 1
+        else:
+            t_neut += 1
+        if comp["direction"] == row["Actual_Direction"]:
+            t_hit += 1
         t_total += 1
 
-    for row in all_rows: row.pop("_sector", None)
+    for row in all_rows:
+        row.pop("_sector", None)
 
     scored_with_tech = [r for r in filing + nonews if r["Composite_Score"] != 0]
     print(f"\n  Tech-only scored: {len(scored_with_tech)}/{len(filing) + len(nonews)} | Bull:{t_bull} Bear:{t_bear} Neut:{t_neut}")
-    if t_total > 0: print(f"  Tech-only hit rate: {t_hit}/{t_total} = {(t_hit / t_total) * 100:.1f}%")
+    if t_total > 0:
+        print(f"  Tech-only hit rate: {t_hit}/{t_total} = {(t_hit / t_total) * 100:.1f}%")
 
     # PHASE 4
     print(f"\nPHASE 4: Streaks for {len(scored)} tickers...")
@@ -1405,14 +1747,18 @@ def execute_sentiment_engine():
     streaks = calculate_streaks(hdf, scored)
     for row in scored:
         s = streaks.get(row["Ticker"], {})
-        row["Streak_Days"] = s.get("Streak_Days", 0); row["Streak_Return"] = s.get("Streak_Return", 0.0); row["Momentum"] = s.get("Momentum", "Neutral")
+        row["Streak_Days"] = s.get("Streak_Days", 0)
+        row["Streak_Return"] = s.get("Streak_Return", 0.0)
+        row["Momentum"] = s.get("Momentum", "Neutral")
 
     # OUTPUT
     pd.DataFrame(all_rows).to_csv(DATA_FILE, index=False)
     save_to_history(scored)
 
     # STATS
-    sc = len(scored); fc = len(filing); nc2 = len(nonews)
+    sc = len(scored)
+    fc = len(filing)
+    nc2 = len(nonews)
     bull = sum(1 for r in scored if r["Forecast_Direction"] == 1)
     bear = sum(1 for r in scored if r["Forecast_Direction"] == -1)
     hrd = (hd / td2) * 100 if td2 > 0 else 0
@@ -1421,7 +1767,6 @@ def execute_sentiment_engine():
     comp_bull = sum(1 for r in scored if r.get("Composite_Direction", 0) == 1)
     comp_bear = sum(1 for r in scored if r.get("Composite_Direction", 0) == -1)
     total_scored = sc + len(scored_with_tech)
-    macro_vals = [macro_scores[s]["score"] for s in macro_scores] if macro_scores else [0]
 
     print("\n" + "=" * 110)
     print(f"data.csv | {TODAY_IST} | ENGINE v3.9 TECH-PRIMARY")
@@ -1437,7 +1782,8 @@ def execute_sentiment_engine():
     print(f"  Corrected: {corrected_count} | Comp Bull:{comp_bull} Bear:{comp_bear}")
     print()
     print(f"TECH-ONLY ({t_total} without news):")
-    if t_total > 0: print(f"  Hit rate: {t_hit}/{t_total} = {(t_hit / t_total) * 100:.1f}%")
+    if t_total > 0:
+        print(f"  Hit rate: {t_hit}/{t_total} = {(t_hit / t_total) * 100:.1f}%")
     print(f"  Signals: Bull:{t_bull} Bear:{t_bear} Neutral:{t_neut}")
     delta_d = chrd - hrd
     print(f"\nIMPROVEMENT: {delta_d:+.1f}% ({hrd:.1f}% -> {chrd:.1f}%)")
@@ -1449,3 +1795,13 @@ def execute_sentiment_engine():
 
 if __name__ == "__main__":
     execute_sentiment_engine()
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+
+print("Initializing FinBERT...")
+FINBERT_MODEL = "ProsusAI/finbert"
+tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
+model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+
+IST = timezone(timedelta(hours=5, minutes=30))
+NOW_IST = datetime.now(IST)
