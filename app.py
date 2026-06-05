@@ -1347,18 +1347,26 @@ def compute_composite_multiday(hdf, today_rows):
             if tk not in am: continue
             pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
             if pc != 0:
-                dd += 1; nd_dir += 1
-                if pc == amdh += 1; nd_hit += 1
-        if dd > 0: print(f"    {dates[i]} -> {dates[i+1]}: {dh}/{dd}={dh*100//dd}%")
-        else: print(f"    {dates[i]} -> {dates[i+1]}: no dir")
-    if nd_dir > 0: print(f"    AGGREGATE: {nd_hit}/{nd_dir} = {nd_hit/nd_dir*100:.1f}%")
+                dd += 1
+                nd_dir += 1
+                actual = am[tk]
+                if pc == actual:
+                    dh += 1
+                    nd_hit += 1
+        if dd > 0:
+            print(f"    {dates[i]} -> {dates[i+1]}: {dh}/{dd}={dh*100//dd}%")
+        else:
+            print(f"    {dates[i]} -> {dates[i+1]}: no dir")
+    if nd_dir > 0:
+        print(f"    AGGREGATE: {nd_hit}/{nd_dir} = {nd_hit/nd_dir*100:.1f}%")
 
     if len(dates) >= 4:
         print(f"\n  3-Day Cumulative:")
         th = 0; td = 0
         for i in range(len(dates) - 3):
             for _, s in all_data[all_data['Date'] == dates[i]].iterrows():
-                tk = s.get('Ticker', ''); pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
+                tk = s.get('Ticker', '')
+                pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
                 if pc == 0: continue
                 cr = 0.0; f = False
                 for j in range(i+1, min(i+4, len(dates))):
@@ -1378,7 +1386,8 @@ def compute_composite_multiday(hdf, today_rows):
         fh = 0; fd = 0
         for i in range(len(dates) - 5):
             for _, s in all_data[all_data['Date'] == dates[i]].iterrows():
-                tk = s.get('Ticker', ''); pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
+                tk = s.get('Ticker', '')
+                pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
                 if pc == 0: continue
                 cr = 0.0; f = False
                 for j in range(i+1, min(i+6, len(dates))):
