@@ -1,5 +1,6 @@
-"""Strategy-based technical scoring — THE CORE SCORING ENGINE
-Used by both live prediction AND backtesting"""
+"""Strategy-based technical scoring v5.1.1
+CORE SCORING ENGINE — used by both live prediction AND backtesting
+Changes: Trend-following PRIMARY, RSI<30 threshold, reduced reversal weights"""
 import os
 import pandas as pd
 from engine.config import STOCK_DATA_FILE, SECTOR_MAP
@@ -13,7 +14,10 @@ def load_stock_data():
             if 'Ticker' in df.columns:
                 df['Ticker'] = df['Ticker'].astype(str).str.replace('.NS', '', regex=False).str.strip().str.upper()
                 if 'Date' in df.columns: df = df.sort_values(['Ticker', 'Date'])
-                print(f"  -> Loaded stock_data.csv: {df['Ticker'].nunique()} tickers, {len(df)} rows")
+                tickers = df['Ticker'].nunique()
+                rows = len(df)
+                days_per = rows // max(tickers, 1)
+                print(f"  -> Loaded stock_data.csv: {tickers} tickers, {rows:,} rows (~{days_per} days/ticker)")
                 key_cols = ['RSI_14', 'BB_Flag', 'SMA_9', 'SMA_22', 'SMA_50', 'SMA_52', 'SMA_200',
                             'Knoxville_Divergence', 'up_true', 'Close', 'High', 'Low', 'Market_Cap',
                             'Industry', 'MACD_Line', 'MACD_Signal', 'ADX_14', 'ST_Direction', 'EMA_9', 'EMA_21', 'OBV']
@@ -51,7 +55,6 @@ def get_broad_sector(sub):
 
 
 def get_latest_valid_rows(stock_df):
-    """Get latest row per ticker where Close AND SMA_22 are valid"""
     if stock_df is None or stock_df.empty: return pd.DataFrame()
     sdf = stock_df.sort_values(['Ticker', 'Date']) if 'Date' in stock_df.columns else stock_df
     results = []
@@ -65,9 +68,8 @@ def get_latest_valid_rows(stock_df):
 
 
 def compute_tech_score(valid_df, mcap_threshold):
-    """CORE SCORING — used by both live prediction and backtest.
-    Input: valid_df = sorted dataframe of a single ticker's historical rows
-    Returns: (score, signals_list)"""
+    """CORE SCORING v5.1.1 — Trend-following PRIMARY, mean-reversion only at extremes.
+    RSI threshold: <30 for oversold (not <20)"""
     if len(valid_df) < 2: return 0, []
     score = 0; signals = []
     last = valid_df.iloc[-1]
@@ -85,10 +87,10 @@ def compute_tech_score(valid_df, mcap_threshold):
     tag = "LC" if is_large else "SMC"
     is_trending = adx is not None and adx > 25
 
-    # ── SUPPORT / RESISTANCE ──
+    # ── SUPPORT / RESISTANCE (20-day or available window) ──
     support = None; resistance = None
     if 'Low' in valid_df.columns and 'High' in valid_df.columns:
-        recent = valid_df.tail(20)
+        recent = valid_df.tail(min(20, len(valid_df)))
         lows = recent['Low'].dropna(); highs = recent['High'].dropna()
         if len(lows) > 0: support = lows.min()
         if len(highs) > 0: resistance = highs.max()
@@ -97,140 +99,149 @@ def compute_tech_score(valid_df, mcap_threshold):
     at_breakout = resistance is not None and close > resistance
     at_breakdown = support is not None and close < support
 
-    # ═══ TIER 1: SMA HIERARCHY ═══
+    # ═══ TIER 1: TREND DIRECTION (Follow the trend!) ═══
     has_all = all(v is not None for v in [sma9, sma22, sma52, sma200])
     has_short = all(v is not None for v in [sma9, sma22])
 
-    if is_large and has_all:
-        if close < sma9 < sma22 < sma52 < sma200:
-            if is_trending: score += 25; signals.append(f"{tag} FULL oversold (trending)")
-            else: score += 40; signals.append(f"{tag} FULL oversold (mean reversion)")
-        elif close < sma9 < sma22 < sma52:
-            score += 20; signals.append(f"{tag} 4-level oversold")
-        elif close < sma9 < sma22:
-            score += 12; signals.append(f"{tag} short-term oversold")
-        elif close > sma9 > sma22 > sma52 > sma200:
-            if is_trending: score += 15; signals.append(f"{tag} FULL uptrend (ADX={adx:.0f})")
-            else: score -= 25; signals.append(f"{tag} overextended")
+    if has_all:
+        if close > sma9 > sma22 > sma52 > sma200:
+            # Full uptrend — FOLLOW
+            if is_trending: score += 30; signals.append(f"{tag} FULL uptrend (ADX={adx:.0f})")
+            else: score += 15; signals.append(f"{tag} FULL up")
+            if rsi is not None and rsi > 80: score -= 8; signals.append("RSI extreme OB")
+
+        elif close < sma9 < sma22 < sma52 < sma200:
+            # Full downtrend — FOLLOW
+            if is_trending: score -= 30; signals.append(f"{tag} FULL downtrend (ADX={adx:.0f})")
+            else: score -= 15; signals.append(f"{tag} FULL down")
+            if rsi is not None and rsi < 30: score += 8; signals.append("RSI OS caution")
+
         elif close > sma9 > sma22 > sma52:
-            if is_trending: score += 10; signals.append(f"{tag} 4-level uptrend")
-            else: score -= 15; signals.append(f"{tag} 4-level stretched")
+            if is_trending: score += 20; signals.append(f"{tag} 4-up trend")
+            else: score += 10; signals.append(f"{tag} 4-up mild")
+        elif close < sma9 < sma22 < sma52:
+            if is_trending: score -= 20; signals.append(f"{tag} 4-down trend")
+            else: score -= 10; signals.append(f"{tag} 4-down mild")
         elif close > sma9 > sma22:
-            score += 8; signals.append(f"{tag} short uptrend")
+            score += 12; signals.append(f"{tag} short up")
+        elif close < sma9 < sma22:
+            score -= 12; signals.append(f"{tag} short down")
         else:
-            if close < sma22: score -= 8; signals.append("Below SMA22")
-            else: score += 5
-            if close < sma200: score -= 15; signals.append("Below SMA200")
-            elif close > sma200: score += 8
-    elif not is_large and has_short:
+            if close > sma22: score += 5
+            else: score -= 5
+            if close > sma200: score += 5
+            elif close < sma200: score -= 8
+
+    elif has_short:
         if close > sma9 > sma22:
             score += 15; signals.append(f"{tag} uptrend")
-            if sma52 is not None and sma22 > sma52: score += 10; signals.append("Medium confirmed")
+            if sma52 is not None and sma22 > sma52: score += 8
         elif close < sma9 < sma22:
             score -= 15; signals.append(f"{tag} downtrend")
-            if sma52 is not None and sma22 < sma52: score -= 10; signals.append("Medium confirms down")
+            if sma52 is not None and sma22 < sma52: score -= 8
         elif close > sma22 and sma9 is not None and sma9 <= sma22:
-            score += 20; signals.append(f"{tag} breakout SMA22")
+            score += 12; signals.append(f"{tag} crossing up")
         elif close < sma22 and sma9 is not None and sma9 >= sma22:
-            score -= 20; signals.append(f"{tag} breakdown SMA22")
+            score -= 12; signals.append(f"{tag} crossing down")
         else:
-            if close < sma22: score -= 8
-            else: score += 5
-        if at_breakout: score += 20; signals.append(f"Breakout R={resistance:.0f}")
-        elif at_breakdown: score -= 20; signals.append(f"Breakdown S={support:.0f}")
-        elif near_support: score += 12; signals.append(f"Near support S={support:.0f}")
-        elif near_resistance: score -= 8; signals.append(f"Near resistance R={resistance:.0f}")
+            if close > sma22: score += 5
+            else: score -= 5
     else:
         if sma22 is not None:
-            if close < sma22: score -= 10
-            else: score += 5
-        if sma200 is not None:
-            if close < sma200: score -= 12
-            else: score += 5
+            if close > sma22: score += 5
+            else: score -= 5
 
-    # ═══ TIER 2: CONFIRMATION ═══
+    # S/R breakout/breakdown
+    if at_breakout: score += 15; signals.append(f"Breakout R={resistance:.0f}")
+    elif at_breakdown: score -= 15; signals.append(f"Breakdown S={support:.0f}")
+    elif near_support and score < 0: score += 8; signals.append("Near support")
+    elif near_resistance and score > 0: score -= 8; signals.append("Near resistance")
+
+    # ═══ TIER 2: REVERSAL SIGNALS (only strong confluence) ═══
     bb = sv_row(last, ['BB_Flag'])
     if bb is not None:
         bbs = bb.strip().upper()
         if bbs == 'BBL':
-            if near_support and rsi is not None and rsi < 35: score += 35; signals.append(f"BBL+S+RSI({rsi:.0f})")
-            elif rsi is not None and rsi < 35: score += 30; signals.append(f"BBL+RSI({rsi:.0f})")
-            elif near_support: score += 25; signals.append("BBL at support")
-            else: score += 20; signals.append("BBL reversal")
+            if rsi is not None and rsi < 30:
+                if near_support: score += 30; signals.append(f"BBL+S+RSI({rsi:.0f})")
+                else: score += 20; signals.append(f"BBL+RSI({rsi:.0f})")
+            else:
+                score += 8; signals.append("BBL mild")
         elif bbs == 'BBH':
-            if near_resistance and rsi is not None and rsi > 65: score -= 35; signals.append(f"BBH+R+RSI({rsi:.0f})")
-            elif rsi is not None and rsi > 65: score -= 30; signals.append(f"BBH+RSI({rsi:.0f})")
-            elif near_resistance: score -= 25; signals.append("BBH at resistance")
-            else: score -= 20; signals.append("BBH reversal")
+            if rsi is not None and rsi > 70:
+                if near_resistance: score -= 30; signals.append(f"BBH+R+RSI({rsi:.0f})")
+                else: score -= 20; signals.append(f"BBH+RSI({rsi:.0f})")
+            else:
+                score -= 8; signals.append("BBH mild")
 
     knox = sv_row(last, ['Knoxville_Divergence'])
     if knox is not None:
         ks = knox.lower()
         if 'bullish' in ks:
-            if near_support: score += 35; signals.append("Knox bull at support")
-            elif rsi is not None and rsi < 40: score += 25; signals.append(f"Knox bull+RSI({rsi:.0f})")
-            else: score += 15; signals.append("Knox bullish")
+            if near_support and rsi is not None and rsi < 40:
+                score += 25; signals.append("Knox bull at support")
+            else:
+                score += 10; signals.append("Knox bullish")
         elif 'bearish' in ks:
-            if near_resistance: score -= 35; signals.append("Knox bear at resistance")
-            elif rsi is not None and rsi > 60: score -= 25; signals.append(f"Knox bear+RSI({rsi:.0f})")
-            else: score -= 15; signals.append("Knox bearish")
+            if near_resistance and rsi is not None and rsi > 60:
+                score -= 25; signals.append("Knox bear at resistance")
+            else:
+                score -= 10; signals.append("Knox bearish")
 
     # UP20 Reconsolidation
     if 'up_true' in valid_df.columns and len(valid_df) >= 7:
-        recent_7 = valid_df.tail(7)
+        recent_7 = valid_df.tail(min(7, len(valid_df)))
         try: up_rows = recent_7[recent_7['up_true'].apply(lambda x: safe_int(x) == 1)]
         except: up_rows = pd.DataFrame()
         latest_up = safe_int(last.get('up_true', 0)) == 1
         if len(up_rows) > 0 and not latest_up and 'Low' in up_rows.columns:
             up_low = up_rows['Low'].dropna().min()
             if up_low is not None and pd.notna(up_low):
-                if close <= up_low * 1.02: score += 30; signals.append(f"UP20 recons at {up_low:.0f}")
-                elif close <= up_low * 1.05: score += 15; signals.append("UP20 pullback")
+                if close <= up_low * 1.02: score += 20; signals.append("UP20 recons")
+                elif close <= up_low * 1.05: score += 10; signals.append("UP20 near")
 
-    # ═══ TIER 3: SUPPORTING ═══
+    # ═══ TIER 3: SUPPORTING (reduced weights) ═══
     if macd_line is not None and macd_signal is not None:
-        if macd_line > macd_signal: score += 12; signals.append("MACD bull")
-        else: score -= 12; signals.append("MACD bear")
-    if macd_hist is not None: score += 3 if macd_hist > 0 else -3
+        if macd_line > macd_signal: score += 8; signals.append("MACD bull")
+        else: score -= 8; signals.append("MACD bear")
+    if macd_hist is not None: score += 2 if macd_hist > 0 else -2
 
     if ema9 is not None and ema21 is not None:
-        if ema9 > ema21: score += 10; signals.append("EMA golden")
-        else: score -= 10; signals.append("EMA death")
+        if ema9 > ema21: score += 6; signals.append("EMA golden")
+        else: score -= 6; signals.append("EMA death")
 
     if st_dir is not None:
         try:
             st = int(float(st_dir))
-            if st == 1: score += 8; signals.append("ST up")
-            elif st == -1: score -= 8; signals.append("ST down")
+            if st == 1: score += 6; signals.append("ST up")
+            elif st == -1: score -= 6; signals.append("ST down")
         except: pass
 
+    # 5d momentum
     if len(valid_df) >= 6:
         try:
             pc = valid_df.iloc[-6].get('Close')
             if pc and close and pd.notna(pc) and pc > 0:
                 mom = ((close - pc) / pc) * 100
-                if mom > 5: score += 15; signals.append(f"Mom5d +{mom:.1f}%")
-                elif mom > 2: score += 8; signals.append(f"Mom5d +{mom:.1f}%")
-                elif mom < -5: score -= 15; signals.append(f"Mom5d {mom:.1f}%")
-                elif mom < -2: score -= 8; signals.append(f"Mom5d {mom:.1f}%")
+                if mom > 5: score += 10; signals.append(f"Mom +{mom:.1f}%")
+                elif mom > 2: score += 5
+                elif mom < -5: score -= 10; signals.append(f"Mom {mom:.1f}%")
+                elif mom < -2: score -= 5
         except: pass
 
+    # RSI standalone — only at extremes (30/70 thresholds)
     rsi_used = any('RSI' in s for s in signals)
     if rsi is not None and not rsi_used:
-        if rsi > 80: score -= 12; signals.append(f"RSI OB({rsi:.0f})")
-        elif rsi > 70: score -= 6; signals.append(f"RSI high({rsi:.0f})")
-        elif rsi < 20: score += 12; signals.append(f"RSI OS({rsi:.0f})")
-        elif rsi < 30: score += 6; signals.append(f"RSI low({rsi:.0f})")
+        if rsi > 80: score -= 8; signals.append(f"RSI OB({rsi:.0f})")
+        elif rsi > 70: score -= 4; signals.append(f"RSI high({rsi:.0f})")
+        elif rsi < 20: score += 8; signals.append(f"RSI extreme OS({rsi:.0f})")
+        elif rsi < 30: score += 4; signals.append(f"RSI OS({rsi:.0f})")
 
-    # ═══ TIER 4: ADX MODIFIER ═══
-    if adx is not None and adx > 25 and st_dir is not None:
-        try:
-            st = int(float(st_dir))
-            if st == 1 and score < 0:
-                adj = min(15, int(abs(score) * 0.25)); score += adj
-            elif st == -1 and score > 0:
-                adj = min(15, int(abs(score) * 0.25)); score -= adj
-        except: pass
+    # ═══ TIER 4: ADX AMPLIFIER ═══
+    if adx is not None and adx > 30:
+        if score != 0:
+            score = int(score * 1.15)
+            signals.append(f"ADX({adx:.0f}) amplify")
 
     return max(-100, min(100, score)), signals
 
