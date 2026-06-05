@@ -479,7 +479,8 @@ def load_tickers():
             df = pd.read_csv(TICKERS_FILE)
             df.columns = df.columns.str.strip()
             if 'Ticker' not in df.columns:
-                df.rename(columns={df.columns'Ticker'}, inplace=True)
+                first_col = df.columns[0]
+                df.rename(columns={first_col: 'Ticker'}, inplace=True)
             tks = [t.replace('.NS', '') for t in df['Ticker'].dropna().str.strip().str.upper().tolist() if t]
             s = set()
             u = []
