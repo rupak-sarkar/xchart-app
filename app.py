@@ -1,4 +1,5 @@
-"""XChart Predictive Engine v5.1 — Modular Entry Point"""
+"""XChart Predictive Engine v5.1.1 — Modular Entry Point
+Changes: Auto-fetches 2Y data if missing, trend-following scoring, RSI<30"""
 import pandas as pd
 import time
 
@@ -7,6 +8,7 @@ from engine.config import (
     WEIGHTS_NEWS, WEIGHTS_NO_NEWS
 )
 from engine.tickers import load_tickers
+from engine.data_fetcher import ensure_data_exists
 from engine.news import build_news_cache, get_all_fresh_news, get_live_price_return
 from engine.sentiment import (
     _load_finbert, compute_aggregated_score, classify_severity, classify_impact,
@@ -26,15 +28,19 @@ from engine.config import SOURCE_LABELS
 
 
 def run():
+    # ═══ PHASE 0: Ensure 2Y historical data exists ═══
+    print("Checking historical data...")
+    ensure_data_exists()
+
     # Init FinBERT
     _load_finbert()
 
     tl, sm = load_tickers()
     total = len(tl)
-    print(f"\nPREDICTIVE Engine v5.1 - {total} tickers | {TODAY_IST}")
+    print(f"\nPREDICTIVE Engine v5.1.1 - {total} tickers | {TODAY_IST}")
     print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | CATALYST-ONLY FinBERT")
-    print(f"Tech: STRATEGY-BASED (LC=mean reversion, SMC=momentum+breakout)")
-    print(f"Validation: 3-day rolling | Per-ticker accuracy: Swing/1M/3M/6M")
+    print(f"Tech: TREND-FOLLOWING PRIMARY (LC/SMC, RSI<30 threshold)")
+    print(f"Validation: 3-day rolling | Per-ticker accuracy: Swing/1M/3M/ALL")
     print("=" * 110)
 
     # ═══ PHASE 1: NEWS ═══
@@ -106,7 +112,7 @@ def run():
     print(f"  -> MCap threshold: {mcap_threshold:.0f}")
 
     # Technical
-    print("Computing technical scores (v5.1)...")
+    print("Computing technical scores (v5.1.1 trend-following)...")
     tech_count = 0; lc_count = 0; smc_count = 0
     for i, row in enumerate(all_rows):
         tech = get_technical_score(row["Ticker"], stock_df, mcap_threshold, debug=(i < 3))
@@ -156,13 +162,17 @@ def run():
         macro = macro_scores.get(row.get("_sector", ""), {"score": 0, "context": ""})
         row["Macro_Score"] = macro["score"]; row["Macro_Context"] = macro.get("context", "")
 
-    # ═══ PHASE 3b: PER-TICKER BACKTEST ACCURACY ═══
-    print(f"\nPHASE 3b: Per-ticker backtest accuracy (3-day forward, 4 horizons)...")
+    # ═══ PHASE 3b: PER-TICKER BACKTEST (365+ predictions) ═══
+    print(f"\nPHASE 3b: Per-ticker backtest (3-day forward, 4 horizons)...")
     bt_results = compute_per_ticker_accuracy(stock_df, mcap_threshold)
     bt_count = len(bt_results)
+    avg_1m = 0.0; avg_all = 0.0
     if bt_count > 0:
         avg_1m = sum(r["BT_1M"] for r in bt_results.values()) / bt_count
-        print(f"  -> {bt_count} tickers backtested | Avg 1M accuracy: {avg_1m:.1f}%")
+        avg_all = sum(r["BT_6M"] for r in bt_results.values()) / bt_count
+        total_bt_preds = sum(r["BT_Total_Preds"] for r in bt_results.values())
+        print(f"  -> {bt_count} tickers | {total_bt_preds:,} total predictions")
+        print(f"  -> Avg 1M: {avg_1m:.1f}% | Avg ALL: {avg_all:.1f}%")
 
     # Attach backtest to rows
     for row in all_rows:
@@ -172,6 +182,7 @@ def run():
         row["BT_3M"] = bt.get("BT_3M", 0.0)
         row["BT_6M"] = bt.get("BT_6M", 0.0)
         row["BT_1M_N"] = bt.get("BT_1M_N", 0)
+        row["BT_Total_Preds"] = bt.get("BT_Total_Preds", 0)
 
     # ═══ COMPOSITE + REGIME ═══
     print(f"\nComputing composite + regime adjustment...")
@@ -192,7 +203,7 @@ def run():
             ctd += 1
             if c_hit: chd += 1
         corrected = " <- CORRECTED" if row["Forecast_Direction"] != adj_dir else ""
-        bt_tag = f" BT:{row.get('BT_1M', 0):.0f}%" if row.get('BT_1M', 0) > 0 else ""
+        bt_tag = f" BT:{row.get('BT_1M', 0):.0f}%({row.get('BT_Total_Preds', 0)})" if row.get('BT_1M', 0) > 0 else ""
         print(f"  [{scored.index(row)+1:3d}] {row['Ticker']:<14s} Tech:{row['Technical_Score']:+4d} Macro:{row['Macro_Score']:+4d} Fund:{row['Fundamental_Score']:+4d} -> Comp:{adj_score:+6.1f} {dm[adj_dir]} {'HIT' if c_hit else 'MISS'}{corrected}{bt_tag}")
 
     t_bull = 0; t_bear = 0; t_neut = 0; t_hit = 0; t_total = 0
@@ -209,7 +220,8 @@ def run():
         t_total += 1
 
     for row in all_rows: row.pop("_sector", None)
-    print(f"\n  Tech-only: Bull:{t_bull} Bear:{t_bear} Neut:{t_neut} | Hit:{t_hit}/{t_total} = {t_hit/t_total*100:.1f}%" if t_total > 0 else "")
+    if t_total > 0:
+        print(f"\n  Tech-only: Bull:{t_bull} Bear:{t_bear} Neut:{t_neut} | Hit:{t_hit}/{t_total} = {t_hit/t_total*100:.1f}%")
     print(f"  Regime flips: {regime_flips}")
 
     # ═══ PHASE 4: STREAKS + SAVE ═══
@@ -234,11 +246,12 @@ def run():
     comp_bear = sum(1 for r in scored if r.get("Composite_Direction", 0) == -1)
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v5.1 MODULAR + MULTI-HORIZON BACKTEST")
+    print(f"data.csv | {TODAY_IST} | ENGINE v5.1.1 TREND-FOLLOWING + MULTI-HORIZON")
     print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news")
     print(f"REGIME: {regime['regime']} ({regime['detail']})")
-    print(f"STRATEGY: LC({lc_count}) SMC({smc_count})")
-    print(f"BACKTEST: {bt_count} tickers | Avg 1M: {avg_1m:.1f}%" if bt_count > 0 else "")
+    print(f"STRATEGY: LC({lc_count}) SMC({smc_count}) | Trend-following PRIMARY | RSI<30 threshold")
+    if bt_count > 0:
+        print(f"BACKTEST: {bt_count} tickers | {total_bt_preds:,} predictions | 1M:{avg_1m:.1f}% ALL:{avg_all:.1f}%")
     print(f"\nSAME-DAY: Composite {chd}/{ctd} = {chrd:.1f}% | Bull:{comp_bull} Bear:{comp_bear} | Flips:{regime_flips}")
     print("=" * 110)
 
