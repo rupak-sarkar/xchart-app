@@ -8,7 +8,18 @@ import json
 import urllib.parse
 import os
 import numpy as np
-from datetime import datetime, timezone,from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+
+print("Initializing FinBERT...")
+FINBERT_MODEL = "ProsusAI/finbert"
+tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
+model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+
+IST = timezone(timedelta(hours=5, minutes=30))
+NOW_IST = datetime.now(IST)
+TODAY_IST = NOW_IST.strftime("%Y-%m-%d")
 TODAY_DATE = NOW_IST.date()
 NEWS_START_DATE = TODAY_DATE - timedelta(days=3)
 NEWS_CUTOFF_TIME = NOW_IST - timedelta(hours=2)
@@ -44,6 +55,10 @@ print(f"Weights (news):    Tech={WEIGHTS_NEWS['technical']:.0%} Sent={WEIGHTS_NE
 print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} Fund={WEIGHTS_NO_NEWS['fundamental']:.0%}")
 
 
+# ═══════════════════════════════════════════════════════════════
+# SECTOR MAPS + RULES
+# ═══════════════════════════════════════════════════════════════
+
 SECTOR_MAP = {
     "Technology": ["Software - Application", "Software - Infrastructure", "Information Technology Services", "Communication Equipment", "Consumer Electronics"],
     "Healthcare": ["Drug Manufacturers - Specialty & Generic", "Drug Manufacturers - General", "Biotechnology", "Medical Care Facilities"],
@@ -69,6 +84,11 @@ SECTOR_RULES = {
     "Energy": {"base_offset": 0, "nifty_sensitivity": 0.8, "description": "Energy: crude linked"},
     "Specialty": {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Specialty: mixed drivers"},
 }
+
+
+# ═══════════════════════════════════════════════════════════════
+# NEWS CONFIG
+# ═══════════════════════════════════════════════════════════════
 
 SOURCE_LABELS = {
     "mc_topnews": "Moneycontrol", "mc_business": "Moneycontrol", "mc_markets": "Moneycontrol", "mc_stocks": "Moneycontrol",
@@ -123,6 +143,11 @@ ALL_FEEDS = {
     "bl_stocks": "https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss",
     "bl_companies": "https://www.thehindubusinessline.com/companies/feeder/default.rss"
 }
+
+
+# ═══════════════════════════════════════════════════════════════
+# KEYWORD SETS
+# ═══════════════════════════════════════════════════════════════
 
 NSE_NOISE_KEYWORDS = [
     "board meeting intimation", "intimation of board meeting", "outcome of board meeting",
@@ -248,6 +273,80 @@ SECTOR_IMPACT_WORDS = {
     "forex", "rupee", "dollar", "export", "import", "demand", "supply"
 }
 
+# ═══════════════════════════════════════════════════════════════
+# v3.9.1: MATERIAL CATALYST FILTER (Option D)
+# Only score headlines with company-specific material events
+# ═══════════════════════════════════════════════════════════════
+
+MATERIAL_CATALYST_KEYWORDS = [
+    # Financial Results (concrete numbers)
+    "quarterly results", "annual results", "q1 results", "q2 results", "q3 results", "q4 results",
+    "net profit", "net loss", "revenue growth", "revenue decline", "ebitda",
+    "beat estimates", "missed estimates", "above estimates", "below estimates",
+    "profit after tax", "pat", "topline", "bottomline",
+    # Corporate Actions
+    "dividend", "interim dividend", "final dividend", "special dividend",
+    "buyback", "buy back", "share repurchase",
+    "bonus issue", "bonus shares", "stock split", "sub-division",
+    "rights issue", "preferential allotment", "qip", "fpo", "ipo",
+    # Orders & Deals (concrete business wins)
+    "order win", "order worth", "received order", "bags order", "wins order",
+    "contract awarded", "contract worth", "secured contract",
+    "deal worth", "deal value", "letter of intent", "work order",
+    # M&A (structural changes)
+    "acquisition", "acquires", "acquired", "acquire",
+    "merger", "amalgamation", "takeover", "takeover bid",
+    "joint venture", "stake sale", "stake acquisition",
+    "disinvestment", "divestiture", "demerger",
+    # Regulatory Events (high impact)
+    "sebi order", "sebi penalty", "sebi ban",
+    "penalty imposed", "fine imposed",
+    "suspension", "debarment", "show cause",
+    "default", "npa", "insolvency", "nclt",
+    # Management Changes
+    "new ceo", "new cfo", "new md", "appoints ceo", "appoints md",
+    "ceo resigns", "md resigns", "cfo resigns",
+    "managing director", "chief executive officer",
+    # Rating Changes (brokerage calls)
+    "rating upgrade", "rating downgrade",
+    "target price raised", "target price cut", "target price reduced",
+    "initiates coverage", "maintains buy", "maintains sell",
+    # Capacity & Production (concrete)
+    "new plant", "plant commissioning", "capacity expansion",
+    "commercial production", "production commenced",
+    "capex plan", "capex of", "investment of",
+    # Concrete numbers in headlines (strong signal)
+    "crore order", "crore deal", "crore contract",
+    "million order", "million deal", "billion",
+    # FDA/Regulatory Approvals
+    "usfda approval", "fda approval", "anda approval",
+    "drug approval", "product launch", "patent",
+]
+
+NOISE_HEADLINE_PATTERNS = [
+    # Generic market commentary (no company-specific impact)
+    "markets likely", "market likely", "expected to open",
+    "global cues", "global markets", "asian markets", "european markets",
+    "wall street", "dow jones", "nasdaq", "s&p 500",
+    # Generic FII/DII (sector-wide, not company)
+    "fii sold", "fii bought", "fii selling", "fii buying",
+    "dii sold", "dii bought", "dii selling", "dii buying",
+    "foreign institutional", "domestic institutional",
+    # Analyst opinions without concrete targets
+    "analyst expects", "analysts expect", "may outperform", "could benefit",
+    "likely to", "expected to outperform", "poised to",
+    "looks attractive", "appears overvalued", "sentiment positive", "sentiment negative",
+    # Technical analysis commentary
+    "support level", "resistance level", "breakout", "breakdown",
+    "technical analysis", "chart pattern", "moving average",
+    # Index/sector commentary
+    "nifty may", "sensex may", "nifty likely", "sensex likely",
+    "sector outlook", "sector rotation", "sector performance",
+    # Vague forward-looking
+    "growth prospects", "long-term story", "structural growth",
+    "headwinds", "tailwinds", "challenges ahead", "opportunities ahead",
+]
+
 BAD_STRINGS = ('nan', 'none', 'n/a', 'null', '')
 
 
@@ -258,7 +357,6 @@ def is_bad_str(s):
 
 
 def safe_int(val, default=0):
-    """Safely convert value to int, handling NaN and other edge cases"""
     try:
         if val is None:
             return default
@@ -267,6 +365,39 @@ def safe_int(val, default=0):
         return int(float(val))
     except (ValueError, TypeError):
         return default
+
+
+def is_material_catalyst(headline):
+    """v3.9.1: Returns True ONLY if headline contains a material, company-specific catalyst.
+    Generic market commentary, analyst opinions, and sector noise return False."""
+    if not headline:
+        return False
+    text = headline.lower()
+
+    # Step 1: Reject if it matches noise patterns
+    for noise in NOISE_HEADLINE_PATTERNS:
+        if noise in text:
+            return False
+
+    # Step 2: Accept if it contains material catalyst keywords
+    for catalyst in MATERIAL_CATALYST_KEYWORDS:
+        if catalyst in text:
+            return True
+
+    # Step 3: Accept if it has concrete numbers (crore/million/billion + context)
+    has_amount = bool(re.search(r'(?:rs\.?|inr|₹)\s*[\d,]+\s*(?:crore|cr|million|mn|billion|bn|lakh)', text))
+    if has_amount:
+        return True
+
+    # Step 4: Accept if headline has catalyst verb + concrete context
+    words = set(re.findall(r'[a-z]+', text))
+    has_catalyst_verb = bool(words & CATALYST_VERBS)
+    has_concrete = bool(re.search(r'\d+', text))  # has numbers
+    if has_catalyst_verb and has_concrete:
+        return True
+
+    # Default: reject (treat as noise)
+    return False
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -424,7 +555,8 @@ def load_tickers():
             df = pd.read_csv(TICKERS_FILE)
             df.columns = df.columns.str.strip()
             if 'Ticker' not in df.columns:
-                df.rename(columns={df.columns[0]: 'Ticker'}, inplace=True)
+                first_col = df.columns[0]
+                df.rename(columns={first_col: 'Ticker'}, inplace=True)
             tks = [t.replace('.NS', '') for t in df['Ticker'].dropna().str.strip().str.upper().tolist() if t]
             s = set()
             u = []
@@ -447,7 +579,7 @@ def load_tickers():
 
 
 # ═══════════════════════════════════════════════════════════════
-# FINBERT SCORING
+# FINBERT SCORING (v3.9.1 - Catalyst-Only)
 # ═══════════════════════════════════════════════════════════════
 
 def score_single_headline(hl):
@@ -464,19 +596,39 @@ def score_single_headline(hl):
 
 
 def compute_aggregated_score(entries):
+    """v3.9.1: Only score MATERIAL CATALYST headlines. Noise gets 0."""
     if not entries:
-        return 0.0, 0
+        return 0.0, 0, 0, 0
+
+    catalyst_entries = []
+    noise_count = 0
+    for e in entries:
+        if is_material_catalyst(e["headline"]):
+            catalyst_entries.append(e)
+        else:
+            noise_count += 1
+
+    total_headlines = len(entries)
+    catalyst_count = len(catalyst_entries)
+
+    if not catalyst_entries:
+        # No material catalysts found — return neutral
+        return 0.0, 0, catalyst_count, noise_count
+
     tw = 0.0
     ws = 0.0
-    for e in entries:
+    for e in catalyst_entries:
         r = score_single_headline(e["headline"])
         w = e.get("weight", 1.0)
         ws += r * w
         tw += w
+
     if tw == 0:
-        return 0.0, 0
+        return 0.0, 0, catalyst_count, noise_count
+
     s = ws / tw
-    return round(s, 1), 1 if s > 5 else (-1 if s < -5 else 0)
+    direction = 1 if s > 5 else (-1 if s < -5 else 0)
+    return round(s, 1), direction, catalyst_count, noise_count
 
 
 def get_live_price_return(tk):
@@ -809,7 +961,6 @@ def get_sector_from_stock_data(ticker, stock_df):
 
 
 def compute_tech_score_from_row(row, history_rows=None):
-    """v3.9: Pure technical - NO FII/DII. Enhanced BB/Knox reversal + 5d momentum"""
     score = 0
     signals = []
 
@@ -849,16 +1000,15 @@ def compute_tech_score_from_row(row, history_rows=None):
     ema21 = fv(['EMA_21'])
     close = fv(['Close'])
 
-    # ── 5-DAY MOMENTUM ──
-    mom_5d = fv(['gain'])
-    if mom_5d is None and history_rows is not None and len(history_rows) >= 6:
-        prev_close = None
+    # 5-DAY MOMENTUM
+    mom_5d = None
+    if history_rows is not None and len(history_rows) >= 6:
         try:
             prev_close = history_rows.iloc[-6].get('Close')
+            if prev_close and close and prev_close > 0:
+                mom_5d = ((close - prev_close) / prev_close) * 100
         except:
             pass
-        if prev_close and close and prev_close > 0:
-            mom_5d = ((close - prev_close) / prev_close) * 100
 
     if mom_5d is not None:
         if mom_5d > 5:
@@ -874,7 +1024,7 @@ def compute_tech_score_from_row(row, history_rows=None):
             score -= 10
             signals.append(f"Mom5d down {mom_5d:.1f}%")
 
-    # ── RSI (momentum-aware) ──
+    # RSI (momentum-aware)
     if rsi is not None:
         strong_uptrend = mom_5d is not None and mom_5d > 3
         strong_downtrend = mom_5d is not None and mom_5d < -3
@@ -902,7 +1052,7 @@ def compute_tech_score_from_row(row, history_rows=None):
                 score += 15
                 signals.append(f"RSI depressed({rsi:.0f})")
 
-    # ── BOLLINGER BANDS (REVERSAL) ──
+    # BOLLINGER BANDS (REVERSAL)
     bb = sv(['BB_Flag'])
     if bb is not None:
         bbs = bb.strip().upper()
@@ -923,7 +1073,7 @@ def compute_tech_score_from_row(row, history_rows=None):
                 signals.append("BB High (bearish reversal)")
             score += bb_score
 
-    # ── SMA POSITION ──
+    # SMA POSITION
     if close is not None:
         sma22 = fv(['SMA_22'])
         sma50 = fv(['SMA_50', 'SMA_52'])
@@ -945,7 +1095,7 @@ def compute_tech_score_from_row(row, history_rows=None):
             else:
                 score += 10
 
-    # ── MACD ──
+    # MACD
     if macd_line is not None and macd_signal is not None:
         if macd_line > macd_signal:
             score += 15
@@ -956,7 +1106,7 @@ def compute_tech_score_from_row(row, history_rows=None):
     if macd_hist is not None:
         score += 5 if macd_hist > 0 else -5
 
-    # ── EMA CROSSOVER ──
+    # EMA CROSSOVER
     if ema9 is not None and ema21 is not None:
         if ema9 > ema21:
             score += 12
@@ -965,7 +1115,7 @@ def compute_tech_score_from_row(row, history_rows=None):
             score -= 12
             signals.append("EMA death")
 
-    # ── SUPERTREND ──
+    # SUPERTREND
     if st_dir is not None:
         try:
             st = int(float(st_dir))
@@ -978,7 +1128,7 @@ def compute_tech_score_from_row(row, history_rows=None):
         except:
             pass
 
-    # ── ADX TREND STRENGTH ──
+    # ADX TREND STRENGTH
     if adx is not None and adx > 25 and st_dir is not None:
         try:
             st = int(float(st_dir))
@@ -993,7 +1143,7 @@ def compute_tech_score_from_row(row, history_rows=None):
         except:
             pass
 
-    # ── KNOXVILLE DIVERGENCE (REVERSAL) ──
+    # KNOXVILLE DIVERGENCE (REVERSAL)
     knox = sv(['Knoxville_Divergence'])
     if knox is not None:
         ks = knox.lower()
@@ -1028,30 +1178,24 @@ def get_technical_score(ticker, stock_df, debug=False):
     valid = tk_data[tk_data['Close'].notna()]
     if valid.empty:
         return {"score": 0, "signals": []}
-
     last = valid.iloc[-1]
     score, signals = compute_tech_score_from_row(last, valid)
-
     if debug:
         ind = get_sector_from_stock_data(ticker, stock_df)
         print(f"    DEBUG {ticker}: RSI={last.get('RSI_14')}, Close={last.get('Close')}, SMA22={last.get('SMA_22')}, BB={last.get('BB_Flag')}, MACD={last.get('MACD_Line')}/{last.get('MACD_Signal')}, ADX={last.get('ADX_14')}, ST={last.get('ST_Direction')}, EMA={last.get('EMA_9')}/{last.get('EMA_21')}, Knox={last.get('Knoxville_Divergence')}, Ind={ind}")
-
     return {"score": score, "signals": signals}
 
 
 def score_fundamentals_rules(ticker, stock_df):
-    """v3.9: Fundamental = Debt + FII/DII + OBV"""
     if stock_df is None or stock_df.empty:
         return {"score": 0, "concern": ""}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
     if tk_data.empty:
         return {"score": 0, "concern": ""}
-
     valid = tk_data[tk_data['Close'].notna()]
     if valid.empty:
         return {"score": 0, "concern": ""}
     last = valid.iloc[-1]
-
     score = 0
     concerns = []
 
@@ -1068,7 +1212,6 @@ def score_fundamentals_rules(ticker, stock_df):
                     pass
         return None
 
-    # Debt/Equity
     de = fv(['Debt_Eq', 'debt_equity', 'Debt_Equity'])
     if de is not None:
         if de > 200:
@@ -1080,7 +1223,6 @@ def score_fundamentals_rules(ticker, stock_df):
         elif de < 30:
             score += 5
 
-    # FII/DII Institutional Flow
     up = fv(['up_true', 'Up_True'])
     if up is not None:
         try:
@@ -1090,7 +1232,6 @@ def score_fundamentals_rules(ticker, stock_df):
         except:
             pass
 
-    # OBV trend
     obv = fv(['OBV'])
     if obv is not None and len(valid) >= 6:
         obv_prev = None
@@ -1173,9 +1314,7 @@ def get_macro_scores(sectors, nifty_change):
     unique_sectors = list(set(s for s in sectors if s and not is_bad_str(s)))
     if not unique_sectors:
         return macro_cache
-
     base = 15 if nifty_change > 1.0 else (5 if nifty_change > 0.3 else (-5 if nifty_change > -0.3 else (-15 if nifty_change > -1.0 else -25)))
-
     sub_to_broad = {}
     broad_set = set()
     for sub in unique_sectors:
@@ -1214,18 +1353,18 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
         print(f"  -> Calling Gemini for {len(broad_list)} broad sectors...")
         result = call_gemini_large(prompt)
         if result and isinstance(result, dict):
-            scored = 0
+            scored_count = 0
             for sector in broad_list:
                 if sector in result and isinstance(result[sector], dict):
                     sc = result[sector].get("score", 0)
                     ctx = str(result[sector].get("ctx", result[sector].get("context", "")))
                     broad_scores[sector] = {"score": max(-50, min(50, int(sc))), "context": ctx}
-                    scored += 1
+                    scored_count += 1
                 else:
                     broad_scores[sector] = {"score": base, "context": f"Nifty {nifty_change:+.1f}%"}
-            if scored > 0:
+            if scored_count > 0:
                 gemini_success = True
-                print(f"  -> Gemini scored {scored}/{len(broad_list)} broad sectors")
+                print(f"  -> Gemini scored {scored_count}/{len(broad_list)} broad sectors")
                 save_macro_cache(broad_scores)
 
     if not gemini_success:
@@ -1244,7 +1383,7 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
 
 
 # ═══════════════════════════════════════════════════════════════
-# COMPOSITE SCORING (v3.9)
+# COMPOSITE SCORING (v3.9.1)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
@@ -1284,12 +1423,12 @@ def compute_composite_no_news(technical, macro, fundamental=0):
 
 
 # ═══════════════════════════════════════════════════════════════
-# PREDICTION ACCURACY (v3.9 - BUGFIXED)
+# PREDICTION ACCURACY (v3.9.1)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_prediction_accuracy(hdf, today_rows, stock_df):
     print(f"\n{'='*110}")
-    print(f"PREDICTION ACCURACY REPORT (v3.9)")
+    print(f"PREDICTION ACCURACY REPORT (v3.9.1)")
     print(f"{'='*110}")
     backtest_technical(stock_df)
     compute_composite_multiday(hdf, today_rows)
@@ -1315,7 +1454,6 @@ def backtest_technical(stock_df, forward_days=5, test_days=60):
         valid = tk_data[tk_data['Close'].notna()].reset_index(drop=True)
         if len(valid) < test_days + forward_days + 20:
             continue
-
         tk_hits = 0
         tk_dir = 0
         tk_tests = 0
@@ -1327,14 +1465,11 @@ def backtest_technical(stock_df, forward_days=5, test_days=60):
             future_close = valid.iloc[i + forward_days].get('Close')
             if pd.isna(current_close) or pd.isna(future_close):
                 continue
-
             forward_ret = ((future_close - current_close) / current_close) * 100
             actual_dir = 1 if forward_ret > 0.5 else (-1 if forward_ret < -0.5 else 0)
-
             history_slice = valid.iloc[max(0, i - 10):i + 1] if i >= 6 else None
             tech_score, _ = compute_tech_score_from_row(row, history_slice)
             pred_dir = 1 if tech_score > 15 else (-1 if tech_score < -15 else 0)
-
             tk_tests += 1
             total_tests += 1
             if pred_dir == 0:
@@ -1355,16 +1490,13 @@ def backtest_technical(stock_df, forward_days=5, test_days=60):
     if total_tests == 0:
         print(f"  No backtest data")
         return
-
     dir_pct = (total_hit / total_dir * 100) if total_dir > 0 else 0
     overall_pct = (total_hit / total_tests * 100)
-
     print(f"  Tickers tested: {len(ticker_results)}/{len(tickers)}")
     print(f"  Total predictions: {total_tests} | Directional: {total_dir} | Neutral: {total_neutral}")
     print(f"  5-day forward threshold: +-0.5%")
     print(f"\n  DIRECTIONAL ACCURACY: {total_hit}/{total_dir} = {dir_pct:.1f}%")
     print(f"  OVERALL (incl neutral): {total_hit}/{total_tests} = {overall_pct:.1f}%")
-
     if ticker_results:
         sorted_tk = sorted(ticker_results.items(), key=lambda x: x[1]["pct"], reverse=True)
         print(f"\n  Top 5:")
@@ -1417,10 +1549,9 @@ def compute_composite_multiday(hdf, today_rows):
                     d_hit += 1
                     nd_hit += 1
         if d_dir > 0:
-            d_pct = f"{d_hit}/{d_dir}={d_hit*100//d_dir}%"
+            print(f"    {dates[i]} -> {dates[i+1]}: {d_hit}/{d_dir}={d_hit*100//d_dir}%")
         else:
-            d_pct = "no dir"
-        print(f"    {dates[i]} -> {dates[i+1]}: {d_pct}")
+            print(f"    {dates[i]} -> {dates[i+1]}: no dir")
     if nd_dir > 0:
         print(f"    AGGREGATE: {nd_hit}/{nd_dir} = {nd_hit/nd_dir*100:.1f}%")
     else:
@@ -1494,7 +1625,7 @@ def compute_composite_multiday(hdf, today_rows):
 
 
 def compute_news_impact(hdf, today_rows):
-    print(f"\n  -- NEWS SENTIMENT IMPACT (1-3 day) --")
+    print(f"\n  -- NEWS SENTIMENT IMPACT (1-3 day, catalyst-only) --")
     today_df = pd.DataFrame(today_rows)
     today_df['Date'] = TODAY_IST
     if hdf.empty or 'Date' not in hdf.columns:
@@ -1539,19 +1670,18 @@ def compute_news_impact(hdf, today_rows):
             print(f"  {window}-day: {w_hit}/{w_dir} = {w_hit/w_dir*100:.1f}%")
         else:
             print(f"  {window}-day: no data")
-
-    print(f"  (Measures: did sentiment predict 1/2/3 day direction?)")
+    print(f"  (Measures: did catalyst sentiment predict 1/2/3 day direction?)")
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v3.9)
+# MAIN ENGINE (v3.9.1)
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
     tl, sm = load_tickers()
     total = len(tl)
-    print(f"PREDICTIVE Engine v3.9 - {total} tickers | {TODAY_IST}")
-    print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | ALL tickers scored")
+    print(f"PREDICTIVE Engine v3.9.1 - {total} tickers | {TODAY_IST}")
+    print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | CATALYST-ONLY FinBERT")
     print(f"Tech: RSI(mom-aware)+BB(reversal)+SMA+MACD+EMA+ST+ADX+Knox(reversal)+Mom5d (PRIMARY)")
     print(f"Fund: Debt/Eq + FII/DII + OBV")
     print("=" * 110)
@@ -1563,7 +1693,7 @@ def execute_sentiment_engine():
     print("-" * 110)
 
     # PHASE 2
-    print(f"\nPHASE 2: FinBERT scoring (circular headlines filtered)...")
+    print(f"\nPHASE 2: FinBERT scoring (CATALYST-ONLY — noise headlines filtered)...")
     print("-" * 110)
     scored = []
     filing = []
@@ -1571,6 +1701,8 @@ def execute_sentiment_engine():
     ha = 0
     hd = 0
     td2 = 0
+    total_catalyst = 0
+    total_noise_filtered = 0
 
     for idx, tk in enumerate(tl, 1):
         ret = get_live_price_return(tk)
@@ -1608,7 +1740,10 @@ def execute_sentiment_engine():
         if ps in ("yfinance", "google"):
             time.sleep(0.3)
 
-        score, direction = compute_aggregated_score(entries)
+        score, direction, cat_count, noise_count = compute_aggregated_score(entries)
+        total_catalyst += cat_count
+        total_noise_filtered += noise_count
+
         sev = classify_severity(score)
         imp = classify_impact(entries)
         hit = direction == ad
@@ -1624,9 +1759,9 @@ def execute_sentiment_engine():
         usrc = list(dict.fromkeys(SOURCE_LABELS.get(e["source"], e["source"]) for e in entries))
         dm = {1: "BULL", -1: "BEAR", 0: "NEUT"}
         hc = len(entries)
-        ht = f"[{hc}h]" if hc >= 2 else ""
+        cat_tag = f"[{cat_count}cat/{hc}h]" if cat_count > 0 else f"[0cat/{hc}h]"
 
-        print(f"[{len(scored)+1:3d}] {tk:<14s} {dm.get(direction, '?'):4s} {sev[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {imp:10s} {'HIT' if hit else 'MISS'} {ht}")
+        print(f"[{len(scored)+1:3d}] {tk:<14s} {dm.get(direction, '?'):4s} {sev[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {imp:10s} {'HIT' if hit else 'MISS'} {cat_tag}")
 
         scored.append({
             **base_row, "Latest_Headline": pe["headline"],
@@ -1637,6 +1772,8 @@ def execute_sentiment_engine():
             "Severity": sev, "Impact": imp, "Signal_Quality": q
         })
 
+    print(f"\n  Catalyst filter: {total_catalyst} catalysts scored / {total_noise_filtered} noise filtered")
+
     # PHASE 3
     all_rows = scored + filing + nonews
     print(f"\nPHASE 3: Multi-layer analysis (ALL {len(all_rows)} tickers)...")
@@ -1645,7 +1782,7 @@ def execute_sentiment_engine():
     print("Loading stock data...")
     stock_df = load_stock_data_for_scoring()
 
-    print("Computing technical scores (v3.9: +Mom5d, +BB reversal, +Knox reversal, -FII/DII)...")
+    print("Computing technical scores (v3.9: +Mom5d, +BB reversal, +Knox reversal)...")
     tech_count = 0
     for i, row in enumerate(all_rows):
         tech = get_technical_score(row["Ticker"], stock_df, debug=(i < 3))
@@ -1769,16 +1906,17 @@ def execute_sentiment_engine():
     total_scored = sc + len(scored_with_tech)
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v3.9 TECH-PRIMARY")
+    print(f"data.csv | {TODAY_IST} | ENGINE v3.9.1 TECH-PRIMARY + CATALYST-ONLY FinBERT")
     print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news | {total_scored} total signals")
+    print(f"CATALYST FILTER: {total_catalyst} catalysts scored / {total_noise_filtered} noise filtered")
     print(f"TECH: RSI(mom-aware)+BB(reversal)+SMA+MACD+EMA+ST+ADX+Knox(reversal)+Mom5d")
     print(f"FUND: Debt/Eq + FII/DII + OBV ({fund_nonzero} scored)")
     print(f"WEIGHTS: News-> Tech={WEIGHTS_NEWS['technical']:.0%} Sent={WEIGHTS_NEWS['sentiment']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
     print(f"         No-News-> Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} Fund={WEIGHTS_NO_NEWS['fundamental']:.0%}")
     print()
     print(f"SAME-DAY ACCURACY:")
-    print(f"  SENTIMENT:  Directional {hd}/{td2} = {hrd:.1f}%")
-    print(f"  COMPOSITE:  Directional {chd}/{ctd} = {chrd:.1f}%")
+    print(f"  SENTIMENT (catalyst-only):  Directional {hd}/{td2} = {hrd:.1f}%")
+    print(f"  COMPOSITE:                  Directional {chd}/{ctd} = {chrd:.1f}%")
     print(f"  Corrected: {corrected_count} | Comp Bull:{comp_bull} Bear:{comp_bear}")
     print()
     print(f"TECH-ONLY ({t_total} without news):")
@@ -1795,13 +1933,3 @@ def execute_sentiment_engine():
 
 if __name__ == "__main__":
     execute_sentiment_engine()
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
-
-print("Initializing FinBERT...")
-FINBERT_MODEL = "ProsusAI/finbert"
-tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
-model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
-
-IST = timezone(timedelta(hours=5, minutes=30))
-NOW_IST = datetime.now(IST)
