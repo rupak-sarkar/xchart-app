@@ -53,6 +53,7 @@ WEIGHTS_NO_NEWS = {"technical": 0.70, "macro": 0.30}
 print(f"Weights (news):    Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
 print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%}")
 
+
 # ═══════════════════════════════════════════════════════════════
 # SECTOR MAPS + RULES
 # ═══════════════════════════════════════════════════════════════
@@ -82,6 +83,7 @@ SECTOR_RULES = {
     "Energy": {"base_offset": 0, "nifty_sensitivity": 0.8, "description": "Energy: crude linked"},
     "Specialty": {"base_offset": 0, "nifty_sensitivity": 1.0, "description": "Specialty: mixed drivers"},
 }
+
 
 # ═══════════════════════════════════════════════════════════════
 # NEWS CONFIG
@@ -140,6 +142,7 @@ ALL_FEEDS = {
     "bl_stocks": "https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss",
     "bl_companies": "https://www.thehindubusinessline.com/companies/feeder/default.rss"
 }
+
 
 # ═══════════════════════════════════════════════════════════════
 # KEYWORD SETS
@@ -489,7 +492,6 @@ def compute_aggregated_score(entries):
 
 
 def get_live_price_return(tk):
-    """Try NSE first, fallback to BSE for numeric tickers"""
     clean = tk.replace('.NS', '').replace('.BO', '').strip()
     if clean.isdigit():
         symbols = [f"{clean}.BO", f"{clean}.NS"]
@@ -827,7 +829,6 @@ def get_sector_from_stock_data(ticker, stock_df):
 
 
 def get_technical_score(ticker, stock_df, debug=False):
-    """Score technical position - v3.7: MACD + ADX + SuperTrend + EMA"""
     if stock_df is None or stock_df.empty:
         return {"score": 0, "signals": []}
     tk_data = stock_df[stock_df['Ticker'] == ticker]
@@ -893,7 +894,7 @@ def get_technical_score(ticker, stock_df, debug=False):
         ind = get_sector_from_stock_data(ticker, stock_df)
         print(f"    DEBUG {ticker}: RSI={rsi}, Close={val('Close')}, SMA22={val('SMA_22')}, BB={val_scan('BB_Flag', 3)}, MACD={macd_line}/{macd_signal}, ADX={adx}, ST={st_dir}, EMA={ema9}/{ema21}, Ind={ind}")
 
-    # RSI (+-30)
+    # RSI
     if rsi is not None:
         if rsi > 75:
             score -= 30
@@ -908,7 +909,7 @@ def get_technical_score(ticker, stock_df, debug=False):
             score += 15
             signals.append(f"RSI depressed({rsi:.0f})")
 
-    # Bollinger Bands (+-20)
+    # Bollinger Bands
     bb = val_scan(['BB_Flag', 'bb_flag'], rows=3)
     if bb is not None:
         bb = str(bb).strip().upper()
@@ -919,7 +920,7 @@ def get_technical_score(ticker, stock_df, debug=False):
             score += 20
             signals.append("BB lower band")
 
-    # SMA Position (+-42 max)
+    # SMA Position
     close = fv(['Close', 'close'])
     if close is not None:
         sma22 = fv(['SMA_22', 'sma_22'])
@@ -942,7 +943,7 @@ def get_technical_score(ticker, stock_df, debug=False):
             else:
                 score += 10
 
-    # MACD Crossover (+-15) + Histogram (+-5)
+    # MACD
     if macd_line is not None and macd_signal is not None:
         if macd_line > macd_signal:
             score += 15
@@ -956,7 +957,7 @@ def get_technical_score(ticker, stock_df, debug=False):
         else:
             score -= 5
 
-    # EMA Crossover 9/21 (+-12)
+    # EMA Crossover
     if ema9 is not None and ema21 is not None:
         if ema9 > ema21:
             score += 12
@@ -965,7 +966,7 @@ def get_technical_score(ticker, stock_df, debug=False):
             score -= 12
             signals.append("EMA death")
 
-    # SuperTrend Direction (+-10)
+    # SuperTrend
     if st_dir is not None:
         try:
             st = int(float(st_dir))
@@ -978,7 +979,7 @@ def get_technical_score(ticker, stock_df, debug=False):
         except:
             pass
 
-    # ADX Trend Filter - reduces counter-trend conviction
+    # ADX Trend Filter
     if adx is not None and adx > 25 and st_dir is not None:
         try:
             st = int(float(st_dir))
@@ -993,7 +994,7 @@ def get_technical_score(ticker, stock_df, debug=False):
         except:
             pass
 
-    # Knoxville Divergence (+-15)
+    # Knoxville Divergence
     knox = val_scan(['Knoxville_Divergence', 'Knoxville'], rows=5)
     if knox is not None:
         ks = str(knox).strip().lower()
@@ -1004,7 +1005,7 @@ def get_technical_score(ticker, stock_df, debug=False):
             score += 15
             signals.append("Knox bullish")
 
-    # FII/DII Momentum (+15)
+    # FII/DII Momentum
     up = val_scan(['up_true', 'Up_True'], rows=3)
     if up is not None:
         try:
@@ -1134,7 +1135,6 @@ def get_macro_scores(sectors, nifty_change):
     broad_list = sorted(broad_set)
     print(f"  -> {len(unique_sectors)} sub-industries -> {len(broad_list)} broad sectors")
 
-    # Tier 1: Cache
     cached = load_macro_cache()
     if cached:
         broad_scores = {}
@@ -1147,7 +1147,6 @@ def get_macro_scores(sectors, nifty_change):
             print(f"    {sector} ({count}): {data['score']:+d} ({data['context']}) [cached]")
         return macro_cache
 
-    # Tier 2: Gemini
     broad_scores = {}
     gemini_success = False
     if GEMINI_API_KEY:
@@ -1188,7 +1187,6 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
                 print(f"  -> Gemini scored {scored}/{len(broad_list)} broad sectors")
                 save_macro_cache(broad_scores)
 
-    # Tier 3: Smart rule-based
     if not gemini_success:
         print(f"  -> Smart rule-based scoring (sector-aware fallback)")
         broad_scores = smart_rule_based_macro(broad_list, nifty_change)
@@ -1205,7 +1203,7 @@ Return ONLY valid JSON: {{"SectorName": {{"score": <int>, "ctx": "<6 words>"}}, 
 
 
 # ═══════════════════════════════════════════════════════════════
-# COMPOSITE SCORING
+# COMPOSITE SCORING (with conflict dampening)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
@@ -1220,16 +1218,14 @@ def compute_composite_news(sentiment, technical, macro, fundamental):
     else:
         ew = dict(w)
 
-    # ── Conflict dampening: when sentiment and technical strongly disagree ──
+    # Conflict dampening: when sentiment and technical strongly disagree
     if sentiment != 0 and technical != 0:
         sent_dir = 1 if sentiment > 0 else -1
         tech_dir = 1 if technical > 0 else -1
         if sent_dir != tech_dir:
-            # They disagree — check severity of conflict
             conflict = abs(sentiment) + abs(technical)
             if conflict > 80:
-                # Strong conflict: reduce sentiment weight, boost technical
-                dampen = 0.6  # reduce sentiment influence by 40%
+                dampen = 0.6
                 ew["sentiment"] = w["sentiment"] * dampen
                 ew["technical"] = w["technical"] + w["sentiment"] * (1 - dampen)
 
@@ -1250,6 +1246,104 @@ def compute_composite_no_news(technical, macro):
     comp = round((technical * w["technical"]) + (cm * w["macro"]), 1)
     direction = 1 if comp > 15 else (-1 if comp < -15 else 0)
     return {"score": comp, "direction": direction}
+
+
+# ═══════════════════════════════════════════════════════════════
+# NEXT-DAY PREDICTION ACCURACY
+# ═══════════════════════════════════════════════════════════════
+
+def compute_next_day_accuracy(hdf, today_rows):
+    if hdf.empty or 'Date' not in hdf.columns:
+        return
+
+    dates = sorted(hdf['Date'].unique())
+    if len(dates) < 1:
+        return
+
+    prev_date = dates[-1]
+    prev_signals = hdf[hdf['Date'] == prev_date]
+    if prev_signals.empty:
+        return
+
+    today_map = {}
+    for row in today_rows:
+        today_map[row["Ticker"]] = row
+
+    nd_overall_hit = 0
+    nd_overall_total = 0
+    nd_dir_hit = 0
+    nd_dir_total = 0
+    nd_sent_dir_hit = 0
+    nd_sent_dir_total = 0
+
+    details = []
+
+    for _, ps in prev_signals.iterrows():
+        tk = ps['Ticker']
+        if tk not in today_map:
+            continue
+
+        today_row = today_map[tk]
+        today_ad = today_row.get("Actual_Direction", 0)
+        today_ret = today_row.get("Actual_Return_Pct", 0.0)
+
+        # Yesterday's composite direction
+        prev_cd = int(ps.get('Composite_Direction', ps.get('Forecast_Direction', 0)))
+        # Yesterday's sentiment direction
+        prev_fd = int(ps.get('Forecast_Direction', 0))
+
+        nd_overall_total += 1
+        if prev_cd == today_ad:
+            nd_overall_hit += 1
+
+        # Directional (non-neutral composite calls only)
+        if prev_cd != 0:
+            nd_dir_total += 1
+            if prev_cd == today_ad:
+                nd_dir_hit += 1
+                details.append(f"    HIT  {tk:<14s} yesterday={'+' if prev_cd==1 else '-'} today={today_ret:+.2f}%")
+            else:
+                details.append(f"    MISS {tk:<14s} yesterday={'+' if prev_cd==1 else '-'} today={today_ret:+.2f}%")
+
+        # Sentiment directional
+        if prev_fd != 0:
+            nd_sent_dir_total += 1
+            if prev_fd == today_ad:
+                nd_sent_dir_hit += 1
+
+    if nd_overall_total == 0:
+        return
+
+    print(f"\n{'='*110}")
+    print(f"NEXT-DAY PREDICTION (yesterday's signals vs today's actuals)")
+    print(f"  Yesterday: {prev_date} | Today: {TODAY_IST}")
+    print(f"  Matched tickers: {nd_overall_total}")
+    print(f"-" * 110)
+
+    if nd_dir_total > 0:
+        nd_dir_pct = (nd_dir_hit / nd_dir_total) * 100
+        print(f"  COMPOSITE Directional: {nd_dir_hit}/{nd_dir_total} = {nd_dir_pct:.1f}%")
+    else:
+        print(f"  COMPOSITE Directional: no non-neutral calls yesterday")
+
+    if nd_sent_dir_total > 0:
+        nd_sent_pct = (nd_sent_dir_hit / nd_sent_dir_total) * 100
+        print(f"  SENTIMENT Directional: {nd_sent_dir_hit}/{nd_sent_dir_total} = {nd_sent_pct:.1f}%")
+
+    nd_overall_pct = (nd_overall_hit / nd_overall_total) * 100
+    print(f"  Overall (incl neutral): {nd_overall_hit}/{nd_overall_total} = {nd_overall_pct:.1f}%")
+
+    if nd_dir_total > 0 and nd_sent_dir_total > 0:
+        delta = nd_dir_pct - nd_sent_pct
+        print(f"  Improvement: {delta:+.1f}% (composite vs sentiment)")
+
+    if details:
+        print(f"\n  Details (directional calls):")
+        for d in details:
+            print(d)
+
+    print(f"\n  ^ THIS is the true predictive accuracy (not same-day)")
+    print(f"{'='*110}")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1463,6 +1557,7 @@ def execute_sentiment_engine():
     pd.DataFrame(all_rows).to_csv(DATA_FILE, index=False)
     save_to_history(scored)
 
+    # SAME-DAY STATS
     sc = len(scored)
     fc = len(filing)
     nc2 = len(nonews)
@@ -1485,26 +1580,26 @@ def execute_sentiment_engine():
     print(f"TICKERS: {sc} news-scored | {fc} filing | {nc2} no-news | {total_scored} total with signals")
     print(f"SECTORS: {len(all_sectors)} unique | {sector_count} mapped | {unmapped} unmapped | Macro varied: {'YES' if macro_varied else 'NO (uniform)'}")
     print(f"TECH: RSI+BB+SMA+MACD+EMA+SuperTrend+ADX+Knox+FII/DII")
-    print(f"WEIGHTS: News-> Sent={WEIGHTS_NEWS['sentiment']:.0%} Tech={WEIGHTS_NEWS['technical']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
-    print(f"         No-News-> Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} (clamped +-15)")
+    print(f"WEIGHTS: News-> Sent=45% Tech=35% Macro=15% Fund=5%")
+    print(f"         No-News-> Tech=70% Macro=30% (clamped +-15)")
     print()
-    print(f"SENTIMENT-ONLY ({sc} with news):")
-    print(f"  Overall:     {ha}/{sc} = {hra:.1f}%  |  Directional: {hd}/{td2} = {hrd:.1f}%")
-    print(f"  Signals: Bull:{bull} Bear:{bear} Neutral:{neut}")
-    print()
-    print(f"COMPOSITE ({sc} with news):")
-    print(f"  Overall:     {cha}/{sc} = {chra:.1f}%  |  Directional: {chd}/{ctd} = {chrd:.1f}%")
-    print(f"  Signals: Bull:{comp_bull} Bear:{comp_bear} | Corrected: {corrected_count}")
+    print(f"SAME-DAY ACCURACY (signal vs today's return):")
+    print(f"  SENTIMENT:  Overall {ha}/{sc} = {hra:.1f}% | Directional {hd}/{td2} = {hrd:.1f}%")
+    print(f"  COMPOSITE:  Overall {cha}/{sc} = {chra:.1f}% | Directional {chd}/{ctd} = {chrd:.1f}%")
+    print(f"  Signals: Sent Bull:{bull} Bear:{bear} Neut:{neut} | Comp Bull:{comp_bull} Bear:{comp_bear} | Corrected: {corrected_count}")
     print()
     print(f"TECH-ONLY ({t_total} without news):")
     if t_total > 0:
-        print(f"  Hit rate:    {t_hit}/{t_total} = {(t_hit / t_total) * 100:.1f}%")
+        print(f"  Hit rate: {t_hit}/{t_total} = {(t_hit / t_total) * 100:.1f}%")
     else:
         print("  No data")
     print(f"  Signals: Bull:{t_bull} Bear:{t_bear} Neutral:{t_neut}")
     delta_d = chrd - hrd
-    print(f"\nIMPROVEMENT: Directional {delta_d:+.1f}% ({hrd:.1f}% -> {chrd:.1f}%)")
+    print(f"\nSAME-DAY IMPROVEMENT: {delta_d:+.1f}% ({hrd:.1f}% -> {chrd:.1f}%)")
     print("=" * 110)
+
+    # NEXT-DAY PREDICTION ACCURACY
+    compute_next_day_accuracy(hdf, all_rows)
 
 
 if __name__ == "__main__":
