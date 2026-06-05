@@ -44,11 +44,6 @@ WEIGHTS_NO_NEWS = {"technical": 0.75, "macro": 0.15, "fundamental": 0.10}
 print(f"Weights (news):    Tech={WEIGHTS_NEWS['technical']:.0%} Sent={WEIGHTS_NEWS['sentiment']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
 print(f"Weights (no-news): Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} Fund={WEIGHTS_NO_NEWS['fundamental']:.0%}")
 
-
-# ═══════════════════════════════════════════════════════════════
-# SECTOR MAPS
-# ═══════════════════════════════════════════════════════════════
-
 SECTOR_MAP = {
     "Technology": ["Software - Application", "Software - Infrastructure", "Information Technology Services", "Communication Equipment", "Consumer Electronics"],
     "Healthcare": ["Drug Manufacturers - Specialty & Generic", "Drug Manufacturers - General", "Biotechnology", "Medical Care Facilities"],
@@ -115,11 +110,6 @@ ALL_FEEDS = {
     "bl_stocks": "https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss",
     "bl_companies": "https://www.thehindubusinessline.com/companies/feeder/default.rss"
 }
-
-
-# ═══════════════════════════════════════════════════════════════
-# KEYWORD SETS
-# ═══════════════════════════════════════════════════════════════
 
 NSE_NOISE_KEYWORDS = [
     "board meeting intimation", "intimation of board meeting", "outcome of board meeting",
@@ -287,50 +277,34 @@ NOISE_HEADLINE_PATTERNS = [
 
 BAD_STRINGS = ('nan', 'none', 'n/a', 'null', '')
 
-
 def is_bad_str(s):
-    if not s:
-        return True
+    if not s: return True
     return str(s).strip().lower() in BAD_STRINGS
-
 
 def safe_int(val, default=0):
     try:
-        if val is None:
-            return default
-        if isinstance(val, float) and pd.isna(val):
-            return default
+        if val is None: return default
+        if isinstance(val, float) and pd.isna(val): return default
         return int(float(val))
-    except (ValueError, TypeError):
-        return default
-
+    except (ValueError, TypeError): return default
 
 def safe_float(val, default=None):
     try:
-        if val is None:
-            return default
-        if isinstance(val, float) and pd.isna(val):
-            return default
+        if val is None: return default
+        if isinstance(val, float) and pd.isna(val): return default
         return float(val)
-    except (ValueError, TypeError):
-        return default
-
+    except (ValueError, TypeError): return default
 
 def is_material_catalyst(headline):
-    if not headline:
-        return False
+    if not headline: return False
     text = headline.lower()
     for noise in NOISE_HEADLINE_PATTERNS:
-        if noise in text:
-            return False
+        if noise in text: return False
     for catalyst in MATERIAL_CATALYST_KEYWORDS:
-        if catalyst in text:
-            return True
-    if bool(re.search(r'(?:rs\.?|inr|₹)\s*[\d,]+\s*(?:crore|cr|million|mn|billion|bn|lakh)', text)):
-        return True
+        if catalyst in text: return True
+    if bool(re.search(r'(?:rs\.?|inr|₹)\s*[\d,]+\s*(?:crore|cr|million|mn|billion|bn|lakh)', text)): return True
     words = set(re.findall(r'[a-z]+', text))
-    if bool(words & CATALYST_VERBS) and bool(re.search(r'\d+', text)):
-        return True
+    if bool(words & CATALYST_VERBS) and bool(re.search(r'\d+', text)): return True
     return False
 
 
@@ -339,17 +313,14 @@ def is_material_catalyst(headline):
 # ═══════════════════════════════════════════════════════════════
 
 def classify_headline(headline, actual_return=None):
-    text = headline.lower()
-    words = set(re.findall(r'[a-z]+', text))
+    text = headline.lower(); words = set(re.findall(r'[a-z]+', text))
     pct_matches = re.findall(r'(\d+\.?\d*)\s*%', text)
     if pct_matches and actual_return is not None:
         for ps in pct_matches:
             try:
-                if abs(float(ps) - abs(actual_return)) < 3.0:
-                    return "reporting", "% match"
+                if abs(float(ps) - abs(actual_return)) < 3.0: return "reporting", "% match"
             except: pass
-    has_rv = bool(words & REPORTING_VERBS)
-    has_pc = bool(words & PRICE_CONTEXT)
+    has_rv = bool(words & REPORTING_VERBS); has_pc = bool(words & PRICE_CONTEXT)
     has_pct = bool(re.search(r'\d+\.?\d*\s*%', text))
     if has_rv and has_pc and has_pct: return "reporting", "verb+context+%"
     if has_rv and has_pc: return "reporting", "verb+context"
@@ -360,7 +331,6 @@ def classify_headline(headline, actual_return=None):
         if kw in text: return "predictive", "actionable"
     return "predictive", "default"
 
-
 def classify_nse_headline(hl):
     t = hl.lower()
     for kw in NSE_ACTIONABLE_KEYWORDS:
@@ -368,7 +338,6 @@ def classify_nse_headline(hl):
     for kw in NSE_NOISE_KEYWORDS:
         if kw in t: return "noise"
     return "noise"
-
 
 def classify_severity(s):
     if s >= 60: return "Very Bullish"
@@ -379,7 +348,6 @@ def classify_severity(s):
     elif s >= -60: return "Bearish"
     else: return "Very Bearish"
 
-
 def classify_impact(entries):
     c = " ".join(e["headline"] for e in entries).lower()
     s = sum(1 for kw in SHORT_TERM_KEYWORDS if kw in c)
@@ -388,7 +356,6 @@ def classify_impact(entries):
     elif l > 0: return "Long-term"
     elif s > 0: return "Short-term"
     return "Short-term"
-
 
 def classify_composite_severity(s):
     if s >= 40: return "Strong Buy"
@@ -401,7 +368,7 @@ def classify_composite_severity(s):
 
 
 # ═══════════════════════════════════════════════════════════════
-# NEWS UTILITY FUNCTIONS
+# NEWS UTILITY
 # ═══════════════════════════════════════════════════════════════
 
 def extract_pub_datetime_full(entry):
@@ -425,8 +392,7 @@ def get_source_search_url(sl, tk):
 
 def fetch_rss_with_headers(url, label, timeout=15):
     try:
-        r = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout)
-        r.raise_for_status()
+        r = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout); r.raise_for_status()
         return feedparser.parse(r.content)
     except requests.exceptions.RequestException as e:
         print(f"   {label}: {e}")
@@ -448,8 +414,7 @@ def match_ticker_in_text(tu, tl):
 def load_tickers():
     if os.path.exists(TICKERS_FILE):
         try:
-            df = pd.read_csv(TICKERS_FILE)
-            df.columns = df.columns.str.strip()
+            df = pd.read_csv(TICKERS_FILE); df.columns = df.columns.str.strip()
             if 'Ticker' not in df.columns:
                 first_col = df.columns[0]
                 df.rename(columns={first_col: 'Ticker'}, inplace=True)
@@ -470,7 +435,7 @@ def load_tickers():
 
 
 # ═══════════════════════════════════════════════════════════════
-# FINBERT SCORING (Catalyst-Only)
+# FINBERT (Catalyst-Only)
 # ═══════════════════════════════════════════════════════════════
 
 def score_single_headline(hl):
@@ -485,16 +450,13 @@ def score_single_headline(hl):
 def compute_aggregated_score(entries):
     if not entries: return 0.0, 0, 0, 0
     catalyst_entries = [e for e in entries if is_material_catalyst(e["headline"])]
-    noise_count = len(entries) - len(catalyst_entries)
-    catalyst_count = len(catalyst_entries)
+    noise_count = len(entries) - len(catalyst_entries); catalyst_count = len(catalyst_entries)
     if not catalyst_entries: return 0.0, 0, catalyst_count, noise_count
     tw = 0.0; ws = 0.0
     for e in catalyst_entries:
-        r = score_single_headline(e["headline"])
-        w = e.get("weight", 1.0); ws += r * w; tw += w
+        r = score_single_headline(e["headline"]); w = e.get("weight", 1.0); ws += r * w; tw += w
     if tw == 0: return 0.0, 0, catalyst_count, noise_count
-    s = ws / tw
-    direction = 1 if s > 5 else (-1 if s < -5 else 0)
+    s = ws / tw; direction = 1 if s > 5 else (-1 if s < -5 else 0)
     return round(s, 1), direction, catalyst_count, noise_count
 
 def get_live_price_return(tk):
@@ -509,7 +471,7 @@ def get_live_price_return(tk):
 
 
 # ═══════════════════════════════════════════════════════════════
-# NEWS CACHE BUILDING
+# NEWS CACHE
 # ═══════════════════════════════════════════════════════════════
 
 def build_news_cache(tl):
@@ -607,8 +569,7 @@ def load_history():
     try:
         df = pd.read_csv(HISTORY_FILE)
         if 'Date' in df.columns:
-            dates = sorted(df['Date'].unique(), reverse=True)[:30]
-            df = df[df['Date'].isin(dates)]
+            dates = sorted(df['Date'].unique(), reverse=True)[:30]; df = df[df['Date'].isin(dates)]
         return df
     except FileNotFoundError: return pd.DataFrame()
 
@@ -646,7 +607,7 @@ def save_to_history(rows):
 
 
 # ═══════════════════════════════════════════════════════════════
-# STOCK DATA LOADING
+# STOCK DATA
 # ═══════════════════════════════════════════════════════════════
 
 def load_stock_data_for_scoring():
@@ -657,7 +618,6 @@ def load_stock_data_for_scoring():
                 df['Ticker'] = df['Ticker'].astype(str).str.replace('.NS', '', regex=False).str.strip().str.upper()
                 if 'Date' in df.columns: df = df.sort_values(['Ticker', 'Date'])
                 print(f"  -> Loaded stock_data.csv: {df['Ticker'].nunique()} tickers, {len(df)} rows")
-                print(f"  -> Columns: {', '.join(df.columns[:20])}...")
                 key_cols = ['RSI_14', 'BB_Flag', 'SMA_9', 'SMA_22', 'SMA_50', 'SMA_52', 'SMA_200', 'Knoxville_Divergence', 'up_true', 'Close', 'High', 'Low', 'Market_Cap', 'Industry', 'MACD_Line', 'MACD_Signal', 'ADX_14', 'ST_Direction', 'EMA_9', 'EMA_21', 'OBV']
                 found = [c for c in key_cols if c in df.columns]
                 print(f"  -> Found: {len(found)}/{len(key_cols)} key columns")
@@ -683,11 +643,24 @@ def detect_mcap_scale(stock_df):
     if mcap_max > 1e9: return 1e11
     return 10000
 
+def get_latest_valid_rows(stock_df):
+    """Get latest row per ticker where Close AND SMA_22 are both valid"""
+    if stock_df is None or stock_df.empty: return pd.DataFrame()
+    sdf = stock_df.sort_values(['Ticker', 'Date']) if 'Date' in stock_df.columns else stock_df
+    results = []
+    for ticker in sdf['Ticker'].unique():
+        tk = sdf[sdf['Ticker'] == ticker]
+        valid = tk[tk['Close'].notna()]
+        if 'SMA_22' in tk.columns:
+            v2 = valid[valid['SMA_22'].notna()]
+            if not v2.empty: results.append(v2.iloc[-1]); continue
+        if not valid.empty: results.append(valid.iloc[-1])
+    if results: return pd.DataFrame(results).reset_index(drop=True)
+    return pd.DataFrame()
+
 
 # ═══════════════════════════════════════════════════════════════
-# v5.0: STRATEGY-BASED TECHNICAL SCORING
-# Large Cap (>10kCr): Mean Reversion via SMA Hierarchy
-# Small/Mid Cap: Momentum + Breakout + Support/Resistance
+# v5.0.1: STRATEGY-BASED TECHNICAL SCORING (ADX-aware)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_tech_score_v5(valid_df, mcap_threshold):
@@ -717,28 +690,19 @@ def compute_tech_score_v5(valid_df, mcap_threshold):
 
     close = fv(['Close'])
     if close is None: return 0, []
-    sma9 = fv(['SMA_9'])
-    sma22 = fv(['SMA_22'])
-    sma52 = fv(['SMA_52', 'SMA_50'])
-    sma200 = fv(['SMA_200'])
-    rsi = fv(['RSI_14', 'RSI'])
-    adx = fv(['ADX_14'])
-    st_dir = fv(['ST_Direction'])
-    macd_line = fv(['MACD_Line'])
-    macd_signal = fv(['MACD_Signal'])
-    macd_hist = fv(['MACD_Hist'])
-    ema9 = fv(['EMA_9'])
-    ema21 = fv(['EMA_21'])
-    mcap = fv(['Market_Cap'])
+    sma9 = fv(['SMA_9']); sma22 = fv(['SMA_22']); sma52 = fv(['SMA_52', 'SMA_50']); sma200 = fv(['SMA_200'])
+    rsi = fv(['RSI_14', 'RSI']); adx = fv(['ADX_14']); st_dir = fv(['ST_Direction'])
+    macd_line = fv(['MACD_Line']); macd_signal = fv(['MACD_Signal']); macd_hist = fv(['MACD_Hist'])
+    ema9 = fv(['EMA_9']); ema21 = fv(['EMA_21']); mcap = fv(['Market_Cap'])
     is_large = mcap is not None and mcap > mcap_threshold
     tag = "LC" if is_large else "SMC"
+    is_trending = adx is not None and adx > 25
 
-    # ══ SUPPORT / RESISTANCE (20-day High/Low) ══
+    # ── SUPPORT / RESISTANCE (20-day) ──
     support = None; resistance = None
     if 'Low' in valid_df.columns and 'High' in valid_df.columns:
         recent = valid_df.tail(20)
-        lows = recent['Low'].dropna()
-        highs = recent['High'].dropna()
+        lows = recent['Low'].dropna(); highs = recent['High'].dropna()
         if len(lows) > 0: support = lows.min()
         if len(highs) > 0: resistance = highs.max()
     near_support = support is not None and close <= support * 1.02
@@ -746,58 +710,58 @@ def compute_tech_score_v5(valid_df, mcap_threshold):
     at_breakout = resistance is not None and close > resistance
     at_breakdown = support is not None and close < support
 
-    # ══════════════════════════════════════════════
-    # TIER 1: SMA HIERARCHY (Structural)
-    # ══════════════════════════════════════════════
+    # ═══ TIER 1: SMA HIERARCHY ═══
     has_all = all(v is not None for v in [sma9, sma22, sma52, sma200])
     has_short = all(v is not None for v in [sma9, sma22])
 
     if is_large and has_all:
-        # LARGE CAP: MEAN REVERSION
-        # Bullish: Price < SMA9 < SMA22 < SMA52 < SMA200 (deeply oversold blue chip)
+        # LARGE CAP
         if close < sma9 < sma22 < sma52 < sma200:
-            score += 40; signals.append(f"{tag} SMA FULL bullish (mean reversion)")
+            if is_trending:
+                score += 25; signals.append(f"{tag} FULL oversold (trending down, cautious)")
+            else:
+                score += 40; signals.append(f"{tag} FULL oversold (mean reversion BUY)")
         elif close < sma9 < sma22 < sma52:
-            score += 25; signals.append(f"{tag} SMA 4-level bullish")
+            score += 20; signals.append(f"{tag} 4-level oversold")
         elif close < sma9 < sma22:
-            score += 15; signals.append(f"{tag} SMA 3-level bullish")
-        # Bearish: Price > SMA9 > SMA22 > SMA52 > SMA200 (overextended)
+            score += 12; signals.append(f"{tag} short-term oversold")
         elif close > sma9 > sma22 > sma52 > sma200:
-            score -= 40; signals.append(f"{tag} SMA FULL bearish (overextended)")
+            if is_trending:
+                score += 15; signals.append(f"{tag} FULL uptrend (ADX={adx:.0f})")
+            else:
+                score -= 25; signals.append(f"{tag} overextended (weak ADX)")
         elif close > sma9 > sma22 > sma52:
-            score -= 25; signals.append(f"{tag} SMA 4-level bearish")
+            if is_trending: score += 10; signals.append(f"{tag} 4-level uptrend")
+            else: score -= 15; signals.append(f"{tag} 4-level stretched")
         elif close > sma9 > sma22:
-            score -= 15; signals.append(f"{tag} SMA 3-level bearish")
+            score += 8; signals.append(f"{tag} short uptrend")
         else:
-            # Mixed - positional scoring
             if close < sma22: score -= 8; signals.append("Below SMA22")
             else: score += 5
-            if close < sma200: score -= 12; signals.append("Below SMA200")
-            elif close > sma200: score += 5
+            if close < sma200: score -= 15; signals.append("Below SMA200")
+            elif close > sma200: score += 8
 
     elif not is_large and has_short:
-        # SMALL/MID CAP: MOMENTUM + BREAKOUT
+        # SMALL/MID CAP
         if close > sma9 > sma22:
             score += 15; signals.append(f"{tag} uptrend")
             if sma52 is not None and sma22 > sma52: score += 10; signals.append("Medium trend confirmed")
         elif close < sma9 < sma22:
             score -= 15; signals.append(f"{tag} downtrend")
             if sma52 is not None and sma22 < sma52: score -= 10; signals.append("Medium trend confirms down")
-        elif close > sma22 and sma9 <= sma22:
+        elif close > sma22 and sma9 is not None and sma9 <= sma22:
             score += 20; signals.append(f"{tag} breakout above SMA22")
-        elif close < sma22 and sma9 >= sma22:
+        elif close < sma22 and sma9 is not None and sma9 >= sma22:
             score -= 20; signals.append(f"{tag} breakdown below SMA22")
         else:
             if close < sma22: score -= 8
             else: score += 5
 
-        # S/R for small caps
-        if at_breakout: score += 20; signals.append(f"Breakout above R={resistance:.0f}")
-        elif at_breakdown: score -= 20; signals.append(f"Breakdown below S={support:.0f}")
+        if at_breakout: score += 20; signals.append(f"Breakout R={resistance:.0f}")
+        elif at_breakdown: score -= 20; signals.append(f"Breakdown S={support:.0f}")
         elif near_support: score += 12; signals.append(f"Near support S={support:.0f}")
-        elif near_resistance: score -= 12; signals.append(f"Near resistance R={resistance:.0f}")
+        elif near_resistance: score -= 8; signals.append(f"Near resistance R={resistance:.0f}")
     else:
-        # Fallback
         if sma22 is not None:
             if close < sma22: score -= 10
             else: score += 5
@@ -805,11 +769,7 @@ def compute_tech_score_v5(valid_df, mcap_threshold):
             if close < sma200: score -= 12
             else: score += 5
 
-    # ══════════════════════════════════════════════
-    # TIER 2: CONFIRMATION SIGNALS
-    # ══════════════════════════════════════════════
-
-    # Bollinger Band (context-aware with S/R)
+    # ═══ TIER 2: CONFIRMATION ═══
     bb = sv(['BB_Flag'])
     if bb is not None:
         bbs = bb.strip().upper()
@@ -832,58 +792,40 @@ def compute_tech_score_v5(valid_df, mcap_threshold):
             else:
                 score -= 20; signals.append("BBH bearish reversal")
 
-    # Knoxville Divergence (context-aware with S/R)
     knox = sv(['Knoxville_Divergence'])
     if knox is not None:
         ks = knox.lower()
         if 'bullish' in ks:
-            if near_support:
-                score += 35; signals.append("Knox bullish at support STRONG")
-            elif rsi is not None and rsi < 40:
-                score += 25; signals.append(f"Knox bullish+RSI({rsi:.0f})")
-            else:
-                score += 15; signals.append("Knox bullish divergence")
+            if near_support: score += 35; signals.append("Knox bullish at support STRONG")
+            elif rsi is not None and rsi < 40: score += 25; signals.append(f"Knox bullish+RSI({rsi:.0f})")
+            else: score += 15; signals.append("Knox bullish divergence")
         elif 'bearish' in ks:
-            if near_resistance:
-                score -= 35; signals.append("Knox bearish at resistance STRONG")
-            elif rsi is not None and rsi > 60:
-                score -= 25; signals.append(f"Knox bearish+RSI({rsi:.0f})")
-            else:
-                score -= 15; signals.append("Knox bearish divergence")
+            if near_resistance: score -= 35; signals.append("Knox bearish at resistance STRONG")
+            elif rsi is not None and rsi > 60: score -= 25; signals.append(f"Knox bearish+RSI({rsi:.0f})")
+            else: score -= 15; signals.append("Knox bearish divergence")
 
-    # UP20 Reconsolidation (7-day lookback)
+    # UP20 Reconsolidation
     if 'up_true' in valid_df.columns and len(valid_df) >= 7:
         recent_7 = valid_df.tail(7)
-        try:
-            up_mask = recent_7['up_true'].apply(lambda x: safe_int(x) == 1)
-            up_rows = recent_7[up_mask]
-        except:
-            up_rows = pd.DataFrame()
+        try: up_mask = recent_7['up_true'].apply(lambda x: safe_int(x) == 1); up_rows = recent_7[up_mask]
+        except: up_rows = pd.DataFrame()
         latest_up = safe_int(last.get('up_true', 0)) == 1
         if len(up_rows) > 0 and not latest_up and 'Low' in up_rows.columns:
             up_low = up_rows['Low'].dropna().min()
             if up_low is not None and pd.notna(up_low):
-                if close <= up_low * 1.02:
-                    score += 30; signals.append(f"UP20 reconsolidation at {up_low:.0f}")
-                elif close <= up_low * 1.05:
-                    score += 15; signals.append("UP20 pullback near accumulation")
+                if close <= up_low * 1.02: score += 30; signals.append(f"UP20 reconsolidation at {up_low:.0f}")
+                elif close <= up_low * 1.05: score += 15; signals.append("UP20 pullback near accumulation")
 
-    # ══════════════════════════════════════════════
-    # TIER 3: SUPPORTING INDICATORS
-    # ══════════════════════════════════════════════
-
-    # MACD
+    # ═══ TIER 3: SUPPORTING ═══
     if macd_line is not None and macd_signal is not None:
         if macd_line > macd_signal: score += 12; signals.append("MACD bullish")
         else: score -= 12; signals.append("MACD bearish")
     if macd_hist is not None: score += 3 if macd_hist > 0 else -3
 
-    # EMA crossover
     if ema9 is not None and ema21 is not None:
         if ema9 > ema21: score += 10; signals.append("EMA golden")
         else: score -= 10; signals.append("EMA death")
 
-    # SuperTrend
     if st_dir is not None:
         try:
             st = int(float(st_dir))
@@ -891,7 +833,6 @@ def compute_tech_score_v5(valid_df, mcap_threshold):
             elif st == -1: score -= 8; signals.append("ST down")
         except: pass
 
-    # 5-day Momentum
     if len(valid_df) >= 6:
         try:
             pc = valid_df.iloc[-6].get('Close')
@@ -903,22 +844,21 @@ def compute_tech_score_v5(valid_df, mcap_threshold):
                 elif mom < -2: score -= 8; signals.append(f"Mom5d {mom:.1f}%")
         except: pass
 
-    # RSI standalone (only if not already in BB/Knox context)
     rsi_used = any('RSI' in s for s in signals)
     if rsi is not None and not rsi_used:
-        if rsi > 80: score -= 15; signals.append(f"RSI extreme OB({rsi:.0f})")
-        elif rsi > 70: score -= 8; signals.append(f"RSI OB({rsi:.0f})")
-        elif rsi < 20: score += 15; signals.append(f"RSI extreme OS({rsi:.0f})")
-        elif rsi < 30: score += 8; signals.append(f"RSI OS({rsi:.0f})")
+        if rsi > 80: score -= 12; signals.append(f"RSI extreme OB({rsi:.0f})")
+        elif rsi > 70: score -= 6; signals.append(f"RSI OB({rsi:.0f})")
+        elif rsi < 20: score += 12; signals.append(f"RSI extreme OS({rsi:.0f})")
+        elif rsi < 30: score += 6; signals.append(f"RSI OS({rsi:.0f})")
 
-    # ══ TIER 4: ADX MODIFIER ══
+    # ═══ TIER 4: ADX MODIFIER ═══
     if adx is not None and adx > 25 and st_dir is not None:
         try:
             st = int(float(st_dir))
             if st == 1 and score < 0:
-                adj = min(15, int(abs(score) * 0.2)); score += adj
+                adj = min(15, int(abs(score) * 0.25)); score += adj; signals.append(f"ADX({adx:.0f}) trend +{adj}")
             elif st == -1 and score > 0:
-                adj = min(15, int(abs(score) * 0.2)); score -= adj
+                adj = min(15, int(abs(score) * 0.25)); score -= adj; signals.append(f"ADX({adx:.0f}) trend -{adj}")
         except: pass
 
     return max(-100, min(100, score)), signals
@@ -933,17 +873,11 @@ def get_technical_score(ticker, stock_df, mcap_threshold, debug=False):
     if valid.empty: return {"score": 0, "signals": []}
     score, signals = compute_tech_score_v5(valid, mcap_threshold)
     if debug:
-        last = valid.iloc[-1]
-        mc = safe_float(last.get('Market_Cap', 0), 0)
+        last = valid.iloc[-1]; mc = safe_float(last.get('Market_Cap', 0), 0)
         ct = "LC" if mc > mcap_threshold else "SMC"
-        ind = get_sector_from_stock_data(ticker, stock_df)
-        print(f"    DEBUG {ticker}({ct}): RSI={last.get('RSI_14')}, Close={last.get('Close')}, SMA9={last.get('SMA_9')}, SMA22={last.get('SMA_22')}, SMA52={last.get('SMA_52')}, SMA200={last.get('SMA_200')}, BB={last.get('BB_Flag')}, Knox={last.get('Knoxville_Divergence')}, MCap={mc:.0f}, Ind={ind}")
+        print(f"    DEBUG {ticker}({ct}): RSI={last.get('RSI_14')}, Close={last.get('Close')}, SMA9={last.get('SMA_9')}, SMA22={last.get('SMA_22')}, SMA52={last.get('SMA_52')}, SMA200={last.get('SMA_200')}, BB={last.get('BB_Flag')}, Knox={last.get('Knoxville_Divergence')}, ADX={last.get('ADX_14')}, MCap={mc:.0f}")
     return {"score": score, "signals": signals}
 
-
-# ═══════════════════════════════════════════════════════════════
-# FUNDAMENTAL SCORING (Debt + FII/DII latest + OBV)
-# ═══════════════════════════════════════════════════════════════
 
 def score_fundamentals_rules(ticker, stock_df):
     if stock_df is None or stock_df.empty: return {"score": 0, "concern": ""}
@@ -953,16 +887,13 @@ def score_fundamentals_rules(ticker, stock_df):
     if 'Date' in valid.columns: valid = valid.sort_values('Date')
     if valid.empty: return {"score": 0, "concern": ""}
     last = valid.iloc[-1]; score = 0; concerns = []
-
     de = safe_float(last.get('Debt_Eq'))
     if de is not None:
         if de > 200: score -= 20; concerns.append("Very high debt")
         elif de > 100: score -= 10; concerns.append("High debt")
         elif de < 30: score += 5
-
     up = safe_int(last.get('up_true', 0))
     if up == 1: score += 30; concerns.append("FII/DII accumulation")
-
     obv = safe_float(last.get('OBV'))
     if obv is not None and len(valid) >= 6 and 'OBV' in valid.columns:
         obv_prev = safe_float(valid.iloc[-6].get('OBV'))
@@ -970,7 +901,6 @@ def score_fundamentals_rules(ticker, stock_df):
             oc = ((obv - obv_prev) / abs(obv_prev)) * 100
             if oc > 10: score += 15; concerns.append(f"OBV accum +{oc:.0f}%")
             elif oc < -10: score -= 15; concerns.append(f"OBV dist {oc:.0f}%")
-
     return {"score": max(-100, min(100, score)), "concern": "; ".join(concerns) if concerns else ""}
 
 def get_nifty_change():
@@ -988,38 +918,31 @@ def get_broad_sector(sub):
 
 
 # ═══════════════════════════════════════════════════════════════
-# v5.0: MARKET REGIME + SECTOR STRENGTH (Data-Driven, Fixed)
+# MARKET REGIME + SECTOR STRENGTH (Fixed v5.0.1)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_market_regime(stock_df, nifty_change):
     regime_data = {"regime": "CHOPPY", "score": 0, "breadth": 0.5, "nifty": nifty_change, "avg_rsi": 50.0, "lt_breadth": 0.5, "detail": ""}
     if stock_df is None or stock_df.empty: return regime_data
-
-    # FIX: Sort by Date THEN take last per ticker
-    sdf = stock_df.sort_values('Date') if 'Date' in stock_df.columns else stock_df
-    latest = sdf.groupby('Ticker').last().reset_index()
-    valid = latest[latest['Close'].notna()]
+    valid = get_latest_valid_rows(stock_df)
     if valid.empty: return regime_data
 
     breadth = 0.5
     if 'SMA_22' in valid.columns:
-        sv = valid[valid['SMA_22'].notna() & valid['Close'].notna()]
-        if len(sv) > 0:
-            above = (sv['Close'] > sv['SMA_22']).sum()
-            breadth = above / len(sv)
-            print(f"  -> SMA22 breadth: {above}/{len(sv)} = {breadth:.0%}")
+        sv2 = valid[valid['SMA_22'].notna() & valid['Close'].notna()]
+        if len(sv2) > 0:
+            above = (sv2['Close'] > sv2['SMA_22']).sum(); breadth = above / len(sv2)
+            print(f"  -> SMA22 breadth: {above}/{len(sv2)} = {breadth:.0%}")
 
     avg_rsi = 50.0
     if 'RSI_14' in valid.columns:
         rv = valid['RSI_14'].dropna()
-        if len(rv) > 0: avg_rsi = rv.mean(); print(f"  -> Avg RSI: {avg_rsi:.1f}")
+        if len(rv) > 0: avg_rsi = rv.mean(); print(f"  -> Avg RSI: {avg_rsi:.1f} ({len(rv)} tickers)")
 
     lt_breadth = 0.5
     if 'SMA_200' in valid.columns:
-        sv2 = valid[valid['SMA_200'].notna() & valid['Close'].notna()]
-        if len(sv2) > 0:
-            lt_breadth = (sv2['Close'] > sv2['SMA_200']).sum() / len(sv2)
-            print(f"  -> SMA200 breadth: {lt_breadth:.0%}")
+        sv3 = valid[valid['SMA_200'].notna() & valid['Close'].notna()]
+        if len(sv3) > 0: lt_breadth = (sv3['Close'] > sv3['SMA_200']).sum() / len(sv3); print(f"  -> SMA200 breadth: {lt_breadth:.0%}")
 
     bull = 0; bear = 0
     if breadth > 0.60: bull += 2
@@ -1034,36 +957,29 @@ def compute_market_regime(stock_df, nifty_change):
     elif avg_rsi < 40: bear += 1
     if lt_breadth > 0.65: bull += 1
     elif lt_breadth < 0.40: bear += 1
-
     net = bull - bear
     if net >= 4: regime, sc = "BULL", 15
     elif net >= 2: regime, sc = "MILD_BULL", 8
     elif net <= -4: regime, sc = "BEAR", -15
     elif net <= -2: regime, sc = "MILD_BEAR", -8
     else: regime, sc = "CHOPPY", 0
-
     detail = f"breadth={breadth:.0%} nifty={nifty_change:+.2f}% rsi={avg_rsi:.0f} lt={lt_breadth:.0%}"
     return {"regime": regime, "score": sc, "breadth": breadth, "nifty": nifty_change, "avg_rsi": avg_rsi, "lt_breadth": lt_breadth, "detail": detail}
 
 
 def compute_sector_strength(stock_df):
     if stock_df is None or stock_df.empty: return {}, 0.5
-    sdf = stock_df.sort_values('Date') if 'Date' in stock_df.columns else stock_df
-    latest = sdf.groupby('Ticker').last().reset_index()
-    valid = latest[latest['Close'].notna()]
+    valid = get_latest_valid_rows(stock_df)
     if valid.empty or 'Industry' not in valid.columns or 'SMA_22' not in valid.columns: return {}, 0.5
-
-    sv = valid[valid['SMA_22'].notna() & valid['Close'].notna()]
-    if len(sv) == 0: return {}, 0.5
-    market_breadth = (sv['Close'] > sv['SMA_22']).sum() / len(sv)
-
+    sv2 = valid[valid['SMA_22'].notna() & valid['Close'].notna()]
+    if len(sv2) == 0: return {}, 0.5
+    market_breadth = (sv2['Close'] > sv2['SMA_22']).sum() / len(sv2)
     sub_scores = {}; sub_to_broad = {}
-    for sector in valid['Industry'].dropna().unique():
+    for sector in sv2['Industry'].dropna().unique():
         if is_bad_str(sector): continue
-        sd = sv[sv['Industry'] == sector]
+        sd = sv2[sv2['Industry'] == sector]
         if len(sd) < 1: continue
-        s_above = (sd['Close'] > sd['SMA_22']).sum()
-        s_breadth = s_above / len(sd)
+        s_above = (sd['Close'] > sd['SMA_22']).sum(); s_breadth = s_above / len(sd)
         relative = s_breadth - market_breadth
         s_rsi = sd['RSI_14'].dropna().mean() if 'RSI_14' in sd.columns and len(sd['RSI_14'].dropna()) > 0 else 50.0
         sc = round(relative * 40)
@@ -1072,21 +988,15 @@ def compute_sector_strength(stock_df):
         sc = max(-20, min(20, sc))
         sub_scores[sector] = {"score": sc, "breadth": s_breadth, "rsi": s_rsi, "count": len(sd), "context": f"b={s_breadth:.0%} rsi={s_rsi:.0f} n={len(sd)}"}
         sub_to_broad[sector] = get_broad_sector(sector)
-
-    # Blend thin sub-industries with broad sector
     broad_scores = {}
     for broad in set(sub_to_broad.values()):
         if not broad: continue
         members = [s for s, b in sub_to_broad.items() if b == broad]
-        if members:
-            avg_sc = sum(sub_scores[m]["score"] for m in members) / len(members)
-            broad_scores[broad] = round(avg_sc)
+        if members: broad_scores[broad] = round(sum(sub_scores[m]["score"] for m in members) / len(members))
     for sub in sub_scores:
         if sub_scores[sub]["count"] < 2:
             broad = sub_to_broad.get(sub, "")
-            if broad in broad_scores:
-                sub_scores[sub]["score"] = round((sub_scores[sub]["score"] + broad_scores[broad]) / 2)
-
+            if broad in broad_scores: sub_scores[sub]["score"] = round((sub_scores[sub]["score"] + broad_scores[broad]) / 2)
     return sub_scores, market_breadth
 
 
@@ -1095,12 +1005,10 @@ def get_macro_scores(sectors, stock_df, regime):
     sector_strength, market_breadth = compute_sector_strength(stock_df)
     unique_sectors = list(set(s for s in sectors if s and not is_bad_str(s)))
     if not unique_sectors: return macro_cache
-
     sub_to_broad = {sub: get_broad_sector(sub) for sub in unique_sectors}
     broad_set = set(sub_to_broad.values()) - {""}
     print(f"  -> {len(unique_sectors)} sub-industries -> {len(broad_set)} broad sectors")
     print(f"  -> Market breadth: {market_breadth:.0%} above SMA22")
-
     broad_agg = {}
     for sub in unique_sectors:
         ss = sector_strength.get(sub, {"score": 0, "context": "no data"})
@@ -1109,26 +1017,22 @@ def get_macro_scores(sectors, stock_df, regime):
         broad = sub_to_broad.get(sub, sub)
         if broad not in broad_agg: broad_agg[broad] = []
         broad_agg[broad].append(combined)
-
     for broad in sorted(broad_agg.keys(), key=lambda b: sum(broad_agg[b]) / len(broad_agg[b])):
-        avg = sum(broad_agg[broad]) / len(broad_agg[broad])
-        count = len(broad_agg[broad])
+        avg = sum(broad_agg[broad]) / len(broad_agg[broad]); count = len(broad_agg[broad])
         print(f"    {broad} ({count}): {avg:+.0f} [data-driven]")
     return macro_cache
 
 
 # ═══════════════════════════════════════════════════════════════
-# COMPOSITE SCORING
+# COMPOSITE + REGIME ADJUSTMENT
 # ═══════════════════════════════════════════════════════════════
 
 def compute_composite_news(sentiment, technical, macro, fundamental):
     w = dict(WEIGHTS_NEWS)
     if technical != 0 and sentiment != 0:
-        td = 1 if technical > 0 else -1
-        sd = 1 if sentiment > 0 else -1
+        td = 1 if technical > 0 else -1; sd = 1 if sentiment > 0 else -1
         if td == sd and abs(sentiment) > 50:
-            w["technical"] += 0.05; w["sentiment"] += 0.05
-            w["macro"] -= 0.05; w["fundamental"] -= 0.05
+            w["technical"] += 0.05; w["sentiment"] += 0.05; w["macro"] -= 0.05; w["fundamental"] -= 0.05
     comp = round(technical * w["technical"] + sentiment * w["sentiment"] + macro * w["macro"] + fundamental * w["fundamental"], 1)
     direction = 1 if comp > 15 else (-1 if comp < -15 else 0)
     return {"score": comp, "direction": direction}
@@ -1154,61 +1058,42 @@ def apply_regime_adjustment(comp_score, regime):
 
 
 # ═══════════════════════════════════════════════════════════════
-# PREDICTION ACCURACY (v5.0: 3-Day Rolling Validation)
+# PREDICTION ACCURACY (3-Day Rolling)
 # ═══════════════════════════════════════════════════════════════
 
 def compute_prediction_accuracy(hdf, today_rows, stock_df):
-    print(f"\n{'='*110}")
-    print(f"PREDICTION ACCURACY REPORT (v5.0 — 3-day rolling validation)")
+    print(f"\n{'='*110}"); print(f"PREDICTION ACCURACY REPORT (v5.0.1)"); print(f"{'='*110}")
+    backtest_technical(stock_df); compute_composite_multiday(hdf, today_rows); compute_news_impact(hdf, today_rows)
     print(f"{'='*110}")
-    backtest_technical(stock_df)
-    compute_composite_multiday(hdf, today_rows)
-    compute_news_impact(hdf, today_rows)
-    print(f"{'='*110}")
-
 
 def backtest_technical(stock_df, forward_days=3, test_days=60):
-    """v5.0: 3-day forward backtest instead of 5-day"""
     print(f"\n  -- TECHNICAL BACKTEST ({test_days}-day, {forward_days}-day forward, +-0.5%) --")
     if stock_df is None or stock_df.empty: print("  No stock data"); return
-
     mcap_threshold = detect_mcap_scale(stock_df)
     total_hit = 0; total_dir = 0; total_tests = 0; total_neutral = 0; ticker_results = {}
     tickers = stock_df['Ticker'].unique()
-
     for tk in tickers:
         tk_data = stock_df[stock_df['Ticker'] == tk].sort_values('Date').reset_index(drop=True)
         valid = tk_data[tk_data['Close'].notna()].reset_index(drop=True)
         if len(valid) < test_days + forward_days + 20: continue
         tk_hits = 0; tk_dir = 0; tk_tests = 0
         start_idx = max(20, len(valid) - test_days - forward_days)
-
         for i in range(start_idx, len(valid) - forward_days):
-            cc = valid.iloc[i].get('Close')
-            fc = valid.iloc[i + forward_days].get('Close')
+            cc = valid.iloc[i].get('Close'); fc = valid.iloc[i + forward_days].get('Close')
             if pd.isna(cc) or pd.isna(fc): continue
-            # 3-day cumulative return
             cum_ret = 0.0
             for d in range(1, forward_days + 1):
-                dc = valid.iloc[i + d].get('Close')
-                dp = valid.iloc[i + d - 1].get('Close')
-                if pd.notna(dc) and pd.notna(dp) and dp > 0:
-                    cum_ret += ((dc - dp) / dp) * 100
+                dc = valid.iloc[i + d].get('Close'); dp = valid.iloc[i + d - 1].get('Close')
+                if pd.notna(dc) and pd.notna(dp) and dp > 0: cum_ret += ((dc - dp) / dp) * 100
             adir = 1 if cum_ret > 0.5 else (-1 if cum_ret < -0.5 else 0)
             slice_df = valid.iloc[max(0, i - 10):i + 1]
             ts, _ = compute_tech_score_v5(slice_df, mcap_threshold)
             pdir = 1 if ts > 15 else (-1 if ts < -15 else 0)
             tk_tests += 1; total_tests += 1
-            if pdir == 0:
-                total_neutral += 1
-                if adir == 0: tk_hits += 1; total_hit += 1
-                continue
+            if pdir == 0: total_neutral += 1; (tk_hits := tk_hits + 1) if adir == 0 else None; (total_hit := total_hit + 1) if adir == 0 else None; continue
             tk_dir += 1; total_dir += 1
             if pdir == adir: tk_hits += 1; total_hit += 1
-
-        if tk_dir > 0:
-            ticker_results[tk] = {"tests": tk_tests, "dir": tk_dir, "hits": tk_hits, "pct": (tk_hits / tk_tests) * 100}
-
+        if tk_dir > 0: ticker_results[tk] = {"tests": tk_tests, "dir": tk_dir, "hits": tk_hits, "pct": (tk_hits / tk_tests) * 100}
     if total_tests == 0: print("  No backtest data"); return
     dir_pct = (total_hit / total_dir * 100) if total_dir > 0 else 0
     print(f"  Tickers tested: {len(ticker_results)}/{len(tickers)}")
@@ -1222,7 +1107,6 @@ def backtest_technical(stock_df, forward_days=3, test_days=60):
         print(f"  Bottom 5:")
         for tk, r in stk[-5:]: print(f"    {tk:<14s} {r['hits']}/{r['tests']} = {r['pct']:.0f}% ({r['dir']} dir)")
 
-
 def compute_composite_multiday(hdf, today_rows):
     print(f"\n  -- COMPOSITE MULTI-DAY ACCURACY (3-day rolling) --")
     today_df = pd.DataFrame(today_rows); today_df['Date'] = TODAY_IST
@@ -1230,14 +1114,12 @@ def compute_composite_multiday(hdf, today_rows):
     else:
         past = hdf[hdf['Date'] != TODAY_IST]; all_data = pd.concat([past, today_df], ignore_index=True)
     dates = sorted(all_data['Date'].unique())
-    if len(dates) < 2: print(f"  Need 2+ trading days (have {len(dates)})"); return
+    if len(dates) < 2: print(f"  Need 2+ trading days"); return
 
-    # Next-day
     print(f"\n  Next-Day (D -> D+1):")
     nd_hit = 0; nd_dir = 0
     for i in range(len(dates) - 1):
-        sr = all_data[all_data['Date'] == dates[i]]
-        ar = all_data[all_data['Date'] == dates[i + 1]]
+        sr = all_data[all_data['Date'] == dates[i]]; ar = all_data[all_data['Date'] == dates[i + 1]]
         if sr.empty or ar.empty: continue
         am = {}
         for _, a in ar.iterrows():
@@ -1251,20 +1133,17 @@ def compute_composite_multiday(hdf, today_rows):
             if pc != 0:
                 dd += 1; nd_dir += 1
                 actual = am[tk]
-                if pc == actual:
-                    dh += 1; nd_hit += 1
+                if pc == actual: dh += 1; nd_hit += 1
         if dd > 0: print(f"    {dates[i]} -> {dates[i+1]}: {dh}/{dd}={dh*100//dd}%")
         else: print(f"    {dates[i]} -> {dates[i+1]}: no dir")
     if nd_dir > 0: print(f"    AGGREGATE: {nd_hit}/{nd_dir} = {nd_hit/nd_dir*100:.1f}%")
 
-    # 3-day cumulative (PRIMARY metric for v5.0)
     if len(dates) >= 4:
-        print(f"\n  3-Day Cumulative (PRIMARY validation):")
+        print(f"\n  3-Day Cumulative (PRIMARY):")
         th = 0; td = 0
         for i in range(len(dates) - 3):
             for _, s in all_data[all_data['Date'] == dates[i]].iterrows():
-                tk = s.get('Ticker', '')
-                pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
+                tk = s.get('Ticker', ''); pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
                 if pc == 0: continue
                 cr = 0.0; f = False
                 for j in range(i + 1, min(i + 4, len(dates))):
@@ -1280,31 +1159,8 @@ def compute_composite_multiday(hdf, today_rows):
         if td > 0: print(f"    3-day: {th}/{td} = {th/td*100:.1f}%")
         else: print(f"    Not enough data yet")
 
-    # 5-day cumulative
-    if len(dates) >= 6:
-        print(f"\n  5-Day Cumulative:")
-        fh = 0; fd = 0
-        for i in range(len(dates) - 5):
-            for _, s in all_data[all_data['Date'] == dates[i]].iterrows():
-                tk = s.get('Ticker', '')
-                pc = safe_int(s.get('Composite_Direction', s.get('Forecast_Direction', 0)))
-                if pc == 0: continue
-                cr = 0.0; f = False
-                for j in range(i + 1, min(i + 6, len(dates))):
-                    dr = all_data[(all_data['Date'] == dates[j]) & (all_data['Ticker'] == tk)]
-                    if not dr.empty:
-                        try: cr += float(dr.iloc[0].get('Actual_Return_Pct', 0.0))
-                        except: pass
-                        f = True
-                if not f: continue
-                ad = 1 if cr > 0.5 else (-1 if cr < -0.5 else 0)
-                fd += 1
-                if pc == ad: fh += 1
-        if fd > 0: print(f"    5-day: {fh}/{fd} = {fh/fd*100:.1f}%")
-
-
 def compute_news_impact(hdf, today_rows):
-    print(f"\n  -- NEWS SENTIMENT IMPACT (1-3 day, catalyst-only) --")
+    print(f"\n  -- NEWS SENTIMENT IMPACT (1-3 day) --")
     today_df = pd.DataFrame(today_rows); today_df['Date'] = TODAY_IST
     if hdf.empty or 'Date' not in hdf.columns: all_data = today_df
     else:
@@ -1326,34 +1182,30 @@ def compute_news_impact(hdf, today_rows):
                         except: pass
                         f = True
                 if not f: continue
-                ad = 1 if cr > 0.5 else (-1 if cr < -0.5 else 0)
-                wd += 1
+                ad = 1 if cr > 0.5 else (-1 if cr < -0.5 else 0); wd += 1
                 if pf == ad: wh += 1
         if wd > 0: print(f"  {window}-day: {wh}/{wd} = {wh/wd*100:.1f}%")
 
 
 # ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE (v5.0)
+# MAIN ENGINE v5.0.1
 # ═══════════════════════════════════════════════════════════════
 
 def execute_sentiment_engine():
-    tl, sm = load_tickers()
-    total = len(tl)
-    print(f"PREDICTIVE Engine v5.0 - {total} tickers | {TODAY_IST}")
-    print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | {len(ALL_FEEDS)} feeds | CATALYST-ONLY FinBERT")
-    print(f"Tech: STRATEGY-BASED (LC=mean reversion, SMC=momentum+breakout)")
+    tl, sm = load_tickers(); total = len(tl)
+    print(f"PREDICTIVE Engine v5.0.1 - {total} tickers | {TODAY_IST}")
+    print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | CATALYST-ONLY FinBERT")
+    print(f"Tech: STRATEGY-BASED (LC=mean reversion ADX-aware, SMC=momentum+breakout)")
     print(f"  Tier1: SMA Hierarchy | Tier2: BB+Knox(S/R)+UP20 | Tier3: MACD+EMA+ST+Mom | Tier4: ADX")
     print(f"Fund: Debt + FII/DII + OBV | Macro: DATA-DRIVEN regime + sector strength")
     print(f"Validation: 3-day rolling cumulative direction")
     print("=" * 110)
 
-    # PHASE 1
-    print("\nPHASE 1: Fetching predictive news (D-3 to 2hr cutoff)...")
+    print("\nPHASE 1: Fetching predictive news...")
     print("-" * 110)
     nc = build_news_cache(tl)
     print("-" * 110)
 
-    # PHASE 2
     print(f"\nPHASE 2: FinBERT scoring (CATALYST-ONLY)...")
     print("-" * 110)
     scored = []; filing = []; nonews = []
@@ -1364,19 +1216,14 @@ def execute_sentiment_engine():
         ad = 1 if ret > 0.25 else (-1 if ret < -0.25 else 0)
         entries, cls, fe = get_all_fresh_news(tk, nc, ret)
         base_row = {"Ticker": tk, "Sector": sm.get(tk, ""), "Actual_Direction": ad, "Actual_Return_Pct": ret}
-
         if cls == "no_news":
-            nonews.append({**base_row, "Latest_Headline": "", "News_Source": "", "News_Time": "", "News_URL": "", "Headline_Count": 0, "Forecast_Score": 0.0, "Forecast_Direction": 0, "Severity": "No News", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0, "Momentum": "", "Signal_Quality": "Tech-Scored"})
-            continue
+            nonews.append({**base_row, "Latest_Headline": "", "News_Source": "", "News_Time": "", "News_URL": "", "Headline_Count": 0, "Forecast_Score": 0.0, "Forecast_Direction": 0, "Severity": "No News", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0, "Momentum": "", "Signal_Quality": "Tech-Scored"}); continue
         if cls == "filing_only":
             p = fe[0] if fe else {}; nu = p.get("news_url", "") or get_source_search_url("NSE Official", tk)
-            filing.append({**base_row, "Latest_Headline": p.get("headline", ""), "News_Source": "NSE Official", "News_Time": p.get("pub_time", "").replace(",", ""), "News_URL": nu, "Headline_Count": len(fe), "Forecast_Score": 0.0, "Forecast_Direction": 0, "Severity": "Filing Only", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0, "Momentum": "", "Signal_Quality": "Tech-Scored"})
-            continue
-
+            filing.append({**base_row, "Latest_Headline": p.get("headline", ""), "News_Source": "NSE Official", "News_Time": p.get("pub_time", "").replace(",", ""), "News_URL": nu, "Headline_Count": len(fe), "Forecast_Score": 0.0, "Forecast_Direction": 0, "Severity": "Filing Only", "Impact": "", "Streak_Days": 0, "Streak_Return": 0.0, "Momentum": "", "Signal_Quality": "Tech-Scored"}); continue
         pe = max(entries, key=lambda e: e["weight"]); ps = pe["source"]; pt = pe["pub_time"]
         pu = pe.get("news_url", "") or get_source_search_url(SOURCE_LABELS.get(ps, ""), tk)
         if ps in ("yfinance", "google"): time.sleep(0.3)
-
         score, direction, cat_count, noise_count = compute_aggregated_score(entries)
         total_catalyst += cat_count; total_noise_filtered += noise_count
         sev = classify_severity(score); imp = classify_impact(entries)
@@ -1385,15 +1232,12 @@ def execute_sentiment_engine():
         if direction != 0:
             td2 += 1
             if hit: hd += 1
-        ab = abs(score)
-        q = "High Conviction" if ab >= 60 else ("Moderate" if ab >= 25 else ("Weak" if ab >= 5 else "Neutral"))
+        ab = abs(score); q = "High Conviction" if ab >= 60 else ("Moderate" if ab >= 25 else ("Weak" if ab >= 5 else "Neutral"))
         usrc = list(dict.fromkeys(SOURCE_LABELS.get(e["source"], e["source"]) for e in entries))
-        dm = {1: "BULL", -1: "BEAR", 0: "NEUT"}
-        cat_tag = f"[{cat_count}cat/{len(entries)}h]"
+        dm = {1: "BULL", -1: "BEAR", 0: "NEUT"}; cat_tag = f"[{cat_count}cat/{len(entries)}h]"
         print(f"[{len(scored)+1:3d}] {tk:<14s} {dm.get(direction, '?'):4s} {sev[:12]:14s} Score:{score:+6.1f} Ret:{ret:+6.2f}% {imp:10s} {'HIT' if hit else 'MISS'} {cat_tag}")
         scored.append({**base_row, "Latest_Headline": pe["headline"], "News_Source": " | ".join(usrc), "News_Time": pt.replace(",", "") if pt else "", "News_URL": pu, "Headline_Count": len(entries), "Forecast_Score": score, "Forecast_Direction": direction, "Severity": sev, "Impact": imp, "Signal_Quality": q})
-
-    print(f"\n  Catalyst filter: {total_catalyst} catalysts scored / {total_noise_filtered} noise filtered")
+    print(f"\n  Catalyst filter: {total_catalyst} catalysts / {total_noise_filtered} noise filtered")
 
     # PHASE 3
     all_rows = scored + filing + nonews
@@ -1403,28 +1247,30 @@ def execute_sentiment_engine():
     print("Loading stock data...")
     stock_df = load_stock_data_for_scoring()
     mcap_threshold = detect_mcap_scale(stock_df)
-    print(f"  -> MCap threshold: {mcap_threshold:.0f} (large cap above this)")
+    print(f"  -> MCap threshold: {mcap_threshold:.0f}")
 
-    print("Computing STRATEGY-BASED technical scores (v5.0)...")
+    print("Computing STRATEGY-BASED technical scores (v5.0.1)...")
     tech_count = 0; lc_count = 0; smc_count = 0
     for i, row in enumerate(all_rows):
         tech = get_technical_score(row["Ticker"], stock_df, mcap_threshold, debug=(i < 3))
         row["Technical_Score"] = tech["score"]
         row["Tech_Signals"] = " | ".join(tech["signals"]) if tech["signals"] else ""
         if tech["score"] != 0: tech_count += 1
-        # Count LC vs SMC
-        tk_data = stock_df[stock_df['Ticker'] == row["Ticker"]] if stock_df is not None else pd.DataFrame()
-        if not tk_data.empty:
-            mc = safe_float(tk_data.iloc[-1].get('Market_Cap', 0), 0)
-            if mc > mcap_threshold: lc_count += 1
+        if stock_df is not None and not stock_df.empty:
+            tk_data = stock_df[stock_df['Ticker'] == row["Ticker"]]
+            tk_valid = tk_data[tk_data['Close'].notna()]
+            if not tk_valid.empty:
+                mc = safe_float(tk_valid.iloc[-1].get('Market_Cap', 0), 0)
+                if mc > mcap_threshold: lc_count += 1
+                else: smc_count += 1
             else: smc_count += 1
+        else: smc_count += 1
     print(f"  -> {tech_count}/{len(all_rows)} with non-zero tech score | LC:{lc_count} SMC:{smc_count}")
 
-    print("Computing fundamental scores (Debt + FII/DII + OBV)...")
+    print("Computing fundamental scores...")
     for row in all_rows:
         fund = score_fundamentals_rules(row["Ticker"], stock_df)
-        row["Fundamental_Score"] = fund["score"]
-        row["Fund_Concern"] = fund.get("concern", "")
+        row["Fundamental_Score"] = fund["score"]; row["Fund_Concern"] = fund.get("concern", "")
     fund_nonzero = sum(1 for r in all_rows if r["Fundamental_Score"] != 0)
     print(f"  -> {fund_nonzero}/{len(all_rows)} with non-zero fundamental score")
 
@@ -1438,7 +1284,6 @@ def execute_sentiment_engine():
         if sector: all_sectors.add(sector); sector_count += 1
     print(f"  -> {sector_count}/{len(all_rows)} mapped to {len(all_sectors)} sectors")
 
-    # REGIME
     print("\nComputing market regime (data-driven)...")
     nifty_chg = get_nifty_change()
     print(f"  -> Nifty 5d change: {nifty_chg:+.2f}%")
@@ -1446,22 +1291,14 @@ def execute_sentiment_engine():
     print(f"  -> REGIME: {regime['regime']} (score: {regime['score']:+d})")
     print(f"  -> {regime['detail']}")
 
-    print(f"\nComputing sector strength ({len(all_sectors)} sectors, data-driven)...")
+    print(f"\nComputing sector strength ({len(all_sectors)} sectors)...")
     macro_scores = get_macro_scores(all_sectors, stock_df, regime)
     for row in all_rows:
         macro = macro_scores.get(row.get("_sector", ""), {"score": 0, "context": ""})
-        row["Macro_Score"] = macro["score"]
-        row["Macro_Context"] = macro.get("context", "")
+        row["Macro_Score"] = macro["score"]; row["Macro_Context"] = macro.get("context", "")
 
-    # COMPOSITE
     print(f"\nComputing composite + regime adjustment...")
-    rdesc = ""
-    if "BEAR" in regime["regime"]:
-        rdesc = f"BULL dampened {'60%' if regime['regime']=='BEAR' else '80%'}"
-    elif "BULL" in regime["regime"]:
-        rdesc = f"BEAR dampened {'60%' if regime['regime']=='BULL' else '80%'}"
-    else:
-        rdesc = "no adjustment"
+    rdesc = f"BULL dampened {'60%' if regime['regime']=='BEAR' else '80%'}" if "BEAR" in regime["regime"] else (f"BEAR dampened {'60%' if regime['regime']=='BULL' else '80%'}" if "BULL" in regime["regime"] else "no adjustment")
     print(f"  Regime: {regime['regime']} -> {rdesc}")
     print("-" * 110)
 
@@ -1501,7 +1338,7 @@ def execute_sentiment_engine():
     scored_with_tech = [r for r in filing + nonews if r["Composite_Score"] != 0]
     print(f"\n  Tech-only scored: {len(scored_with_tech)}/{len(filing) + len(nonews)} | Bull:{t_bull} Bear:{t_bear} Neut:{t_neut}")
     if t_total > 0: print(f"  Tech-only hit rate: {t_hit}/{t_total} = {(t_hit / t_total) * 100:.1f}%")
-    print(f"  Regime flips (news-scored): {regime_flips}")
+    print(f"  Regime flips: {regime_flips}")
 
     # PHASE 4
     print(f"\nPHASE 4: Streaks for {len(scored)} tickers...")
@@ -1510,14 +1347,11 @@ def execute_sentiment_engine():
     streaks = calculate_streaks(hdf, scored)
     for row in scored:
         s = streaks.get(row["Ticker"], {})
-        row["Streak_Days"] = s.get("Streak_Days", 0)
-        row["Streak_Return"] = s.get("Streak_Return", 0.0)
-        row["Momentum"] = s.get("Momentum", "Neutral")
+        row["Streak_Days"] = s.get("Streak_Days", 0); row["Streak_Return"] = s.get("Streak_Return", 0.0); row["Momentum"] = s.get("Momentum", "Neutral")
 
     pd.DataFrame(all_rows).to_csv(DATA_FILE, index=False)
     save_to_history(scored)
 
-    # STATS
     sc = len(scored); fc = len(filing); nc2 = len(nonews)
     hrd = (hd / td2) * 100 if td2 > 0 else 0
     chrd = (chd / ctd) * 100 if ctd > 0 else 0
@@ -1527,14 +1361,14 @@ def execute_sentiment_engine():
     total_scored = sc + len(scored_with_tech)
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v5.0 STRATEGY-BASED + REGIME")
+    print(f"data.csv | {TODAY_IST} | ENGINE v5.0.1 STRATEGY-BASED + REGIME")
     print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news | {total_scored} total signals")
     print(f"CATALYST FILTER: {total_catalyst} catalysts / {total_noise_filtered} noise filtered")
     print(f"REGIME: {regime['regime']} ({regime['detail']})")
-    print(f"STRATEGY: LC({lc_count})=mean-reversion | SMC({smc_count})=momentum+breakout")
+    print(f"STRATEGY: LC({lc_count})=mean-reversion(ADX-aware) | SMC({smc_count})=momentum+breakout")
     print(f"TECH: Tier1:SMA-hierarchy | Tier2:BB+Knox(S/R)+UP20 | Tier3:MACD+EMA+ST+Mom | Tier4:ADX")
     print(f"FUND: Debt + FII/DII + OBV ({fund_nonzero} scored)")
-    print(f"MACRO: Data-driven regime + sector relative strength (NO API)")
+    print(f"MACRO: Data-driven regime + sector strength (NO API)")
     print(f"WEIGHTS: News-> Tech={WEIGHTS_NEWS['technical']:.0%} Sent={WEIGHTS_NEWS['sentiment']:.0%} Macro={WEIGHTS_NEWS['macro']:.0%} Fund={WEIGHTS_NEWS['fundamental']:.0%}")
     print(f"         No-News-> Tech={WEIGHTS_NO_NEWS['technical']:.0%} Macro={WEIGHTS_NO_NEWS['macro']:.0%} Fund={WEIGHTS_NO_NEWS['fundamental']:.0%}")
     print(f"VALIDATION: 3-day rolling cumulative direction")
@@ -1550,7 +1384,6 @@ def execute_sentiment_engine():
     delta_d = chrd - hrd
     print(f"\nIMPROVEMENT: {delta_d:+.1f}% ({hrd:.1f}% -> {chrd:.1f}%)")
     print("=" * 110)
-
     compute_prediction_accuracy(hdf, all_rows, stock_df)
 
 
