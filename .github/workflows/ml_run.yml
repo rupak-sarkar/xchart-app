@@ -2,7 +2,6 @@ name: ML Model Training
 
 on:
   schedule:
-    # Run every Saturday at 6 AM UTC (11:30 AM IST)
     - cron: '0 6 * * 6'
   workflow_dispatch:
 
@@ -21,7 +20,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pandas numpy yfinance lightgbm
+        run: pip install pandas numpy yfinance feedparser requests beautifulsoup4 transformers torch lightgbm scikit-learn
 
       - name: Run ML pipeline
         run: python ml_run.py
