@@ -28,11 +28,12 @@ jobs:
       - name: Commit and push
         run: |
           find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-          git checkout -- . 2>/dev/null || true
-          git clean -fd 2>/dev/null || true
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ml_predictions.csv ensemble_predictions.csv
+          git add ml_predictions.csv ensemble_predictions.csv 2>/dev/null || true
+          git add -u
           git diff --staged --quiet || git commit -m "🤖 ML+Ensemble update $(date -u +%Y-%m-%d)"
+          git stash 2>/dev/null || true
           git pull --rebase origin master
+          git stash pop 2>/dev/null || true
           git push
