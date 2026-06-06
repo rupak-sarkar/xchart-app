@@ -442,32 +442,59 @@ function fetchData(){
     }).catch(()=>{});
 }
 
-/* ===== STOCK_DATA.CSV (for chart fallback) ===== */
+/* ===== STOCK_DATA.CSV - load only meta (last row per ticker) eagerly,
+         fetch full OHLCV on demand when chart is opened ===== */
+let stockDataLoaded=false;
+let pendingChartTicker=null;
+
 function loadStockData(){
-  fetch(bp()+'stock_data.csv?v='+Math.random(),{cache:'no-store'})
-    .then(r=>{if(!r.ok)throw 0;return r.text()})
-    .then(t=>{
-      Papa.parse(t,{header:true,skipEmptyLines:'greedy',dynamicTyping:true,complete:r=>{
-        stockData={};tickerMeta={};
-        r.data.forEach(row=>{
-          if(!row.Ticker)return;
-          if(!stockData[row.Ticker])stockData[row.Ticker]=[];
-          stockData[row.Ticker].push(row);
-        });
-        Object.keys(stockData).forEach(tk=>{
-          let d=stockData[tk];
-          let last=d.filter(r=>r.Close).pop();
-          if(last){
-            tickerMeta[tk]={
-              up_true:last.up_true||0,BB_Flag:last.BB_Flag||'',
-              Knoxville:last.Knoxville_Divergence||'',
-              Market_Cap:last.Market_Cap||'',Industry:last.Industry||'',
-              RSI:last.RSI_14||'',gain:last.gain||0
-            };
-          }
-        });
-      }});
-    }).catch(()=>{});
+  // We do NOT pre-load the 30MB CSV anymore.
+  // tickerMeta is populated lazily on first chart open.
+  stockDataLoaded=false;
+}
+
+/* Fetch OHLCV rows for ONE ticker on demand by streaming & filtering */
+function fetchTickerOHLCV(ticker, callback){
+  showChartLoading(ticker);
+  let url=bp()+'stock_data.csv?v='+Math.random();
+  let rows=[];
+  Papa.parse(url,{
+    download:true,
+    header:true,
+    skipEmptyLines:'greedy',
+    dynamicTyping:true,
+    step:function(result){
+      let r=result.data;
+      if(r&&r.Ticker===ticker)rows.push(r);
+    },
+    complete:function(){
+      if(!tickerMeta[ticker]&&rows.length){
+        let last=rows.filter(r=>r.Close).pop();
+        if(last){
+          tickerMeta[ticker]={
+            up_true:last.up_true||0,BB_Flag:last.BB_Flag||'',
+            Knoxville:last.Knoxville_Divergence||'',
+            Market_Cap:last.Market_Cap||'',Industry:last.Industry||'',
+            RSI:last.RSI_14||'',gain:last.gain||0
+          };
+        }
+      }
+      callback(rows);
+    },
+    error:function(){ callback([]); }
+  });
+}
+
+function showChartLoading(ticker){
+  document.getElementById('chart-title').innerHTML=
+    `<span style="color:var(--accent)">${ticker}</span>.NS <span style="font-size:.65rem;color:var(--text3)">Loading chart…</span>`;
+  document.getElementById('chart-meta').innerHTML='';
+  document.getElementById('score-breakdown').innerHTML='';
+  document.getElementById('chart-container').innerHTML=
+    '<div style="display:flex;align-items:center;justify-content:center;height:380px;color:var(--text3);font-size:.8rem;gap:8px"><div class="loading-bar" style="width:120px"></div> Fetching data…</div>';
+  document.getElementById('rsi-container').style.display='none';
+  document.getElementById('chart-modal').classList.add('active');
+  document.body.style.overflow='hidden';
 }
 
 /* ===== HELPERS ===== */
@@ -753,28 +780,43 @@ function sortTbl(col,type){
 
 /* ===== CHART OPEN ===== */
 function openChart(ticker){
-  // Try charts/<TICKER>.json first (newer format), fallback to stock_data.csv
+  document.querySelectorAll('.ticker-item').forEach(el=>{
+    el.classList.toggle('active',el.dataset.ticker===ticker);
+  });
+  // Try charts/<TICKER>.json first
   let jsonUrl=bp()+'charts/'+ticker+'.json?v='+Math.random();
+  showChartLoading(ticker);
   fetch(jsonUrl,{cache:'no-store'})
-    .then(r=>{
-      if(!r.ok)throw new Error('no json');
-      return r.json();
-    })
+    .then(r=>{if(!r.ok)throw new Error('no json');return r.json();})
     .then(d=>renderChart(ticker,d))
     .catch(()=>{
-      // Fallback: use stock_data.csv data
-      let data=stockData[ticker];
-      if(!data||!data.length){showToast('No chart data for '+ticker);return;}
-      let rows=data.filter(r=>r.Close&&r.Date);
-      if(!rows.length){showToast('No price data for '+ticker);return;}
-      renderChart(ticker,rows);
+      // Fallback: stream-filter stock_data.csv for this ticker only
+      fetchTickerOHLCV(ticker,rows=>{
+        if(!rows||!rows.length){
+          document.getElementById('chart-container').innerHTML=
+            '<div style="display:flex;align-items:center;justify-content:center;height:380px;color:var(--bear);font-size:.8rem">No chart data found for '+ticker+'</div>';
+          return;
+        }
+        let valid=rows.filter(r=>r.Close&&(r.Date||r.date));
+        if(!valid.length){
+          document.getElementById('chart-container').innerHTML=
+            '<div style="display:flex;align-items:center;justify-content:center;height:380px;color:var(--bear);font-size:.8rem">No OHLCV data for '+ticker+'</div>';
+          return;
+        }
+        renderChart(ticker,valid);
+      });
     });
 }
 
 function renderChart(ticker,rawData){
   // Normalize: supports both JSON (array of {Date,Open,High,Low,Close,...}) and stock_data.csv rows
   let rows=Array.isArray(rawData)?rawData:rawData.ohlcv||rawData.data||rawData;
-  if(!rows||!rows.length){showToast('Empty chart data');return;}
+  if(!rows||!rows.length){
+    document.getElementById('chart-container').innerHTML=
+      '<div style="display:flex;align-items:center;justify-content:center;height:380px;color:var(--bear);font-size:.8rem">Empty chart data for '+ticker+'</div>';
+    return;
+  }
+  _currentChartRows=rows;_currentChartTicker=ticker;
 
   // Highlight active sidebar item
   document.querySelectorAll('.ticker-item').forEach(el=>{
@@ -787,9 +829,22 @@ function renderChart(ticker,rawData){
     (meta.Industry?` <span style="font-size:.65rem;color:var(--text3);font-weight:400">${meta.Industry}</span>`:'');
 
   // Chart meta bar
-  let actual=rows.filter(r=>r.Close);
+  let actual=rows.filter(r=>r.Close||r.close);
   let last=actual[actual.length-1];
   let prev=actual.length>=2?actual[actual.length-2]:last;
+  // Normalize fields - support both capitalized and lowercase column names
+  actual=actual.map(r=>({
+    Date:r.Date||r.date,Open:+(r.Open||r.open||0),High:+(r.High||r.high||0),
+    Low:+(r.Low||r.low||0),Close:+(r.Close||r.close||0),
+    Volume:+(r.Volume||r.volume||0),
+    RSI_14:r.RSI_14||r.rsi_14||r.RSI||'',
+    SMA_9:r.SMA_9||r.sma_9,SMA_22:r.SMA_22||r.sma_22,
+    SMA_52:r.SMA_52||r.sma_52,SMA_200:r.SMA_200||r.sma_200,
+    BB_Upper:r.BB_Upper||r.bb_upper,BB_Lower:r.BB_Lower||r.bb_lower,
+    VWAP:r.VWAP||r.vwap
+  }));
+  last=actual[actual.length-1];
+  prev=actual.length>=2?actual[actual.length-2]:last;
   let chg=last&&prev?last.Close-prev.Close:0;
   let pct=prev&&prev.Close?chg/prev.Close*100:0;
   let metaHTML=`<span>Close: <b>${(+last.Close).toFixed(2)}</b></span>
@@ -834,8 +889,8 @@ function renderChart(ticker,rawData){
   });
 
   let candleData=actual.map(d=>({
-    time:d.Date,open:+d.Open,high:+d.High,low:+d.Low,close:+d.Close
-  })).filter(d=>d.time&&!isNaN(d.open));
+    time:d.Date||d.date,open:+(d.Open||d.open),high:+(d.High||d.high),low:+(d.Low||d.low),close:+(d.Close||d.close)
+  })).filter(d=>d.time&&!isNaN(d.open)&&d.open>0);
 
   candleSeries.setData(candleData);
   indicatorSeries={};
@@ -1035,13 +1090,8 @@ function closeChart(){
   document.querySelectorAll('.ticker-item').forEach(el=>el.classList.remove('active'));
 }
 
-// Override renderChart to store rows
-const _origRender=renderChart;
-window.renderChart=function(ticker,rawData){
-  let rows=Array.isArray(rawData)?rawData:rawData.ohlcv||rawData.data||rawData;
-  _currentChartRows=rows;_currentChartTicker=ticker;
-  _origRender(ticker,rawData);
-};
+// Store rows when renderChart is called
+
 </script>
 </body>
 </html>
