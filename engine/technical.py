@@ -1,6 +1,5 @@
 """Strategy-based technical scoring v5.2.1
-CORE SCORING ENGINE - used by both live prediction AND backtesting
-Changes: Trend-following, RSI<30, reduced Tier 3 weights, ADX amplifier"""
+CORE SCORING ENGINE - used by both live prediction AND backtesting"""
 import os
 import pandas as pd
 from engine.config import STOCK_DATA_FILE, SECTOR_MAP
@@ -12,17 +11,25 @@ def load_stock_data():
         if os.path.exists(STOCK_DATA_FILE):
             df = pd.read_csv(STOCK_DATA_FILE)
             if 'Ticker' in df.columns:
-                df['Ticker'] = df['Ticker'].astype(str).str.replace('.NS', '', regex=False).str.strip().str.upper()
+                df['Ticker'] = (
+                    df['Ticker'].astype(str)
+                    .str.replace('.NS', '', regex=False)
+                    .str.strip().str.upper()
+                )
                 if 'Date' in df.columns:
                     df = df.sort_values(['Ticker', 'Date'])
                 tickers = df['Ticker'].nunique()
                 rows = len(df)
                 days_per = rows // max(tickers, 1)
-                print(f"  -> Loaded stock_data.csv: {tickers} tickers, {rows:,} rows (~{days_per} days/ticker)")
+                print(
+                    f"  -> Loaded stock_data.csv: {tickers} tickers, "
+                    f"{rows:,} rows (~{days_per} days/ticker)"
+                )
                 key_cols = [
-                    'RSI_14', 'BB_Flag', 'SMA_9', 'SMA_22', 'SMA_50', 'SMA_52', 'SMA_200',
-                    'Knoxville_Divergence', 'up_true', 'Close', 'High', 'Low', 'Market_Cap',
-                    'Industry', 'MACD_Line', 'MACD_Signal', 'ADX_14', 'ST_Direction',
+                    'RSI_14', 'BB_Flag', 'SMA_9', 'SMA_22', 'SMA_50',
+                    'SMA_52', 'SMA_200', 'Knoxville_Divergence', 'up_true',
+                    'Close', 'High', 'Low', 'Market_Cap', 'Industry',
+                    'MACD_Line', 'MACD_Signal', 'ADX_14', 'ST_Direction',
                     'EMA_9', 'EMA_21', 'OBV',
                 ]
                 found = [c for c in key_cols if c in df.columns]
@@ -35,7 +42,9 @@ def load_stock_data():
 
 
 def detect_mcap_scale(stock_df):
-    if stock_df is None or stock_df.empty or 'Market_Cap' not in stock_df.columns:
+    if stock_df is None or stock_df.empty:
+        return 10000
+    if 'Market_Cap' not in stock_df.columns:
         return 10000
     mcap_max = stock_df['Market_Cap'].dropna().max()
     if pd.isna(mcap_max):
@@ -71,7 +80,10 @@ def get_broad_sector(sub):
 def get_latest_valid_rows(stock_df):
     if stock_df is None or stock_df.empty:
         return pd.DataFrame()
-    sdf = stock_df.sort_values(['Ticker', 'Date']) if 'Date' in stock_df.columns else stock_df
+    if 'Date' in stock_df.columns:
+        sdf = stock_df.sort_values(['Ticker', 'Date'])
+    else:
+        sdf = stock_df
     results = []
     for ticker in sdf['Ticker'].unique():
         tk = sdf[sdf['Ticker'] == ticker]
@@ -83,12 +95,12 @@ def get_latest_valid_rows(stock_df):
                 continue
         if not valid.empty:
             results.append(valid.iloc[-1])
-    return pd.DataFrame(results).reset_index(drop=True) if results else pd.DataFrame()
-
+    if results:
+        return pd.DataFrame(results).reset_index(drop=True)
+    return pd.DataFrame()
 
 def compute_tech_score(valid_df, mcap_threshold):
-    """CORE SCORING v5.2.1 - Trend-following PRIMARY.
-    Tier 3 weights reduced to minimize lagging-indicator noise."""
+    """CORE SCORING v5.2.1 - Trend-following PRIMARY."""
     if len(valid_df) < 2:
         return 0, []
 
@@ -109,7 +121,6 @@ def compute_tech_score(valid_df, mcap_threshold):
     st_dir = fv_row(last, ['ST_Direction'])
     macd_line = fv_row(last, ['MACD_Line'])
     macd_signal = fv_row(last, ['MACD_Signal'])
-    macd_hist = fv_row(last, ['MACD_Hist'])
     ema9 = fv_row(last, ['EMA_9'])
     ema21 = fv_row(last, ['EMA_21'])
     mcap = fv_row(last, ['Market_Cap'])
@@ -135,7 +146,7 @@ def compute_tech_score(valid_df, mcap_threshold):
     at_breakout = resistance is not None and close > resistance
     at_breakdown = support is not None and close < support
 
-    # ═══ TIER 1: TREND DIRECTION (Primary driver) ═══
+    # ═══ TIER 1: TREND DIRECTION ═══
     has_all = all(v is not None for v in [sma9, sma22, sma52, sma200])
     has_short = all(v is not None for v in [sma9, sma22])
 
@@ -239,7 +250,7 @@ def compute_tech_score(valid_df, mcap_threshold):
         score -= 8
         signals.append("Near resistance")
 
-    # ═══ TIER 2: REVERSAL SIGNALS (strong confluence only) ═══
+    # ═══ TIER 2: REVERSAL SIGNALS ═══
     bb = sv_row(last, ['BB_Flag'])
     if bb is not None:
         bbs = bb.strip().upper()
@@ -288,11 +299,122 @@ def compute_tech_score(valid_df, mcap_threshold):
     if 'up_true' in valid_df.columns and len(valid_df) >= 7:
         recent_7 = valid_df.tail(min(7, len(valid_df)))
         try:
-            up_rows = recent_7[recent_7['up_true'].apply(lambda x: safe_int(x) == 1)]
-        except:
+            up_rows = recent_7[
+                recent_7['up_true'].apply(lambda x: safe_int(x) == 1)
+            ]
+        except Exception:
             up_rows = pd.DataFrame()
         latest_up = safe_int(last.get('up_true', 0)) == 1
-        if len(up_rows) > 0 and not latest_up and 'Low' in up_rows.columns:
-            up_low = up_rows['Low'].dropna().min()
-            if up_low is not None and pd.notna(up_low):
-                if
+        if len(up_rows) > 0 and not latest_up:
+            if 'Low' in up_rows.columns:
+                up_low = up_rows['Low'].dropna().min()
+                if up_low is not None and pd.notna(up_low):
+                    if close <= up_low * 1.02:
+                        score += 20
+                        signals.append("UP20 recons")
+                    elif close <= up_low * 1.05:
+                        score += 10
+                        signals.append("UP20 near")
+
+    # ═══ TIER 3: SUPPORTING (reduced weights) ═══
+    if macd_line is not None and macd_signal is not None:
+        if macd_line > macd_signal:
+            score += 5
+            signals.append("MACD bull")
+        else:
+            score -= 5
+            signals.append("MACD bear")
+
+    if ema9 is not None and ema21 is not None:
+        if ema9 > ema21:
+            score += 4
+            signals.append("EMA golden")
+        else:
+            score -= 4
+            signals.append("EMA death")
+
+    if st_dir is not None:
+        try:
+            st = int(float(st_dir))
+            if st == 1:
+                score += 4
+                signals.append("ST up")
+            elif st == -1:
+                score -= 4
+                signals.append("ST down")
+        except Exception:
+            pass
+
+    # 5d momentum
+    if len(valid_df) >= 6:
+        try:
+            pc = valid_df.iloc[-6].get('Close')
+            if pc and close and pd.notna(pc) and pc > 0:
+                mom = ((close - pc) / pc) * 100
+                if mom > 5:
+                    score += 10
+                    signals.append(f"Mom +{mom:.1f}%")
+                elif mom > 2:
+                    score += 5
+                elif mom < -5:
+                    score -= 10
+                    signals.append(f"Mom {mom:.1f}%")
+                elif mom < -2:
+                    score -= 5
+        except Exception:
+            pass
+
+    # RSI standalone
+    rsi_used = any('RSI' in s for s in signals)
+    if rsi is not None and not rsi_used:
+        if rsi > 80:
+            score -= 8
+            signals.append(f"RSI OB({rsi:.0f})")
+        elif rsi > 70:
+            score -= 4
+            signals.append(f"RSI high({rsi:.0f})")
+        elif rsi < 20:
+            score += 8
+            signals.append(f"RSI extreme OS({rsi:.0f})")
+        elif rsi < 30:
+            score += 4
+            signals.append(f"RSI OS({rsi:.0f})")
+
+    # ═══ TIER 4: ADX AMPLIFIER ═══
+    if adx is not None and adx > 30 and score != 0:
+        score = int(score * 1.15)
+        signals.append(f"ADX({adx:.0f}) amplify")
+
+    return max(-100, min(100, score)), signals
+
+
+def get_technical_score(ticker, stock_df, mcap_threshold, debug=False):
+    if stock_df is None or stock_df.empty:
+        return {"score": 0, "signals": []}
+    tk_data = stock_df[stock_df['Ticker'] == ticker]
+    if tk_data.empty:
+        return {"score": 0, "signals": []}
+    valid = tk_data[tk_data['Close'].notna()]
+    if 'Date' in valid.columns:
+        valid = valid.sort_values('Date')
+    if valid.empty:
+        return {"score": 0, "signals": []}
+    score, signals = compute_tech_score(valid, mcap_threshold)
+    if debug:
+        last = valid.iloc[-1]
+        mc = safe_float(last.get('Market_Cap', 0), 0)
+        ct = "LC" if mc > mcap_threshold else "SMC"
+        print(
+            f"    DEBUG {ticker}({ct}): "
+            f"RSI={last.get('RSI_14')}, "
+            f"Close={last.get('Close')}, "
+            f"SMA9={last.get('SMA_9')}, "
+            f"SMA22={last.get('SMA_22')}, "
+            f"SMA52={last.get('SMA_52')}, "
+            f"SMA200={last.get('SMA_200')}, "
+            f"BB={last.get('BB_Flag')}, "
+            f"Knox={last.get('Knoxville_Divergence')}, "
+            f"ADX={last.get('ADX_14')}, "
+            f"MCap={mc:.0f}"
+        )
+    return {"score": score, "signals": signals}
