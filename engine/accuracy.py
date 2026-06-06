@@ -29,7 +29,7 @@ SL_MIN = -2.0    # minimum SL (tightest)
 SL_MAX = -12.0   # maximum SL (widest)
 
 # ATR for neutral threshold
-ATR_MULTIPLIER = 0.5
+ATR_MULTIPLIER = 0.2
 ATR_LOOKBACK = 20
 
 
