@@ -1,4 +1,4 @@
-"""XChart Predictive Engine v5.2 - Dynamic Horizon + Trend-Following"""
+"""XChart Predictive Engine v6.0 - S/R-Centric + Dynamic Horizon"""
 import pandas as pd
 import time
 
@@ -187,13 +187,16 @@ def phase2_finbert(tl, sm, nc):
             "Signal_Quality": q,
         })
 
-    print(f"\n  Catalysts: {total_catalyst} scored / {total_noise_filtered} noise filtered")
-    return scored, filing, nonews, hd, td2, total_catalyst, total_noise_filtered
+    print(
+        f"\n  Catalysts: {total_catalyst} scored / "
+        f"{total_noise_filtered} noise filtered"
+    )
+    return scored, filing, nonews, hd, td2
 
 
 def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
     # --- Technical ---
-    print("Computing technical scores (v5.2 trend-following)...")
+    print("Computing technical scores (v6.0 S/R-centric)...")
     tech_count = 0
     lc_count = 0
     smc_count = 0
@@ -203,6 +206,7 @@ def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
         )
         row["Technical_Score"] = tech["score"]
         row["Tech_Signals"] = " | ".join(tech["signals"]) if tech["signals"] else ""
+        row["Est_Horizon"] = tech.get("horizon", 7)
         if tech["score"] != 0:
             tech_count += 1
         if stock_df is not None and not stock_df.empty:
@@ -248,7 +252,10 @@ def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
 
 
 def phase3b_backtest(stock_df, mcap_threshold, all_rows):
-    print(f"\nPHASE 3b: Per-ticker backtest (dynamic horizons, 4 accuracy levels)...")
+    print(
+        f"\nPHASE 3b: Per-ticker backtest "
+        f"(S/R-centric, dynamic horizons, 4 accuracy levels)..."
+    )
     bt_results = compute_per_ticker_accuracy(stock_df, mcap_threshold)
     bt_count = len(bt_results)
     avg_1m = 0.0
@@ -269,7 +276,7 @@ def phase3b_backtest(stock_df, mcap_threshold, all_rows):
         row["BT_6M"] = bt.get("BT_6M", 0.0)
         row["BT_1M_N"] = bt.get("BT_1M_N", 0)
         row["BT_Total_Preds"] = bt.get("BT_Total_Preds", 0)
-        row["BT_Forward_Days"] = bt.get("BT_Forward_Days", 3)
+        row["BT_Forward_Days"] = bt.get("BT_Forward_Days", 7)
         row["BT_Threshold"] = bt.get("BT_Threshold", 0.5)
         row["BT_Category"] = bt.get("BT_Category", "")
 
@@ -316,13 +323,19 @@ def phase_composite(scored, filing, nonews, regime):
             ctd += 1
             if c_hit:
                 chd += 1
-        corrected = " <- CORRECTED" if row["Forecast_Direction"] != adj_dir else ""
+
+        corrected = ""
+        if row["Forecast_Direction"] != adj_dir:
+            corrected = " <- CORRECTED"
+
         bt_tag = ""
         bt_1m = row.get("BT_1M", 0)
         if bt_1m > 0:
             bt_cat = row.get("BT_Category", "")
-            bt_fwd = row.get("BT_Forward_Days", 3)
-            bt_tag = f" BT:{bt_1m:.0f}%/{bt_cat} {bt_fwd}d"
+            bt_fwd = row.get("BT_Forward_Days", 7)
+            bt_tag = f" BT:{bt_1m:.0f}%/{bt_cat} {bt_fwd:.0f}d"
+
+        est_h = row.get("Est_Horizon", 7)
         idx = scored.index(row) + 1
         print(
             f"  [{idx:3d}] {row['Ticker']:<14s} "
@@ -330,7 +343,8 @@ def phase_composite(scored, filing, nonews, regime):
             f"Macro:{row['Macro_Score']:+4d} "
             f"Fund:{row['Fundamental_Score']:+4d} "
             f"-> Comp:{adj_score:+6.1f} {DM[adj_dir]} "
-            f"{'HIT' if c_hit else 'MISS'}{corrected}{bt_tag}"
+            f"{'HIT' if c_hit else 'MISS'}"
+            f"{corrected}{bt_tag} H:{est_h}d"
         )
 
     t_bull = 0
@@ -399,10 +413,13 @@ def run():
     tl, sm = load_tickers()
     total = len(tl)
 
-    print(f"\nPREDICTIVE Engine v5.2 - {total} tickers | {TODAY_IST}")
-    print(f"News: {NEWS_START_DATE} to {NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | CATALYST-ONLY FinBERT")
-    print(f"Tech: TREND-FOLLOWING PRIMARY (LC/SMC, RSI<30 threshold)")
-    print(f"Horizons: MEGA=7d LARGE=5d MID=3d SMALL=2d (+/-ADX/Price)")
+    print(f"\nPREDICTIVE Engine v6.0 - {total} tickers | {TODAY_IST}")
+    print(
+        f"News: {NEWS_START_DATE} to "
+        f"{NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | CATALYST-ONLY FinBERT"
+    )
+    print(f"Tech: S/R-CENTRIC (position + Knox reversal + momentum angle)")
+    print(f"Horizons: Dynamic (momentum slope + S/R distance)")
     print(f"Validation: Dynamic horizon | Per-ticker: Swing/1M/3M/ALL")
     print("=" * 110)
 
@@ -410,7 +427,7 @@ def run():
     nc = phase1_news(tl)
 
     # ═══ PHASE 2 ═══
-    scored, filing, nonews, hd, td2, total_catalyst, total_noise_filtered = phase2_finbert(tl, sm, nc)
+    scored, filing, nonews, hd, td2 = phase2_finbert(tl, sm, nc)
 
     # ═══ PHASE 3 ═══
     all_rows = scored + filing + nonews
@@ -422,7 +439,9 @@ def run():
     mcap_threshold = detect_mcap_scale(stock_df)
     print(f"  -> MCap threshold: {mcap_threshold:.0f}")
 
-    lc_count, smc_count, all_sectors = phase3_analysis(all_rows, sm, stock_df, mcap_threshold)
+    lc_count, smc_count, all_sectors = phase3_analysis(
+        all_rows, sm, stock_df, mcap_threshold
+    )
 
     # Regime
     print("\nComputing market regime...")
@@ -435,7 +454,9 @@ def run():
     print(f"\nComputing sector strength...")
     macro_scores = get_macro_scores(all_sectors, stock_df, regime)
     for row in all_rows:
-        macro = macro_scores.get(row.get("_sector", ""), {"score": 0, "context": ""})
+        macro = macro_scores.get(
+            row.get("_sector", ""), {"score": 0, "context": ""}
+        )
         row["Macro_Score"] = macro["score"]
         row["Macro_Context"] = macro.get("context", "")
 
@@ -458,21 +479,31 @@ def run():
     sc = len(scored)
     fc = len(filing)
     nc2 = len(nonews)
-    hrd = (hd / td2) * 100 if td2 > 0 else 0
     chrd = (chd / ctd) * 100 if ctd > 0 else 0
-    comp_bull = sum(1 for r in scored if r.get("Composite_Direction", 0) == 1)
-    comp_bear = sum(1 for r in scored if r.get("Composite_Direction", 0) == -1)
+    comp_bull = sum(
+        1 for r in scored if r.get("Composite_Direction", 0) == 1
+    )
+    comp_bear = sum(
+        1 for r in scored if r.get("Composite_Direction", 0) == -1
+    )
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v5.2 DYNAMIC HORIZON + TREND-FOLLOWING")
+    print(
+        f"data.csv | {TODAY_IST} | "
+        f"ENGINE v6.0 S/R-CENTRIC + DYNAMIC HORIZON"
+    )
     print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news")
     print(f"REGIME: {regime['regime']} ({regime['detail']})")
-    print(f"STRATEGY: LC({lc_count}) SMC({smc_count}) | Trend-following | RSI<30")
-    print(f"HORIZONS: MEGA=28d(+/-1.5%) LARGE=22d(+/-1.0%) MID=14d(+/-0.8%) SMALL=7d(+/-0.5%)")
+    print(
+        f"STRATEGY: LC({lc_count}) SMC({smc_count}) | "
+        f"S/R-Centric + Knox Reversal + Momentum Angle"
+    )
+    print(f"HORIZONS: Dynamic per-ticker (momentum slope + S/R distance)")
     if bt_count > 0:
         print(
-            f"BACKTEST: {bt_count} tickers | {total_bt_preds:,} predictions "
-            f"| 1M:{avg_1m:.1f}% ALL:{avg_all:.1f}%"
+            f"BACKTEST: {bt_count} tickers | "
+            f"{total_bt_preds:,} predictions | "
+            f"1M:{avg_1m:.1f}% ALL:{avg_all:.1f}%"
         )
     print(
         f"\nSAME-DAY: Composite {chd}/{ctd} = {chrd:.1f}% "
