@@ -1,26 +1,34 @@
-"""Per-ticker backtest + Trade Simulation v6.2.
+"""Per-ticker backtest + Trade Simulation v6.3.
+Dynamic ATR-based neutral threshold per ticker.
 Hysteresis: Entry ±25, Exit ±30 (sticky signals).
 Stop-loss: -3% within 3 days.
 Min hold: 3 days (no whipsaw).
 Neutral=HIT for direction accuracy."""
+import numpy as np
 import pandas as pd
 from engine.technical import compute_tech_score, detect_mcap_scale
 from engine.utils import safe_int, safe_float
 
 
 CATEGORY_PARAMS = {
-    "MEGA":  {"forward_days": 14, "threshold": 0.8},
-    "LARGE": {"forward_days": 14, "threshold": 0.8},
-    "MID":   {"forward_days": 7,  "threshold": 0.5},
-    "SMALL": {"forward_days": 5,  "threshold": 0.5},
+    "MEGA":  {"forward_days": 14},
+    "LARGE": {"forward_days": 14},
+    "MID":   {"forward_days": 7},
+    "SMALL": {"forward_days": 5},
 }
 
 # Trade parameters
-ENTRY_THRESHOLD = 25      # Need score > +25 to go LONG, < -25 to go SHORT
-EXIT_THRESHOLD = 30       # Need score < -30 to exit LONG, > +30 to exit SHORT
-MIN_HOLD_DAYS = 3         # Minimum days before allowing signal flip
-STOP_LOSS_PCT = -3.0      # Cut losers at -3%
-STOP_LOSS_CHECK_DAY = 3   # Check stop-loss after this many days
+ENTRY_THRESHOLD = 25
+EXIT_THRESHOLD = 30
+MIN_HOLD_DAYS = 3
+STOP_LOSS_PCT = -3.0
+STOP_LOSS_CHECK_DAY = 3
+
+# ATR multiplier for neutral band
+# threshold = ATR_pct × sqrt(forward_days) × ATR_MULTIPLIER
+# 0.5 means neutral band = half of expected ATR move
+ATR_MULTIPLIER = 0.5
+ATR_LOOKBACK = 20
 
 
 def get_category_label(mcap):
@@ -43,22 +51,106 @@ def is_hit(pred_dir, actual_dir):
     return False
 
 
-def simulate_trades(valid_df, mcap_threshold):
-    """Trade simulation with hysteresis + stop-loss.
+# ═══════════════════════════════════════════════════════════════
+# ATR CALCULATION
+# ═══════════════════════════════════════════════════════════════
 
-    ENTRY: Score must exceed ±ENTRY_THRESHOLD to open position.
-    EXIT:  Score must exceed ±EXIT_THRESHOLD in OPPOSITE direction
-           OR stop-loss triggered at STOP_LOSS_PCT after STOP_LOSS_CHECK_DAY.
-    HOLD:  Minimum MIN_HOLD_DAYS before any exit allowed.
-    NEUTRAL zone: If score between thresholds, HOLD current position.
+def compute_atr_pct(valid_df, idx, lookback=ATR_LOOKBACK):
+    """Compute ATR as percentage of close at a given index.
+    Uses data up to idx only (no look-ahead).
 
-    Returns list of completed trades.
+    ATR = avg of True Range over lookback days
+    True Range = max(H-L, |H-PrevClose|, |L-PrevClose|)
+    ATR_pct = ATR / Close × 100
+
+    Returns: float (daily ATR as % of close), or None
     """
+    if idx < lookback or idx >= len(valid_df):
+        return None
+
+    start = max(0, idx - lookback + 1)
+    window = valid_df.iloc[start:idx + 1]
+
+    if len(window) < 5:
+        return None
+
+    if 'High' not in window.columns or 'Low' not in window.columns:
+        return None
+
+    highs = window['High'].values
+    lows = window['Low'].values
+    closes = window['Close'].values
+
+    if len(highs) < 2:
+        return None
+
+    true_ranges = []
+    for j in range(1, len(highs)):
+        h = highs[j]
+        l = lows[j]
+        pc = closes[j - 1]
+        if pd.isna(h) or pd.isna(l) or pd.isna(pc) or pc <= 0:
+            continue
+        tr = max(h - l, abs(h - pc), abs(l - pc))
+        true_ranges.append(tr)
+
+    if not true_ranges:
+        return None
+
+    atr = np.mean(true_ranges)
+    current_close = closes[-1]
+
+    if pd.isna(current_close) or current_close <= 0:
+        return None
+
+    return (atr / current_close) * 100
+
+
+def get_dynamic_threshold(atr_pct, forward_days):
+    """Calculate dynamic neutral band threshold.
+
+    threshold = ATR_pct × sqrt(forward_days) × ATR_MULTIPLIER
+
+    sqrt(forward_days) because price changes scale with
+    square root of time (random walk property).
+
+    Examples (ATR_pct=1.5%, multiplier=0.5):
+      MEGA  14d: 1.5 × 3.74 × 0.5 = 2.81%
+      LARGE 14d: 1.5 × 3.74 × 0.5 = 2.81%
+      MID    7d: 1.5 × 2.65 × 0.5 = 1.99%
+      SMALL  5d: 2.5 × 2.24 × 0.5 = 2.80%
+
+    Volatile stocks get wider band (fair).
+    Stable stocks get narrower band (fair).
+    """
+    if atr_pct is None or atr_pct <= 0:
+        # Fallback to fixed threshold
+        return 1.5
+
+    threshold = atr_pct * np.sqrt(forward_days) * ATR_MULTIPLIER
+
+    # Clamp to reasonable range
+    return max(0.5, min(8.0, round(threshold, 2)))
+
+
+def get_ticker_atr_pct(valid_df, lookback=ATR_LOOKBACK):
+    """Get ATR% for the LAST row (for live/summary use)."""
+    if len(valid_df) < lookback + 1:
+        return None
+    return compute_atr_pct(valid_df, len(valid_df) - 1, lookback)
+
+
+# ═══════════════════════════════════════════════════════════════
+# TRADE SIMULATION (hysteresis + stop-loss)
+# ═══════════════════════════════════════════════════════════════
+
+def simulate_trades(valid_df, mcap_threshold):
+    """Trade simulation with hysteresis + stop-loss."""
     if len(valid_df) < 25:
         return []
 
     trades = []
-    current_position = 0    # 0=flat, 1=long, -1=short
+    current_position = 0
     entry_price = None
     entry_date = None
     entry_idx = None
@@ -77,7 +169,7 @@ def simulate_trades(valid_df, mcap_threshold):
 
         holding_days = (i - entry_idx) if entry_idx is not None else 0
 
-        # ── CHECK STOP-LOSS (if in position) ──
+        # Stop-loss check
         if current_position != 0 and entry_price is not None:
             if holding_days >= STOP_LOSS_CHECK_DAY:
                 if current_position == 1:
@@ -86,7 +178,6 @@ def simulate_trades(valid_df, mcap_threshold):
                     unrealized = ((entry_price - close) / entry_price) * 100
 
                 if unrealized <= STOP_LOSS_PCT:
-                    # Stop-loss triggered — close position
                     trades.append({
                         "direction": "LONG" if current_position == 1 else "SHORT",
                         "entry_price": round(entry_price, 2),
@@ -104,10 +195,8 @@ def simulate_trades(valid_df, mcap_threshold):
                     entry_idx = None
                     continue
 
-        # ── SIGNAL LOGIC WITH HYSTERESIS ──
-
+        # Signal logic with hysteresis
         if current_position == 0:
-            # FLAT — need strong signal to enter
             if score > ENTRY_THRESHOLD:
                 current_position = 1
                 entry_price = close
@@ -120,13 +209,9 @@ def simulate_trades(valid_df, mcap_threshold):
                 entry_idx = i
 
         elif current_position == 1:
-            # LONG — need strong OPPOSITE signal to exit
-            # Must hold minimum days
             if holding_days < MIN_HOLD_DAYS:
                 continue
-
             if score < -EXIT_THRESHOLD:
-                # Strong bear signal — exit long, enter short
                 ret_pct = ((close - entry_price) / entry_price) * 100
                 trades.append({
                     "direction": "LONG",
@@ -139,19 +224,15 @@ def simulate_trades(valid_df, mcap_threshold):
                     "win": ret_pct > 0,
                     "exit_reason": "SIGNAL_FLIP",
                 })
-                # Enter short
                 current_position = -1
                 entry_price = close
                 entry_date = date
                 entry_idx = i
 
         elif current_position == -1:
-            # SHORT — need strong OPPOSITE signal to exit
             if holding_days < MIN_HOLD_DAYS:
                 continue
-
             if score > EXIT_THRESHOLD:
-                # Strong bull signal — exit short, enter long
                 ret_pct = ((entry_price - close) / entry_price) * 100
                 trades.append({
                     "direction": "SHORT",
@@ -164,13 +245,12 @@ def simulate_trades(valid_df, mcap_threshold):
                     "win": ret_pct > 0,
                     "exit_reason": "SIGNAL_FLIP",
                 })
-                # Enter long
                 current_position = 1
                 entry_price = close
                 entry_date = date
                 entry_idx = i
 
-    # Close any open position at end
+    # Close open position
     if current_position != 0 and entry_price is not None:
         last_close = valid_df.iloc[-1].get('Close')
         last_date = valid_df.iloc[-1].get('Date', '')
@@ -196,7 +276,7 @@ def simulate_trades(valid_df, mcap_threshold):
 
 
 def compute_trade_stats(trades):
-    """Compute trading statistics from completed trades."""
+    """Compute trading statistics."""
     if not trades:
         return {}
 
@@ -207,21 +287,16 @@ def compute_trade_stats(trades):
     n_losses = len(losses)
 
     win_rate = n_wins / total * 100
-
     avg_win = sum(t["return_pct"] for t in wins) / n_wins if n_wins > 0 else 0
     avg_loss = abs(sum(t["return_pct"] for t in losses) / n_losses) if n_losses > 0 else 0
-
     total_gains = sum(t["return_pct"] for t in wins)
     total_losses = abs(sum(t["return_pct"] for t in losses))
-
     profit_factor = total_gains / total_losses if total_losses > 0 else 999
-
     avg_holding = sum(t["holding_days"] for t in trades) / total
     total_return = sum(t["return_pct"] for t in trades)
 
     long_trades = [t for t in trades if t["direction"] == "LONG"]
     short_trades = [t for t in trades if t["direction"] == "SHORT"]
-
     long_wr = (
         sum(1 for t in long_trades if t["win"]) / len(long_trades) * 100
         if long_trades else 0
@@ -230,10 +305,7 @@ def compute_trade_stats(trades):
         sum(1 for t in short_trades if t["win"]) / len(short_trades) * 100
         if short_trades else 0
     )
-
-    # Stop-loss stats
     sl_trades = [t for t in trades if t.get("exit_reason") == "STOP_LOSS"]
-    signal_trades = [t for t in trades if t.get("exit_reason") == "SIGNAL_FLIP"]
 
     return {
         "total_trades": total,
@@ -250,12 +322,18 @@ def compute_trade_stats(trades):
         "long_win_rate": round(long_wr, 1),
         "short_win_rate": round(short_wr, 1),
         "stop_loss_exits": len(sl_trades),
-        "signal_flip_exits": len(signal_trades),
+        "signal_flip_exits": len([
+            t for t in trades if t.get("exit_reason") == "SIGNAL_FLIP"
+        ]),
     }
 
 
+# ═══════════════════════════════════════════════════════════════
+# DIRECTIONAL ACCURACY (with dynamic ATR threshold)
+# ═══════════════════════════════════════════════════════════════
+
 def compute_per_ticker_accuracy(stock_df, mcap_threshold):
-    """Backtest: direction accuracy + trade simulation."""
+    """Backtest: direction accuracy (dynamic ATR) + trade simulation."""
     if stock_df is None or stock_df.empty:
         return {}
 
@@ -263,6 +341,8 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
     tickers = stock_df['Ticker'].unique()
     category_stats = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
     category_trades = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
+    category_thresholds = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
+    category_atrs = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
 
     for tk in tickers:
         tk_data = (
@@ -278,12 +358,17 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
         last_row = valid.iloc[-1]
         mcap = safe_float(last_row.get('Market_Cap'), None)
         category = get_category_label(mcap)
-        params = CATEGORY_PARAMS[category]
-        forward_days = params["forward_days"]
-        threshold = params["threshold"]
+        forward_days = CATEGORY_PARAMS[category]["forward_days"]
 
-        # ── Direction accuracy ──
+        # Get this ticker's ATR% (latest)
+        ticker_atr = get_ticker_atr_pct(valid)
+        if ticker_atr is not None:
+            category_atrs[category].append(ticker_atr)
+
+        # ── Direction accuracy with DYNAMIC threshold ──
         predictions = []
+        thresholds_used = []
+
         if len(valid) >= 25 + forward_days:
             for i in range(20, len(valid) - forward_days):
                 slice_start = max(0, i - 20)
@@ -292,17 +377,26 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
                 pred_dir = 1 if score > 20 else (-1 if score < -20 else 0)
                 if pred_dir == 0:
                     continue
+
+                # Dynamic ATR threshold at THIS prediction point
+                atr_pct = compute_atr_pct(valid, i)
+                threshold = get_dynamic_threshold(atr_pct, forward_days)
+                thresholds_used.append(threshold)
+
                 base_close = valid.iloc[i].get('Close')
                 end_close = valid.iloc[i + forward_days].get('Close')
                 if pd.isna(base_close) or pd.isna(end_close) or base_close <= 0:
                     continue
+
                 cum_ret = ((end_close - base_close) / base_close) * 100
+
                 if cum_ret > threshold:
                     actual_dir = 1
                 elif cum_ret < -threshold:
                     actual_dir = -1
                 else:
                     actual_dir = 0
+
                 hit = is_hit(pred_dir, actual_dir)
                 predictions.append({
                     "pred": pred_dir,
@@ -310,6 +404,7 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
                     "hit": hit,
                     "score": score,
                     "cum_ret": cum_ret,
+                    "threshold": threshold,
                     "day_idx": i,
                 })
 
@@ -320,11 +415,22 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
         if not predictions and not trade_stats:
             continue
 
-        total = len(predictions) if predictions else 0
-        strong_hits = sum(1 for p in predictions if p["pred"] == p["actual"]) if predictions else 0
-        neutral_hits = sum(1 for p in predictions if p["hit"] and p["actual"] == 0) if predictions else 0
-        misses = sum(1 for p in predictions if not p["hit"]) if predictions else 0
+        total = len(predictions)
+        strong_hits = sum(
+            1 for p in predictions if p["pred"] == p["actual"]
+        ) if predictions else 0
+        neutral_hits = sum(
+            1 for p in predictions if p["hit"] and p["actual"] == 0
+        ) if predictions else 0
+        misses = sum(
+            1 for p in predictions if not p["hit"]
+        ) if predictions else 0
         strict_acc = strong_hits / total * 100 if total > 0 else 0
+
+        avg_threshold = (
+            sum(thresholds_used) / len(thresholds_used)
+            if thresholds_used else 1.5
+        )
 
         swing = ""
         swing_score = 0
@@ -343,7 +449,9 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
             last_3m = predictions[-n_3m:]
             bt_1m = sum(1 for p in last_1m if p["hit"]) / len(last_1m) * 100
             bt_3m = sum(1 for p in last_3m if p["hit"]) / len(last_3m) * 100
-            bt_6m = sum(1 for p in predictions if p["hit"]) / total * 100
+            bt_6m = sum(
+                1 for p in predictions if p["hit"]
+            ) / total * 100
 
         results[tk] = {
             "BT_Swing": swing,
@@ -356,7 +464,8 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
             "BT_6M_N": total,
             "BT_Total_Preds": total,
             "BT_Forward_Days": forward_days,
-            "BT_Threshold": threshold,
+            "BT_Threshold": round(avg_threshold, 2),
+            "BT_ATR_Pct": round(ticker_atr, 2) if ticker_atr else 0,
             "BT_Category": category,
             "BT_Strong_Hits": strong_hits,
             "BT_Neutral_Hits": neutral_hits,
@@ -367,16 +476,17 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
 
         if total > 0:
             category_stats[category].append(bt_6m)
+            category_thresholds[category].append(avg_threshold)
         if trade_stats:
             category_trades[category].append(trade_stats)
 
     # Direction summary
-    print(f"\n  Per-category accuracy (corrected: neutral=HIT):")
+    print(f"\n  Per-category accuracy (dynamic ATR threshold, neutral=HIT):")
     print(
         f"  {'Category':<10s} {'Tickers':>8s} {'Dir Acc':>8s} "
-        f"{'Strict':>8s} {'Horizon':>8s}"
+        f"{'Strict':>8s} {'AvgATR':>8s} {'AvgThresh':>10s} {'Horizon':>8s}"
     )
-    print(f"  {'-'*46}")
+    print(f"  {'-'*66}")
     for cat in ["MEGA", "LARGE", "MID", "SMALL"]:
         vals = category_stats[cat]
         if vals:
@@ -390,15 +500,27 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
                 sum(results[tk]["BT_Strict_Acc"] for tk in cat_tickers) / n_strict
                 if n_strict > 0 else 0
             )
-            p = CATEGORY_PARAMS[cat]
+            avg_t = (
+                sum(category_thresholds[cat]) / len(category_thresholds[cat])
+                if category_thresholds[cat] else 0
+            )
+            avg_atr = (
+                sum(category_atrs[cat]) / len(category_atrs[cat])
+                if category_atrs[cat] else 0
+            )
+            fwd = CATEGORY_PARAMS[cat]["forward_days"]
             print(
                 f"  {cat:<10s} {len(vals):>8d} {avg_new:>7.1f}% "
-                f"{avg_strict:>7.1f}% {p['forward_days']:>7d}d"
+                f"{avg_strict:>7.1f}% {avg_atr:>7.2f}% "
+                f"{avg_t:>9.2f}% {fwd:>7d}d"
             )
 
     # Trade summary
     print(f"\n  Per-category TRADE SIMULATION (hysteresis + stop-loss):")
-    print(f"  Entry:±{ENTRY_THRESHOLD} Exit:±{EXIT_THRESHOLD} MinHold:{MIN_HOLD_DAYS}d SL:{STOP_LOSS_PCT}%@{STOP_LOSS_CHECK_DAY}d")
+    print(
+        f"  Entry:±{ENTRY_THRESHOLD} Exit:±{EXIT_THRESHOLD} "
+        f"MinHold:{MIN_HOLD_DAYS}d SL:{STOP_LOSS_PCT}%@{STOP_LOSS_CHECK_DAY}d"
+    )
     print(
         f"  {'Category':<10s} {'Trades':>7s} {'WinRate':>8s} "
         f"{'AvgWin':>8s} {'AvgLoss':>8s} {'PF':>6s} "
@@ -434,7 +556,7 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
 def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
     """Print accuracy + trade report."""
     print(f"\n{'='*110}")
-    print(f"PREDICTION ACCURACY + TRADE REPORT (v6.2 Hysteresis + Stop-Loss)")
+    print(f"PREDICTION ACCURACY + TRADE REPORT (v6.3 Dynamic ATR + Hysteresis)")
     print(f"{'='*110}")
 
     if not bt_results:
@@ -455,12 +577,36 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
 
     if total_preds > 0:
         print(f"\n  -- OUTCOME BREAKDOWN ({total_preds:,} directional predictions) --")
-        print(f"  Strong HITs (pred=actual):     {total_strong:>7,} ({total_strong/total_preds*100:.1f}%)")
-        print(f"  Neutral HITs (not against):    {total_neutral:>7,} ({total_neutral/total_preds*100:.1f}%)")
-        print(f"  MISSes (opposite direction):   {total_miss:>7,} ({total_miss/total_preds*100:.1f}%)")
+        print(
+            f"  Strong HITs (pred=actual):     {total_strong:>7,} "
+            f"({total_strong/total_preds*100:.1f}%)"
+        )
+        print(
+            f"  Neutral HITs (not against):    {total_neutral:>7,} "
+            f"({total_neutral/total_preds*100:.1f}%)"
+        )
+        print(
+            f"  MISSes (opposite direction):   {total_miss:>7,} "
+            f"({total_miss/total_preds*100:.1f}%)"
+        )
+
+    # ATR info
+    all_atrs = [r["BT_ATR_Pct"] for r in bt_results.values() if r.get("BT_ATR_Pct", 0) > 0]
+    all_thresholds = [r["BT_Threshold"] for r in bt_results.values() if r.get("BT_Threshold", 0) > 0]
+    if all_atrs:
+        print(f"\n  -- DYNAMIC THRESHOLD INFO --")
+        print(
+            f"  ATR_pct range: {min(all_atrs):.2f}% — {max(all_atrs):.2f}% "
+            f"(avg: {sum(all_atrs)/len(all_atrs):.2f}%)"
+        )
+        print(
+            f"  Threshold range: ±{min(all_thresholds):.2f}% — ±{max(all_thresholds):.2f}% "
+            f"(avg: ±{sum(all_thresholds)/len(all_thresholds):.2f}%)"
+        )
+        print(f"  Multiplier: {ATR_MULTIPLIER} | Formula: ATR% × √(forward_days) × {ATR_MULTIPLIER}")
 
     # Direction accuracy
-    print(f"\n  -- DIRECTION ACCURACY (neutral=HIT) --")
+    print(f"\n  -- DIRECTION ACCURACY (neutral=HIT, dynamic ATR threshold) --")
     print(f"  {'Horizon':<20s} {'Accuracy':>10s} {'Tickers':>10s} {'Edge':>10s}")
     print(f"  {'-'*53}")
     if swing_total > 0:
@@ -479,48 +625,64 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
     # Per-category direction
     categories = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
     strict_cats = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
+    cat_thresholds = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
     for tk, r in bt_results.items():
         cat = r.get("BT_Category", "SMALL")
         if r.get("BT_6M_N", 0) >= 30:
             categories[cat].append(r["BT_6M"])
             strict_cats[cat].append(r.get("BT_Strict_Acc", 0))
+            cat_thresholds[cat].append(r.get("BT_Threshold", 0))
 
     print(f"\n  -- DIRECTION BY CATEGORY --")
     print(
         f"  {'Category':<10s} {'New Acc':>8s} {'Strict':>8s} "
-        f"{'Boost':>8s} {'Tickers':>8s}"
+        f"{'Boost':>8s} {'AvgThresh':>10s} {'Tickers':>8s}"
     )
-    print(f"  {'-'*45}")
+    print(f"  {'-'*55}")
     for cat in ["MEGA", "LARGE", "MID", "SMALL"]:
         vals = categories[cat]
         svals = strict_cats[cat]
+        tvals = cat_thresholds[cat]
         if vals:
             avg_new = sum(vals) / len(vals)
             avg_strict = sum(svals) / len(svals)
+            avg_t = sum(tvals) / len(tvals) if tvals else 0
             print(
                 f"  {cat:<10s} {avg_new:>7.1f}% {avg_strict:>7.1f}% "
-                f"{avg_new-avg_strict:>+7.1f}% {len(vals):>8d}"
+                f"{avg_new-avg_strict:>+7.1f}% ±{avg_t:>8.2f}% {len(vals):>8d}"
             )
 
     # ═══ TRADE SIMULATION REPORT ═══
-    has_trades = any(r.get("TR_total_trades", 0) > 0 for r in bt_results.values())
+    has_trades = any(
+        r.get("TR_total_trades", 0) > 0 for r in bt_results.values()
+    )
     if has_trades:
         print(f"\n  {'='*90}")
-        print(f"  TRADE SIMULATION (Hysteresis Entry:±{ENTRY_THRESHOLD} Exit:±{EXIT_THRESHOLD} MinHold:{MIN_HOLD_DAYS}d SL:{STOP_LOSS_PCT}%)")
+        print(
+            f"  TRADE SIMULATION "
+            f"(Hysteresis Entry:±{ENTRY_THRESHOLD} Exit:±{EXIT_THRESHOLD} "
+            f"MinHold:{MIN_HOLD_DAYS}d SL:{STOP_LOSS_PCT}%)"
+        )
         print(f"  {'='*90}")
 
-        all_trades_count = sum(r.get("TR_total_trades", 0) for r in bt_results.values())
+        all_trades_count = sum(
+            r.get("TR_total_trades", 0) for r in bt_results.values()
+        )
         all_wins = sum(r.get("TR_wins", 0) for r in bt_results.values())
-        all_losses = sum(r.get("TR_losses", 0) for r in bt_results.values())
-        all_sl = sum(r.get("TR_stop_loss_exits", 0) for r in bt_results.values())
-        all_flip = sum(r.get("TR_signal_flip_exits", 0) for r in bt_results.values())
-        overall_wr = all_wins / all_trades_count * 100 if all_trades_count > 0 else 0
+        all_sl = sum(
+            r.get("TR_stop_loss_exits", 0) for r in bt_results.values()
+        )
+        all_flip = sum(
+            r.get("TR_signal_flip_exits", 0) for r in bt_results.values()
+        )
+        overall_wr = (
+            all_wins / all_trades_count * 100 if all_trades_count > 0 else 0
+        )
 
         print(f"\n  Total trades: {all_trades_count:,}")
         print(f"  Win rate: {all_wins}/{all_trades_count} = {overall_wr:.1f}%")
         print(f"  Exits: {all_flip} signal flips | {all_sl} stop-losses")
 
-        # Per-category
         print(
             f"\n  {'Category':<10s} {'Trades':>7s} {'WinR':>6s} "
             f"{'AvgWin':>8s} {'AvgLoss':>8s} {'PF':>6s} "
@@ -530,7 +692,8 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
         for cat in ["MEGA", "LARGE", "MID", "SMALL"]:
             cat_rs = [
                 r for r in bt_results.values()
-                if r.get("BT_Category") == cat and r.get("TR_total_trades", 0) > 0
+                if r.get("BT_Category") == cat
+                and r.get("TR_total_trades", 0) > 0
             ]
             if not cat_rs:
                 continue
@@ -541,7 +704,9 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
             avg_w = sum(r["TR_avg_win_pct"] for r in cat_rs) / n
             avg_l = sum(r["TR_avg_loss_pct"] for r in cat_rs) / n
             total_g = sum(r["TR_avg_win_pct"] * r["TR_wins"] for r in cat_rs)
-            total_ls = sum(r["TR_avg_loss_pct"] * r["TR_losses"] for r in cat_rs)
+            total_ls = sum(
+                r["TR_avg_loss_pct"] * r["TR_losses"] for r in cat_rs
+            )
             pf = total_g / total_ls if total_ls > 0 else 0
             avg_ret = sum(r["TR_total_return_pct"] for r in cat_rs) / n
             avg_hold = sum(r["TR_avg_holding_days"] for r in cat_rs) / n
@@ -554,8 +719,12 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
             )
 
         # Long vs Short
-        all_long = sum(r.get("TR_long_trades", 0) for r in bt_results.values())
-        all_short = sum(r.get("TR_short_trades", 0) for r in bt_results.values())
+        all_long = sum(
+            r.get("TR_long_trades", 0) for r in bt_results.values()
+        )
+        all_short = sum(
+            r.get("TR_short_trades", 0) for r in bt_results.values()
+        )
         long_wrs = [
             r["TR_long_win_rate"] for r in bt_results.values()
             if r.get("TR_long_trades", 0) > 0
@@ -567,8 +736,14 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
         avg_long_wr = sum(long_wrs) / len(long_wrs) if long_wrs else 0
         avg_short_wr = sum(short_wrs) / len(short_wrs) if short_wrs else 0
 
-        print(f"\n  LONG trades:  {all_long:>6d} | Avg win rate: {avg_long_wr:.1f}%")
-        print(f"  SHORT trades: {all_short:>6d} | Avg win rate: {avg_short_wr:.1f}%")
+        print(
+            f"\n  LONG trades:  {all_long:>6d} | "
+            f"Avg win rate: {avg_long_wr:.1f}%"
+        )
+        print(
+            f"  SHORT trades: {all_short:>6d} | "
+            f"Avg win rate: {avg_short_wr:.1f}%"
+        )
 
         # Top/Bottom by PF
         sorted_pf = sorted(
@@ -584,41 +759,61 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
             print(
                 f"  {'Ticker':<14s} {'Cat':>5s} {'Trades':>7s} {'WinR':>6s} "
                 f"{'AvgW':>7s} {'AvgL':>7s} {'PF':>6s} {'TotRet':>8s} "
-                f"{'Hold':>6s} {'SL':>4s}"
+                f"{'Hold':>6s} {'ATR%':>6s} {'SL':>4s}"
             )
-            print(f"  {'-'*80}")
+            print(f"  {'-'*85}")
             for tk, r in sorted_pf[:10]:
                 sl_n = r.get('TR_stop_loss_exits', 0)
+                atr = r.get('BT_ATR_Pct', 0)
                 print(
                     f"  {tk:<14s} {r['BT_Category']:>5s} "
                     f"{r['TR_total_trades']:>7d} {r['TR_win_rate']:>5.1f}% "
-                    f"{r['TR_avg_win_pct']:>6.2f}% {r['TR_avg_loss_pct']:>6.2f}% "
+                    f"{r['TR_avg_win_pct']:>6.2f}% "
+                    f"{r['TR_avg_loss_pct']:>6.2f}% "
                     f"{r['TR_profit_factor']:>5.2f} "
                     f"{r['TR_total_return_pct']:>+7.1f}% "
-                    f"{r['TR_avg_holding_days']:>5.1f}d {sl_n:>4d}"
+                    f"{r['TR_avg_holding_days']:>5.1f}d "
+                    f"{atr:>5.2f}% {sl_n:>4d}"
                 )
 
             print(f"\n  -- BOTTOM 10 LEAST PROFITABLE --")
             for tk, r in sorted_pf[-10:]:
                 sl_n = r.get('TR_stop_loss_exits', 0)
+                atr = r.get('BT_ATR_Pct', 0)
                 print(
                     f"  {tk:<14s} {r['BT_Category']:>5s} "
                     f"{r['TR_total_trades']:>7d} {r['TR_win_rate']:>5.1f}% "
-                    f"{r['TR_avg_win_pct']:>6.2f}% {r['TR_avg_loss_pct']:>6.2f}% "
+                    f"{r['TR_avg_win_pct']:>6.2f}% "
+                    f"{r['TR_avg_loss_pct']:>6.02f}% "
                     f"{r['TR_profit_factor']:>5.2f} "
                     f"{r['TR_total_return_pct']:>+7.1f}% "
-                    f"{r['TR_avg_holding_days']:>5.1f}d {sl_n:>4d}"
+                    f"{r['TR_avg_holding_days']:>5.1f}d "
+                    f"{atr:>5.2f}% {sl_n:>4d}"
                 )
 
     # Distribution
     if all_6m:
+        above_70 = sum(1 for v in all_6m if v >= 70)
         above_60 = sum(1 for v in all_6m if v >= 60)
         above_50 = sum(1 for v in all_6m if v >= 50)
         below_45 = sum(1 for v in all_6m if v < 45)
         print(f"\n  -- DISTRIBUTION (direction accuracy) --")
-        print(f"  >60%: {above_60}/{len(all_6m)} tickers ({above_60/len(all_6m)*100:.0f}%)")
-        print(f"  >50%: {above_50}/{len(all_6m)} tickers ({above_50/len(all_6m)*100:.0f}%)")
-        print(f"  <45%: {below_45}/{len(all_6m)} tickers ({below_45/len(all_6m)*100:.0f}%)")
+        print(
+            f"  >70%: {above_70}/{len(all_6m)} tickers "
+            f"({above_70/len(all_6m)*100:.0f}%)"
+        )
+        print(
+            f"  >60%: {above_60}/{len(all_6m)} tickers "
+            f"({above_60/len(all_6m)*100:.0f}%)"
+        )
+        print(
+            f"  >50%: {above_50}/{len(all_6m)} tickers "
+            f"({above_50/len(all_6m)*100:.0f}%)"
+        )
+        print(
+            f"  <45%: {below_45}/{len(all_6m)} tickers "
+            f"({below_45/len(all_6m)*100:.0f}%)"
+        )
 
     # Live composite
     from engine.config import TODAY_IST
@@ -653,7 +848,10 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
                 if tk not in am:
                     continue
                 pc = safe_int(
-                    s.get('Composite_Direction', s.get('Forecast_Direction', 0))
+                    s.get(
+                        'Composite_Direction',
+                        s.get('Forecast_Direction', 0),
+                    )
                 )
                 if pc != 0:
                     dd += 1
@@ -663,8 +861,14 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
                         dh += 1
                         nd_hit += 1
             if dd > 0:
-                print(f"    {dates[i]} -> {dates[i+1]}: {dh}/{dd}={dh*100//dd}%")
+                print(
+                    f"    {dates[i]} -> {dates[i+1]}: "
+                    f"{dh}/{dd}={dh*100//dd}%"
+                )
         if nd_dir > 0:
-            print(f"    AGGREGATE: {nd_hit}/{nd_dir} = {nd_hit/nd_dir*100:.1f}%")
+            print(
+                f"    AGGREGATE: {nd_hit}/{nd_dir} = "
+                f"{nd_hit/nd_dir*100:.1f}%"
+            )
 
     print(f"{'='*110}")
