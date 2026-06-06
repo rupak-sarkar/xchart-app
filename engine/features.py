@@ -58,8 +58,8 @@ def get_category(mcap, mcap_threshold=10000):
 
 def get_horizon_and_threshold(category):
     params = {
-        "MEGA": (14, 1.0),
-        "LARGE": (10, 0.8),
+        "MEGA": (14, 0.8),
+        "LARGE": (14, 0.8),
         "MID": (7, 0.5),
         "SMALL": (5, 0.5),
     }
@@ -67,11 +67,7 @@ def get_horizon_and_threshold(category):
 
 
 def extract_features_for_point(valid_df, idx):
-    """Extract features for a single prediction point.
-    valid_df: sorted DataFrame for one ticker.
-    idx: row index (the 'today' we predict from).
-    Returns dict or None.
-    """
+    """Extract features for a single prediction point."""
     if idx < 20 or idx >= len(valid_df):
         return None
 
@@ -99,22 +95,22 @@ def extract_features_for_point(valid_df, idx):
 
     f = {}
 
-    # ── Price position ratios ──
+    # Price position ratios
     f['close_sma9_ratio'] = _safe_ratio(close, sma9)
     f['close_sma22_ratio'] = _safe_ratio(close, sma22)
     f['close_sma52_ratio'] = _safe_ratio(close, sma52)
     f['close_sma200_ratio'] = _safe_ratio(close, sma200)
 
-    # ── SMA alignment ──
+    # SMA alignment
     f['sma9_sma22_ratio'] = _safe_ratio(sma9, sma22)
     f['sma22_sma52_ratio'] = _safe_ratio(sma22, sma52)
     f['sma52_sma200_ratio'] = _safe_ratio(sma52, sma200)
 
-    # ── Oscillators ──
+    # Oscillators
     f['rsi'] = rsi_val if rsi_val is not None else np.nan
     f['adx'] = adx_val if adx_val is not None else np.nan
 
-    # ── MACD normalised ──
+    # MACD normalised
     if macd_hist is not None:
         f['macd_hist_norm'] = macd_hist / close * 100
     else:
@@ -125,25 +121,27 @@ def extract_features_for_point(valid_df, idx):
     else:
         f['macd_diff_norm'] = np.nan
 
-    # ── EMA cross ──
+    # EMA cross
     if ema9 is not None and ema21 is not None:
         f['ema_cross_norm'] = (ema9 - ema21) / close * 100
     else:
         f['ema_cross_norm'] = np.nan
 
-    # ── Bollinger position (0 = lower band, 1 = upper band) ──
+    # Bollinger position (0=lower, 1=upper)
     if bb_upper is not None and bb_lower is not None and bb_upper > bb_lower:
         f['bb_position'] = (close - bb_lower) / (bb_upper - bb_lower)
     else:
         f['bb_position'] = np.nan
 
-    # ── SuperTrend ──
+    # SuperTrend
     f['st_direction'] = st_dir if st_dir is not None else np.nan
 
-    # ── Momentum ──
+    # Momentum
     for lookback, name in [(5, 'mom_5d'), (10, 'mom_10d'), (20, 'mom_20d')]:
         if idx >= lookback:
-            prev = safe_float(valid_df.iloc[idx - lookback].get('Close'), None)
+            prev = safe_float(
+                valid_df.iloc[idx - lookback].get('Close'), None
+            )
             if prev and prev > 0:
                 f[name] = (close - prev) / prev * 100
             else:
@@ -151,7 +149,7 @@ def extract_features_for_point(valid_df, idx):
         else:
             f[name] = np.nan
 
-    # ── Volume ratio ──
+    # Volume ratio
     if idx >= 20 and volume is not None and 'Volume' in valid_df.columns:
         vol_slice = valid_df.iloc[max(0, idx - 19):idx + 1]['Volume'].dropna()
         avg_vol = vol_slice.mean() if len(vol_slice) > 0 else 0
@@ -159,7 +157,7 @@ def extract_features_for_point(valid_df, idx):
     else:
         f['volume_ratio_20d'] = np.nan
 
-    # ── S/R distance ──
+    # S/R distance
     recent = valid_df.iloc[max(0, idx - 19):idx + 1]
     support = None
     resistance = None
@@ -186,13 +184,13 @@ def extract_features_for_point(valid_df, idx):
     else:
         f['sr_position'] = np.nan
 
-    # ── Market cap (log₁₀) ──
+    # Market cap (log10)
     if mcap and mcap > 0:
         f['mcap_log'] = np.log10(mcap)
     else:
         f['mcap_log'] = np.nan
 
-    # ── Avg daily range (volatility proxy) ──
+    # Avg daily range (volatility proxy)
     if idx >= 20 and 'High' in valid_df.columns and 'Low' in valid_df.columns:
         rng = valid_df.iloc[max(0, idx - 19):idx + 1]
         h = rng['High'].dropna().values
@@ -200,25 +198,29 @@ def extract_features_for_point(valid_df, idx):
         c = rng['Close'].dropna().values
         n = min(len(h), len(l), len(c))
         if n > 0:
-            f['avg_daily_range_20d'] = float(np.nanmean((h[:n] - l[:n]) / c[:n])) * 100
+            f['avg_daily_range_20d'] = float(
+                np.nanmean((h[:n] - l[:n]) / c[:n])
+            ) * 100
         else:
             f['avg_daily_range_20d'] = np.nan
     else:
         f['avg_daily_range_20d'] = np.nan
 
-    # ── UP20 (institutional accumulation) ──
+    # UP20 (institutional accumulation)
     if 'up_true' in valid_df.columns and idx >= 7:
         r7 = valid_df.iloc[max(0, idx - 6):idx + 1]
         try:
             f['up20_recent'] = int(
-                r7['up_true'].apply(lambda x: 1 if int(float(x)) == 1 else 0).sum()
+                r7['up_true']
+                .apply(lambda x: 1 if int(float(x)) == 1 else 0)
+                .sum()
             )
         except Exception:
             f['up20_recent'] = 0
     else:
         f['up20_recent'] = 0
 
-    # ── Above SMA200 (binary) ──
+    # Above SMA200 (binary)
     if sma200 is not None:
         f['close_above_sma200'] = 1 if close > sma200 else 0
     else:
@@ -228,9 +230,7 @@ def extract_features_for_point(valid_df, idx):
 
 
 def extract_all_features(stock_df, mcap_threshold):
-    """Extract features + labels for ALL tickers × ALL dates.
-    Returns DataFrame with features, labels, metadata.
-    """
+    """Extract features + labels for ALL tickers x ALL dates."""
     if stock_df is None or stock_df.empty:
         return pd.DataFrame()
 
@@ -238,5 +238,84 @@ def extract_all_features(stock_df, mcap_threshold):
     tickers = stock_df['Ticker'].unique()
 
     for tk in tickers:
-        tk_data = stock_df[stock_df['Ticker'] == tk].sort_values('Date').reset_index(drop=True)
-        valid =
+        tk_data = (
+            stock_df[stock_df['Ticker'] == tk]
+            .sort_values('Date')
+            .reset_index(drop=True)
+        )
+        valid = tk_data[tk_data['Close'].notna()].reset_index(drop=True)
+        if len(valid) < 30:
+            continue
+
+        last_mcap = safe_float(valid.iloc[-1].get('Market_Cap'), None)
+        category = get_category(last_mcap, mcap_threshold)
+        forward_days, threshold = get_horizon_and_threshold(category)
+
+        for i in range(20, len(valid) - forward_days):
+            feat = extract_features_for_point(valid, i)
+            if feat is None:
+                continue
+
+            base_close = safe_float(valid.iloc[i].get('Close'), None)
+            end_close = safe_float(
+                valid.iloc[i + forward_days].get('Close'), None
+            )
+            if base_close is None or end_close is None or base_close <= 0:
+                continue
+
+            cum_ret = ((end_close - base_close) / base_close) * 100
+            if cum_ret > threshold:
+                label = 1
+            elif cum_ret < -threshold:
+                label = -1
+            else:
+                label = 0
+
+            all_rows.append({
+                'Ticker': tk,
+                'Date': valid.iloc[i].get('Date', ''),
+                'Category': category,
+                'Label': label,
+                'Return': round(cum_ret, 4),
+                'Forward_Days': forward_days,
+                'Threshold': threshold,
+                **feat,
+            })
+
+    if not all_rows:
+        return pd.DataFrame()
+    return pd.DataFrame(all_rows)
+
+
+def extract_live_features(stock_df, mcap_threshold):
+    """Extract features for TODAY (last row of each ticker)."""
+    if stock_df is None or stock_df.empty:
+        return pd.DataFrame()
+
+    all_rows = []
+    for tk in stock_df['Ticker'].unique():
+        tk_data = (
+            stock_df[stock_df['Ticker'] == tk]
+            .sort_values('Date')
+            .reset_index(drop=True)
+        )
+        valid = tk_data[tk_data['Close'].notna()].reset_index(drop=True)
+        if len(valid) < 25:
+            continue
+
+        feat = extract_features_for_point(valid, len(valid) - 1)
+        if feat is None:
+            continue
+
+        last_mcap = safe_float(valid.iloc[-1].get('Market_Cap'), None)
+        category = get_category(last_mcap, mcap_threshold)
+        all_rows.append({
+            'Ticker': tk,
+            'Date': valid.iloc[-1].get('Date', ''),
+            'Category': category,
+            **feat,
+        })
+
+    if not all_rows:
+        return pd.DataFrame()
+    return pd.DataFrame(all_rows)
