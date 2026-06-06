@@ -1,3 +1,11 @@
-pip install yfinance feedparser pandas
-
+pandas
+numpy
+yfinance
+feedparser
+requests
+beautifulsoup4
+transformers
+torch
+lightgbm
+scikit-learn
 
