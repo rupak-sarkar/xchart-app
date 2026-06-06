@@ -178,29 +178,33 @@ let selectedTicker = null;
 
 // ─── LOAD DATA ───
 function init() {
-  // Load meta.json
-  fetch('meta.json').then(r=>r.json()).then(meta=>{
-    document.getElementById('g-regime').textContent = meta.regime || '—';
-    document.getElementById('g-accuracy').textContent = meta.direction_accuracy ? meta.direction_accuracy+'%' : '—';
-    document.getElementById('g-pf').textContent = meta.avg_pf || '—';
-    document.getElementById('g-tickers').textContent = meta.total_tickers || '—';
-    document.getElementById('g-bull').textContent = meta.bull_count || 0;
-    document.getElementById('g-bear').textContent = meta.bear_count || 0;
-    document.getElementById('g-date').textContent = meta.date || '—';
-    // Color regime
-    const el = document.getElementById('g-regime');
-    if(meta.regime==='BULL'||meta.regime==='STRONG_BULL') el.style.color='var(--bull)';
-    else if(meta.regime==='BEAR'||meta.regime==='STRONG_BEAR') el.style.color='var(--bear)';
-    else el.style.color='var(--neut)';
-  }).catch(()=>{});
+  // Load meta.json - using raw.githubusercontent.com for GitHub Pages compatibility
+  fetch('https://raw.githubusercontent.com/rupak-sarkar/xchart-app/master/meta.json')
+    .then(r=>r.json())
+    .then(meta=>{
+      document.getElementById('g-regime').textContent = meta.regime || '—';
+      document.getElementById('g-accuracy').textContent = meta.direction_accuracy ? meta.direction_accuracy+'%' : '—';
+      document.getElementById('g-pf').textContent = meta.avg_pf || '—';
+      document.getElementById('g-tickers').textContent = meta.total_tickers || '—';
+      document.getElementById('g-bull').textContent = meta.bull_count || 0;
+      document.getElementById('g-bear').textContent = meta.bear_count || 0;
+      document.getElementById('g-date').textContent = meta.date || '—';
+      // Color regime
+      const el = document.getElementById('g-regime');
+      if(meta.regime==='BULL'||meta.regime==='STRONG_BULL') el.style.color='var(--bull)';
+      else if(meta.regime==='BEAR'||meta.regime==='STRONG_BEAR') el.style.color='var(--bear)';
+      else el.style.color='var(--neut)';
+    })
+    .catch(err=>{console.warn('Failed to load meta.json:', err);});
 
-  // Load data.csv
-  Papa.parse('data.csv',{
+  // Load data.csv - using raw.githubusercontent.com for GitHub Pages compatibility
+  Papa.parse('https://raw.githubusercontent.com/rupak-sarkar/xchart-app/master/data.csv',{
     download:true, header:true,
     complete:function(results){
       allData = results.data.filter(r=>r.Ticker && r.Ticker.trim());
       buildTickerList();
-    }
+    },
+    error:function(err){console.warn('Failed to parse data.csv:', err);}
   });
 }
 
@@ -276,14 +280,25 @@ function selectTicker(ticker){
   updateKPIs(row);
   updateDetails(row);
 
-  // Load chart data
-  fetch(`charts/${ticker}.json`)
-    .then(r=>r.json())
-    .then(data=>renderChart(ticker, row, data.ohlc, data.markers))
-    .catch(()=>{
+  // Load chart data - using raw.githubusercontent.com for GitHub Pages compatibility
+  const chartUrl = `https://raw.githubusercontent.com/rupak-sarkar/xchart-app/master/charts/${ticker}.json`;
+  fetch(chartUrl)
+    .then(r=>{
+      if(!r.ok) throw new Error(`Chart fetch failed: ${r.status}`);
+      return r.json();
+    })
+    .then(data=>{
+      if(data.ohlc && Array.isArray(data.ohlc)){
+        renderChart(ticker, row, data.ohlc, data.markers || []);
+      } else {
+        throw new Error('Invalid chart data format');
+      }
+    })
+    .catch(err=>{
+      console.warn(`Chart load error for ${ticker}:`, err);
       if(chart){chart.remove();chart=null;candleSeries=null;}
       document.getElementById('chartContainer').innerHTML =
-        '<div class="placeholder" style="height:100%">No chart data available for '+ticker+'</div>';
+        '<div class="placeholder" style="height:100%;color:var(--text2)"><div>📊</div><div>No chart data available for '+ticker+'</div><div style="font-size:10px;margin-top:8px">'+err.message+'</div></div>';
     });
 }
 
@@ -455,7 +470,9 @@ function renderChart(ticker, row, ohlc, markers){
 
   // Resize handler
   const ro = new ResizeObserver(()=>{
-    chart.applyOptions({width:container.clientWidth,height:container.clientHeight});
+    if(chart){
+      chart.applyOptions({width:container.clientWidth,height:container.clientHeight});
+    }
   });
   ro.observe(container);
 }
