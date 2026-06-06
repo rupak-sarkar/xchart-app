@@ -20,7 +20,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pandas numpy yfinance feedparser requests beautifulsoup4 transformers torch lightgbm scikit-learn
+        run: pip install pandas numpy yfinance feedparser requests beautifulsoup4 lightgbm scikit-learn
 
       - name: Run ML pipeline
         run: python ml_run.py
