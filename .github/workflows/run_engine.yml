@@ -1,74 +1,8 @@
-name: Data Engine Auto-Refresh
-
-on:
-  schedule:
-    - cron: '30 3 * * 1-5'   # 9:00 AM IST
-    - cron: '0 8 * * 1-5'    # 1:30 PM IST
-    - cron: '0 11 * * 1-5'   # 4:30 PM IST
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  run-backend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        cache: 'pip'
-
-    - name: Cache FinBERT Model
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/huggingface
-        key: finbert-model-v1
-        restore-keys: finbert-model-
-
-    - name: Install dependencies
-      run: pip install pandas numpy yfinance feedparser requests beautifulsoup4 transformers torch
-
-    - name: Download Stock OHLCV Data + Indicators
-      run: python create_stock_data.py
-
-    - name: Run Multi-Layer Sentiment Engine
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      run: python app.py
-
-    - name: Verify Outputs
-      run: |
-        echo "--- data.csv ---"
-        if [ -f data.csv ]; then echo "Rows: $(tail -n +2 data.csv | wc -l)"; else echo "MISSING!"; exit 1; fi
-        echo "--- stock_data.csv ---"
-        if [ -f stock_data.csv ]; then echo "Rows: $(tail -n +2 stock_data.csv | wc -l)"; else echo "MISSING (first run may take longer)"; fi
-        echo "--- history.csv ---"
-        if [ -f history.csv ]; then echo "Rows: $(tail -n +2 history.csv | wc -l)"; fi
-
-    - name: Push Data
-      run: |
-        git config --global user.name "GitHub Actions Automation"
-        git config --global user.email "actions@github.com"
-        git add data.csv history.csv stock_data.csv
-        CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-        git diff --cached --quiet && echo "No changes" && exit 0
-        git commit -m "Auto-updated data [$(date -u +'%Y-%m-%d %H:%M UTC')]"
-
-        # Pull with auto-resolve: keep OUR version for generated data files
-        git pull --rebase origin "$CURRENT_BRANCH" \
-          -X theirs \
-          || {
-            echo "Rebase conflict — force-resolving generated files..."
-            git checkout --theirs data.csv history.csv stock_data.csv 2>/dev/null || true
-            git add data.csv history.csv stock_data.csv
-            git rebase --continue || git rebase --skip
-          }
-
-        git push origin "$CURRENT_BRANCH"
+- name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "🔄 Engine update $(date -u +%Y-%m-%d_%H:%M)"
+          git pull --rebase origin master
+          git push
