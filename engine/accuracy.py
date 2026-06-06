@@ -1,9 +1,20 @@
-"""Per-ticker backtest with DYNAMIC horizons from momentum angle.
-v6.0: Horizon determined by momentum slope + S/R distance, not fixed by MCap.
-Uses the SAME compute_tech_score() as live prediction."""
+"""Per-ticker backtest with corrected hit/miss logic.
+v6.1: BULL->NEUTRAL = HIT (not against prediction)
+      BEAR->NEUTRAL = HIT (not against prediction)
+      Only opposite direction = MISS
+Horizons: MEGA=14d LARGE=14d MID=7d SMALL=5d"""
 import pandas as pd
 from engine.technical import compute_tech_score, detect_mcap_scale
 from engine.utils import safe_int, safe_float
+
+
+# Fixed horizons per category
+CATEGORY_PARAMS = {
+    "MEGA":  {"forward_days": 14, "threshold": 0.8},
+    "LARGE": {"forward_days": 14, "threshold": 0.8},
+    "MID":   {"forward_days": 7,  "threshold": 0.5},
+    "SMALL": {"forward_days": 5,  "threshold": 0.5},
+}
 
 
 def get_category_label(mcap):
@@ -17,22 +28,21 @@ def get_category_label(mcap):
         return "SMALL"
 
 
-def get_category_threshold(mcap):
-    """Return threshold based on MCap — stocks with larger MCap move less."""
-    if mcap is not None and mcap > 100000:
-        return 1.0
-    elif mcap is not None and mcap > 30000:
-        return 0.8
-    elif mcap is not None and mcap > 10000:
-        return 0.5
-    else:
-        return 0.5
+def is_hit(pred_dir, actual_dir):
+    """Corrected hit/miss logic.
+    BULL prediction: HIT if actual is BULL or NEUTRAL (not against)
+    BEAR prediction: HIT if actual is BEAR or NEUTRAL (not against)
+    Only count MISS when market moves AGAINST the prediction.
+    """
+    if pred_dir == 1:
+        return actual_dir != -1  # HIT if BULL or NEUTRAL, MISS only if BEAR
+    elif pred_dir == -1:
+        return actual_dir != 1   # HIT if BEAR or NEUTRAL, MISS only if BULL
+    return False
 
 
 def compute_per_ticker_accuracy(stock_df, mcap_threshold):
-    """Backtest each ticker using DYNAMIC horizon from compute_tech_score.
-    The scoring engine itself determines how many days to look forward
-    based on momentum slope and S/R distance."""
+    """Backtest each ticker with corrected hit/miss logic."""
     if stock_df is None or stock_df.empty:
         return {}
 
@@ -50,29 +60,25 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
         last_row = valid.iloc[-1]
         mcap = safe_float(last_row.get('Market_Cap'), None)
         category = get_category_label(mcap)
-        threshold = get_category_threshold(mcap)
+        params = CATEGORY_PARAMS[category]
+        forward_days = params["forward_days"]
+        threshold = params["threshold"]
+
+        if len(valid) < 25 + forward_days:
+            continue
 
         predictions = []
-        horizons_used = []
 
-        for i in range(20, len(valid)):
-            # 21-row slice
+        for i in range(20, len(valid) - forward_days):
             slice_start = max(0, i - 20)
             slice_df = valid.iloc[slice_start:i + 1]
 
-            score, _, est_horizon = compute_tech_score(slice_df, mcap_threshold)
+            score, _, _ = compute_tech_score(slice_df, mcap_threshold)
 
             pred_dir = 1 if score > 20 else (-1 if score < -20 else 0)
             if pred_dir == 0:
                 continue
 
-            # Use the DYNAMIC horizon from scoring
-            forward_days = max(2, min(28, est_horizon))
-
-            if i + forward_days >= len(valid):
-                continue
-
-            # Total return over dynamic horizon
             base_close = valid.iloc[i].get('Close')
             end_close = valid.iloc[i + forward_days].get('Close')
 
@@ -80,8 +86,17 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
                 continue
 
             cum_ret = ((end_close - base_close) / base_close) * 100
-            actual_dir = 1 if cum_ret > threshold else (-1 if cum_ret < -threshold else 0)
-            hit = pred_dir == actual_dir
+
+            # 3-way actual direction
+            if cum_ret > threshold:
+                actual_dir = 1
+            elif cum_ret < -threshold:
+                actual_dir = -1
+            else:
+                actual_dir = 0  # NEUTRAL
+
+            # Corrected hit logic
+            hit = is_hit(pred_dir, actual_dir)
 
             predictions.append({
                 "pred": pred_dir,
@@ -89,16 +104,19 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
                 "hit": hit,
                 "score": score,
                 "cum_ret": cum_ret,
-                "horizon": forward_days,
                 "day_idx": i,
             })
-            horizons_used.append(forward_days)
 
         if not predictions:
             continue
 
         total = len(predictions)
-        avg_horizon = sum(horizons_used) / len(horizons_used)
+
+        # Count by outcome type
+        strong_hits = sum(1 for p in predictions if p["pred"] == p["actual"])
+        neutral_hits = sum(1 for p in predictions if p["hit"] and p["actual"] == 0)
+        misses = sum(1 for p in predictions if not p["hit"])
+        total_hits = sum(1 for p in predictions if p["hit"])
 
         swing = "HIT" if predictions[-1]["hit"] else "MISS"
         swing_score = predictions[-1]["score"]
@@ -115,10 +133,15 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
         bt_3m = sum(1 for p in last_3m if p["hit"]) / len(last_3m) * 100
         bt_6m = sum(1 for p in last_6m if p["hit"]) / len(last_6m) * 100
 
-        hits = [p for p in predictions if p["hit"]]
-        misses = [p for p in predictions if not p["hit"]]
-        avg_hit_ret = sum(abs(p["cum_ret"]) for p in hits) / len(hits) if hits else 0
-        avg_miss_ret = sum(abs(p["cum_ret"]) for p in misses) / len(misses) if misses else 0
+        # Strict accuracy (old way — for comparison)
+        strict_hits = sum(1 for p in predictions if p["pred"] == p["actual"])
+        strict_acc = strict_hits / total * 100
+
+        # Profit factor
+        hits_list = [p for p in predictions if p["hit"]]
+        miss_list = [p for p in predictions if not p["hit"]]
+        avg_hit_ret = sum(abs(p["cum_ret"]) for p in hits_list) / len(hits_list) if hits_list else 0
+        avg_miss_ret = sum(abs(p["cum_ret"]) for p in miss_list) / len(miss_list) if miss_list else 0
 
         results[tk] = {
             "BT_Swing": swing,
@@ -130,37 +153,45 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
             "BT_3M_N": len(last_3m),
             "BT_6M_N": n_6m,
             "BT_Total_Preds": total,
-            "BT_Forward_Days": round(avg_horizon, 1),
+            "BT_Forward_Days": forward_days,
             "BT_Threshold": threshold,
             "BT_Category": category,
             "BT_Avg_Hit_Ret": round(avg_hit_ret, 2),
             "BT_Avg_Miss_Ret": round(avg_miss_ret, 2),
+            "BT_Strong_Hits": strong_hits,
+            "BT_Neutral_Hits": neutral_hits,
+            "BT_Misses": misses,
+            "BT_Strict_Acc": round(strict_acc, 1),
         }
 
         category_stats[category].append(bt_6m)
 
-    # Print category summary
-    print(f"\n  Per-category accuracy (long-term):")
-    print(f"  {'Category':<10s} {'Tickers':>8s} {'Avg Acc':>8s} {'Avg Horizon':>12s} {'Thresh':>8s}")
-    print(f"  {'-'*50}")
+    # Summary
+    print(f"\n  Per-category accuracy (corrected: neutral=HIT):")
+    print(
+        f"  {'Category':<10s} {'Tickers':>8s} {'New Acc':>8s} "
+        f"{'Strict':>8s} {'Horizon':>8s} {'Thresh':>8s}"
+    )
+    print(f"  {'-'*54}")
     for cat in ["MEGA", "LARGE", "MID", "SMALL"]:
         vals = category_stats[cat]
-        cat_tickers = [tk for tk, r in results.items() if r["BT_Category"] == cat]
-        if vals and cat_tickers:
-            avg = sum(vals) / len(vals)
-            avg_h = sum(results[tk]["BT_Forward_Days"] for tk in cat_tickers) / len(cat_tickers)
-            thresh = get_category_threshold(
-                100001 if cat == "MEGA" else 30001 if cat == "LARGE" else 10001 if cat == "MID" else 5000
+        if vals:
+            avg_new = sum(vals) / len(vals)
+            cat_tickers = [tk for tk, r in results.items() if r["BT_Category"] == cat]
+            avg_strict = sum(results[tk]["BT_Strict_Acc"] for tk in cat_tickers) / len(cat_tickers)
+            p = CATEGORY_PARAMS[cat]
+            print(
+                f"  {cat:<10s} {len(vals):>8d} {avg_new:>7.1f}% "
+                f"{avg_strict:>7.1f}% {p['forward_days']:>7d}d {p['threshold']:>7.1f}%"
             )
-            print(f"  {cat:<10s} {len(vals):>8d} {avg:>7.1f}% {avg_h:>10.1f}d {thresh:>7.1f}%")
 
     return results
 
 
 def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
-    """Print comprehensive accuracy report"""
+    """Print accuracy report with corrected hit/miss logic."""
     print(f"\n{'='*110}")
-    print(f"PREDICTION ACCURACY REPORT (v6.0 - S/R-Centric + Dynamic Horizon)")
+    print(f"PREDICTION ACCURACY REPORT (v6.1 - Neutral=HIT, Fixed Horizons)")
     print(f"{'='*110}")
 
     if not bt_results:
@@ -175,8 +206,19 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
     swing_total = len(bt_results)
     total_preds = sum(r["BT_Total_Preds"] for r in bt_results.values())
 
-    print(f"\n  -- MODEL ACCURACY (S/R-centric, dynamic horizons) --")
-    print(f"  Total backtest predictions: {total_preds:,}")
+    # Overall outcome breakdown
+    total_strong = sum(r["BT_Strong_Hits"] for r in bt_results.values())
+    total_neutral = sum(r["BT_Neutral_Hits"] for r in bt_results.values())
+    total_miss = sum(r["BT_Misses"] for r in bt_results.values())
+
+    print(f"\n  -- OUTCOME BREAKDOWN ({total_preds:,} predictions) --")
+    print(f"  Strong HITs (pred=actual):     {total_strong:>7,} ({total_strong/total_preds*100:.1f}%)")
+    print(f"  Neutral HITs (not against):    {total_neutral:>7,} ({total_neutral/total_preds*100:.1f}%)")
+    print(f"  MISSes (opposite direction):   {total_miss:>7,} ({total_miss/total_preds*100:.1f}%)")
+    print(f"  Total HITs:                    {total_strong+total_neutral:>7,} ({(total_strong+total_neutral)/total_preds*100:.1f}%)")
+
+    print(f"\n  -- MODEL ACCURACY (neutral=HIT) --")
+    print(f"  Horizons: MEGA=14d LARGE=14d MID=7d SMALL=5d")
     print(f"\n  {'Horizon':<20s} {'Accuracy':>10s} {'Tickers':>10s} {'Edge vs 50%':>12s}")
     print(f"  {'-'*55}")
     if swing_total > 0:
@@ -194,25 +236,31 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
 
     # Per-category
     categories = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
-    cat_horizons = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
+    strict_cats = {"MEGA": [], "LARGE": [], "MID": [], "SMALL": []}
     for tk, r in bt_results.items():
         cat = r.get("BT_Category", "SMALL")
         if r["BT_6M_N"] >= 30:
             categories[cat].append(r["BT_6M"])
-            cat_horizons[cat].append(r["BT_Forward_Days"])
+            strict_cats[cat].append(r["BT_Strict_Acc"])
 
-    print(f"\n  -- ACCURACY BY MARKET CAP CATEGORY --")
-    print(f"  {'Category':<10s} {'Avg Horizon':>12s} {'Thresh':>8s} {'Tickers':>8s} {'Avg Acc':>8s} {'Edge':>8s}")
-    print(f"  {'-'*58}")
+    print(f"\n  -- ACCURACY BY CATEGORY (new vs strict) --")
+    print(
+        f"  {'Category':<10s} {'Horizon':>8s} {'New Acc':>8s} "
+        f"{'Strict':>8s} {'Boost':>8s} {'Tickers':>8s}"
+    )
+    print(f"  {'-'*54}")
     for cat in ["MEGA", "LARGE", "MID", "SMALL"]:
         vals = categories[cat]
+        svals = strict_cats[cat]
         if vals:
-            avg = sum(vals) / len(vals)
-            avg_h = sum(cat_horizons[cat]) / len(cat_horizons[cat])
-            t = get_category_threshold(
-                100001 if cat == "MEGA" else 30001 if cat == "LARGE" else 10001 if cat == "MID" else 5000
+            avg_new = sum(vals) / len(vals)
+            avg_strict = sum(svals) / len(svals)
+            boost = avg_new - avg_strict
+            h = CATEGORY_PARAMS[cat]["forward_days"]
+            print(
+                f"  {cat:<10s} {h:>7d}d {avg_new:>7.1f}% "
+                f"{avg_strict:>7.1f}% {boost:>+7.1f}% {len(vals):>8d}"
             )
-            print(f"  {cat:<10s} {avg_h:>10.1f}d {t:>7.1f}% {len(vals):>8d} {avg:>7.1f}% {avg-50:>+7.1f}%")
 
     # Profit factor
     all_hit_ret = []
@@ -237,14 +285,17 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
 
     if sorted_1m:
         print(f"\n  -- TOP 10 MOST PREDICTABLE --")
-        print(f"  {'Ticker':<14s} {'Cat':>5s} {'Swing':>6s} {'1M':>7s} {'3M':>7s} {'ALL':>7s} {'Preds':>6s} {'AvgH':>5s} {'PF':>5s}")
-        print(f"  {'-'*66}")
+        print(
+            f"  {'Ticker':<14s} {'Cat':>5s} {'Swing':>6s} {'1M':>7s} "
+            f"{'3M':>7s} {'ALL':>7s} {'Strict':>7s} {'Preds':>6s} {'PF':>5s}"
+        )
+        print(f"  {'-'*70}")
         for tk, r in sorted_1m[:10]:
             pf_tk = r['BT_Avg_Hit_Ret'] / r['BT_Avg_Miss_Ret'] if r['BT_Avg_Miss_Ret'] > 0 else 0
             print(
                 f"  {tk:<14s} {r['BT_Category']:>5s} {r['BT_Swing']:>6s} "
                 f"{r['BT_1M']:>6.1f}% {r['BT_3M']:>6.1f}% {r['BT_6M']:>6.1f}% "
-                f"{r['BT_Total_Preds']:>6d} {r['BT_Forward_Days']:>4.0f}d {pf_tk:>4.1f}x"
+                f"{r['BT_Strict_Acc']:>6.1f}% {r['BT_Total_Preds']:>6d} {pf_tk:>4.1f}x"
             )
 
         print(f"\n  -- BOTTOM 10 LEAST PREDICTABLE --")
@@ -253,18 +304,18 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
             print(
                 f"  {tk:<14s} {r['BT_Category']:>5s} {r['BT_Swing']:>6s} "
                 f"{r['BT_1M']:>6.1f}% {r['BT_3M']:>6.1f}% {r['BT_6M']:>6.1f}% "
-                f"{r['BT_Total_Preds']:>6d} {r['BT_Forward_Days']:>4.0f}d {pf_tk:>4.1f}x"
+                f"{r['BT_Strict_Acc']:>6.1f}% {r['BT_Total_Preds']:>6d} {pf_tk:>4.1f}x"
             )
 
     # Distribution
     if all_6m:
+        above_70 = sum(1 for v in all_6m if v >= 70)
         above_60 = sum(1 for v in all_6m if v >= 60)
-        above_55 = sum(1 for v in all_6m if v >= 55)
         above_50 = sum(1 for v in all_6m if v >= 50)
         below_45 = sum(1 for v in all_6m if v < 45)
         print(f"\n  -- DISTRIBUTION (long-term accuracy) --")
+        print(f"  >70%: {above_70}/{len(all_6m)} tickers ({above_70/len(all_6m)*100:.0f}%)")
         print(f"  >60%: {above_60}/{len(all_6m)} tickers ({above_60/len(all_6m)*100:.0f}%)")
-        print(f"  >55%: {above_55}/{len(all_6m)} tickers ({above_55/len(all_6m)*100:.0f}%)")
         print(f"  >50%: {above_50}/{len(all_6m)} tickers ({above_50/len(all_6m)*100:.0f}%)")
         print(f"  <45%: {below_45}/{len(all_6m)} tickers ({below_45/len(all_6m)*100:.0f}%)")
 
@@ -305,7 +356,7 @@ def print_accuracy_report(bt_results, scored_rows, hdf, today_rows):
                     dd += 1
                     nd_dir += 1
                     actual = am[tk]
-                    if pc == actual:
+                    if is_hit(pc, actual):
                         dh += 1
                         nd_hit += 1
             if dd > 0:
