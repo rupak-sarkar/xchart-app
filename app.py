@@ -468,7 +468,7 @@ def run():
     print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news")
     print(f"REGIME: {regime['regime']} ({regime['detail']})")
     print(f"STRATEGY: LC({lc_count}) SMC({smc_count}) | Trend-following | RSI<30")
-    print(f"HORIZONS: MEGA=7d(+/-0.3%) LARGE=5d(+/-0.4%) MID=3d(+/-0.5%) SMALL=2d(+/-0.8%)")
+    print(f"HORIZONS: MEGA=28d(+/-1.5%) LARGE=22d(+/-1.0%) MID=14d(+/-0.8%) SMALL=7d(+/-0.5%)")
     if bt_count > 0:
         print(
             f"BACKTEST: {bt_count} tickers | {total_bt_preds:,} predictions "
