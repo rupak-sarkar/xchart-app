@@ -1,4 +1,31 @@
-- name: Commit and push
+name: ML Model Training
+
+on:
+  schedule:
+    - cron: '0 6 * * 6'
+  workflow_dispatch:
+
+jobs:
+  ml-train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pandas numpy yfinance feedparser requests beautifulsoup4 lightgbm scikit-learn
+
+      - name: Run ML pipeline
+        run: python ml_run.py
+
+      - name: Commit and push
         run: |
           find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
           git config user.name "github-actions[bot]"
