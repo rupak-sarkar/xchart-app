@@ -1,4 +1,5 @@
-"""XChart Predictive Engine v6.1 - S/R-Centric, Neutral=HIT"""
+"""XChart Predictive Engine v6.3 - ATR-SL, Hysteresis, Dynamic Threshold"""
+import json
 import pandas as pd
 import time
 
@@ -46,12 +47,14 @@ from engine.composite import (
 from engine.accuracy import (
     compute_per_ticker_accuracy,
     print_accuracy_report,
+    is_hit,
 )
 from engine.history import (
     load_history,
     save_to_history,
     calculate_streaks,
 )
+from engine.charts import generate_chart_data
 from engine.utils import is_bad_str, safe_float
 
 
@@ -167,7 +170,7 @@ def phase2_finbert(tl, sm, nc):
 
 
 def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
-    print("Computing technical scores (v6.1 S/R-centric)...")
+    print("Computing technical scores (v6.3 S/R-centric)...")
     tech_count = 0
     lc_count = 0
     smc_count = 0
@@ -221,7 +224,7 @@ def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
 
 
 def phase3b_backtest(stock_df, mcap_threshold, all_rows):
-    print(f"\nPHASE 3b: Backtest (neutral=HIT, MEGA/LARGE=14d MID=7d SMALL=5d)...")
+    print(f"\nPHASE 3b: Backtest (ATR threshold + ATR SL)...")
     bt_results = compute_per_ticker_accuracy(stock_df, mcap_threshold)
     bt_count = len(bt_results)
     avg_1m = 0.0
@@ -244,7 +247,17 @@ def phase3b_backtest(stock_df, mcap_threshold, all_rows):
         row["BT_Total_Preds"] = bt.get("BT_Total_Preds", 0)
         row["BT_Forward_Days"] = bt.get("BT_Forward_Days", 7)
         row["BT_Threshold"] = bt.get("BT_Threshold", 0.5)
+        row["BT_ATR_Pct"] = bt.get("BT_ATR_Pct", 0)
+        row["BT_SL_Level"] = bt.get("BT_SL_Level", 0)
         row["BT_Category"] = bt.get("BT_Category", "")
+        # Trade simulation fields
+        for k in ["TR_total_trades", "TR_wins", "TR_losses", "TR_win_rate",
+                   "TR_avg_win_pct", "TR_avg_loss_pct", "TR_profit_factor",
+                   "TR_total_return_pct", "TR_avg_holding_days",
+                   "TR_long_trades", "TR_short_trades",
+                   "TR_long_win_rate", "TR_short_win_rate",
+                   "TR_stop_loss_exits", "TR_signal_flip_exits"]:
+            row[k] = bt.get(k, 0)
 
     return bt_results, bt_count, avg_1m, avg_all, total_bt_preds
 
@@ -264,8 +277,6 @@ def phase_composite(scored, filing, nonews, regime):
     ctd = 0
     regime_flips = 0
 
-    from engine.accuracy import is_hit as is_hit_fn
-
     for row in scored:
         comp = compute_composite_news(
             row["Forecast_Score"], row["Technical_Score"],
@@ -278,7 +289,7 @@ def phase_composite(scored, filing, nonews, regime):
         row["Composite_Severity"] = classify_composite_severity(adj_score)
         if raw_dir != adj_dir:
             regime_flips += 1
-        c_hit = is_hit_fn(adj_dir, row["Actual_Direction"]) if adj_dir != 0 else False
+        c_hit = is_hit(adj_dir, row["Actual_Direction"]) if adj_dir != 0 else False
         if adj_dir != 0:
             ctd += 1
             if c_hit:
@@ -307,7 +318,7 @@ def phase_composite(scored, filing, nonews, regime):
     t_bear = 0
     t_neut = 0
     t_hit = 0
-    t_total = 0
+
     for row in filing + nonews:
         comp = compute_composite_no_news(
             row["Technical_Score"], row["Macro_Score"],
@@ -324,10 +335,8 @@ def phase_composite(scored, filing, nonews, regime):
             t_bear += 1
         else:
             t_neut += 1
-        if adj_dir != 0 and is_hit_fn(adj_dir, row["Actual_Direction"]):
+        if adj_dir != 0 and is_hit(adj_dir, row["Actual_Direction"]):
             t_hit += 1
-        t_dir = t_bull + t_bear
-        t_total += 1
 
     t_dir_total = t_bull + t_bear
     if t_dir_total > 0:
@@ -352,9 +361,54 @@ def phase4_save(scored, filing, nonews, all_rows):
         row["Streak_Return"] = s.get("Streak_Return", 0.0)
         row["Momentum"] = s.get("Momentum", "Neutral")
 
+    for row in filing + nonews:
+        if "Streak_Days" not in row:
+            row["Streak_Days"] = 0
+        if "Streak_Return" not in row:
+            row["Streak_Return"] = 0.0
+        if "Momentum" not in row:
+            row["Momentum"] = ""
+
     pd.DataFrame(all_rows).to_csv(DATA_FILE, index=False)
     save_to_history(scored)
     return hdf
+
+
+def phase5_charts(stock_df, mcap_threshold, bt_results, regime,
+                  avg_all, bt_count, comp_bull, comp_bear, total,
+                  sc, fc, nc2):
+    print(f"\nPHASE 5: Generating chart data + meta...")
+    print("-" * 110)
+
+    # Generate chart JSON files with signal flip markers
+    generate_chart_data(stock_df, mcap_threshold)
+
+    # Compute avg PF
+    pfs = [
+        r.get("TR_profit_factor", 0) for r in bt_results.values()
+        if r.get("TR_total_trades", 0) >= 5
+    ]
+    avg_pf = round(sum(pfs) / len(pfs), 2) if pfs else 0
+
+    # Generate meta.json for frontend
+    meta = {
+        "date": TODAY_IST,
+        "version": "6.3",
+        "regime": regime["regime"],
+        "regime_detail": regime["detail"],
+        "total_tickers": total,
+        "news_scored": sc,
+        "filing_only": fc,
+        "no_news": nc2,
+        "direction_accuracy": round(avg_all, 1) if bt_count > 0 else 0,
+        "avg_pf": avg_pf,
+        "bull_count": comp_bull,
+        "bear_count": comp_bear,
+        "neutral_count": total - comp_bull - comp_bear,
+    }
+    with open("meta.json", "w") as f:
+        json.dump(meta, f)
+    print(f"  -> meta.json saved (PF:{avg_pf} Acc:{meta['direction_accuracy']}%)")
 
 
 def run():
@@ -364,12 +418,12 @@ def run():
     tl, sm = load_tickers()
     total = len(tl)
 
-    print(f"\nPREDICTIVE Engine v6.1 - {total} tickers | {TODAY_IST}")
+    print(f"\nPREDICTIVE Engine v6.3 - {total} tickers | {TODAY_IST}")
     print(
         f"News: {NEWS_START_DATE} to "
         f"{NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | CATALYST-ONLY FinBERT"
     )
-    print(f"Tech: S/R-CENTRIC (neutral=HIT, Knox reversal, momentum angle)")
+    print(f"Tech: S/R-CENTRIC | ATR threshold + ATR stop-loss")
     print(f"Horizons: MEGA=14d LARGE=14d MID=7d SMALL=5d")
     print(f"Validation: neutral=HIT | Per-ticker: Swing/1M/3M/ALL")
     print("=" * 110)
@@ -420,16 +474,23 @@ def run():
     fc = len(filing)
     nc2 = len(nonews)
     chrd = (chd / ctd) * 100 if ctd > 0 else 0
-    comp_bull = sum(1 for r in scored if r.get("Composite_Direction", 0) == 1)
-    comp_bear = sum(1 for r in scored if r.get("Composite_Direction", 0) == -1)
+    comp_bull = sum(1 for r in all_rows if r.get("Composite_Direction", 0) == 1)
+    comp_bear = sum(1 for r in all_rows if r.get("Composite_Direction", 0) == -1)
+
+    # Phase 5: Charts + meta
+    phase5_charts(
+        stock_df, mcap_threshold, bt_results, regime,
+        avg_all, bt_count, comp_bull, comp_bear, total,
+        sc, fc, nc2
+    )
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v6.1 S/R-CENTRIC (Neutral=HIT)")
+    print(f"data.csv | {TODAY_IST} | ENGINE v6.3 ATR-SL + Hysteresis")
     print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news")
     print(f"REGIME: {regime['regime']} ({regime['detail']})")
     print(
         f"STRATEGY: LC({lc_count}) SMC({smc_count}) | "
-        f"S/R-Centric + Knox | Neutral=HIT"
+        f"ATR threshold + ATR SL | Neutral=HIT"
     )
     print(f"HORIZONS: MEGA=14d LARGE=14d MID=7d SMALL=5d")
     if bt_count > 0:
