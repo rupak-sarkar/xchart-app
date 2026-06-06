@@ -6,6 +6,7 @@
 <title>xchart.in | AI-Powered Trading Intelligence</title>
 <meta name="description" content="Multi-Layer AI Trading Engine for NSE/BSE — FinBERT sentiment, technical signals, sector macro, and backtested accuracy.">
 <link rel="canonical" href="https://xchart.in/">
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.production.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -169,23 +170,11 @@ a{color:var(--accent);text-decoration:none}
   <div>© 2026 xchart.in | Charts by https://www.tradingview.com/</div>
 </div>
 
-<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.production.js"></script>
 <script>
 let allData = [];
 let chart = null;
 let candleSeries = null;
 let selectedTicker = null;
-
-// Wait for LightweightCharts to load
-function waitForLightweightCharts(callback, attempts = 0) {
-  if (typeof LightweightCharts !== 'undefined') {
-    callback();
-  } else if (attempts < 50) {
-    setTimeout(() => waitForLightweightCharts(callback, attempts + 1), 100);
-  } else {
-    console.error('LightweightCharts library failed to load');
-  }
-}
 
 // ─── LOAD DATA ───
 function init() {
@@ -247,10 +236,7 @@ function buildTickerList(filter='all', search=''){
 
     const item = document.createElement('div');
     item.className = 'ticker-item' + (tk===selectedTicker?' active':'');
-    item.innerHTML = `
-      <span class="ticker-name">${tk}</span>
-      <span class="signal-badge badge-${dir}">${getDirectionLabel(dir)}</span>
-    `;
+    item.innerHTML = `<span class="ticker-name">${tk}</span><span class="signal-badge badge-${dir}">${getDirectionLabel(dir)}</span>`;
     item.onclick = () => selectTicker(tk);
     list.appendChild(item);
   });
@@ -272,7 +258,6 @@ document.querySelectorAll('.filter-btn').forEach(btn=>{
 // ─── SELECT TICKER ───
 function selectTicker(ticker){
   selectedTicker = ticker;
-
   document.querySelectorAll('.ticker-item').forEach(el=>{
     el.classList.toggle('active', el.querySelector('.ticker-name')?.textContent===ticker);
   });
@@ -288,10 +273,7 @@ function selectTicker(ticker){
 
   const chartUrl = `https://raw.githubusercontent.com/rupak-sarkar/xchart-app/master/charts/${ticker}.json`;
   fetch(chartUrl)
-    .then(r=>{
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      return r.json();
-    })
+    .then(r=>{if(!r.ok) throw new Error(`HTTP ${r.status}`);return r.json();})
     .then(data=>{
       if(data.ohlc && Array.isArray(data.ohlc) && data.ohlc.length > 0){
         renderChart(ticker, row, data.ohlc, data.markers || []);
@@ -408,8 +390,7 @@ function renderChart(ticker, row, ohlc, markers){
     const cat = row.BT_Category||'';
     const sector = row.Sector||'';
 
-    document.getElementById('chartTitle').innerHTML =
-      `${ticker} <span class="chart-subtitle">${cat} · ${sector} · Composite: ${comp>0?'+':''}${comp}</span>`;
+    document.getElementById('chartTitle').innerHTML = `${ticker} <span class="chart-subtitle">${cat} · ${sector} · Composite: ${comp>0?'+':''}${comp}</span>`;
 
     if(chart){ try{chart.remove();}catch(e){} }
     chart=null;candleSeries=null;
@@ -440,12 +421,12 @@ function renderChart(ticker, row, ohlc, markers){
     ro.observe(container);
   } catch(err) {
     console.error('renderChart:', err);
-    document.getElementById('chartContainer').innerHTML = '<div class="placeholder" style="height:100%;color:var(--text2)"><div>❌</div><div>Render failed</div></div>';
+    document.getElementById('chartContainer').innerHTML = '<div class="placeholder" style="height:100%;color:var(--text2)"><div>❌</div><div>Render failed: '+err.message+'</div></div>';
   }
 }
 
-// Start init when LightweightCharts is ready
-waitForLightweightCharts(init);
+// ─── INIT ───
+init();
 </script>
 </body>
 </html>
