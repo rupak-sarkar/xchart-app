@@ -6,7 +6,6 @@
 <title>xchart.in | AI-Powered Trading Intelligence</title>
 <meta name="description" content="Multi-Layer AI Trading Engine for NSE/BSE — FinBERT sentiment, technical signals, sector macro, and backtested accuracy.">
 <link rel="canonical" href="https://xchart.in/">
-<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -170,15 +169,27 @@ a{color:var(--accent);text-decoration:none}
   <div>© 2026 xchart.in | Charts by https://www.tradingview.com/</div>
 </div>
 
+<script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.production.js"></script>
 <script>
 let allData = [];
 let chart = null;
 let candleSeries = null;
 let selectedTicker = null;
 
+// Wait for LightweightCharts to load
+function waitForLightweightCharts(callback, attempts = 0) {
+  if (typeof LightweightCharts !== 'undefined') {
+    callback();
+  } else if (attempts < 50) {
+    setTimeout(() => waitForLightweightCharts(callback, attempts + 1), 100);
+  } else {
+    console.error('LightweightCharts library failed to load');
+  }
+}
+
 // ─── LOAD DATA ───
 function init() {
-  // Load meta.json - using raw.githubusercontent.com for GitHub Pages compatibility
+  // Load meta.json
   fetch('https://raw.githubusercontent.com/rupak-sarkar/xchart-app/master/meta.json')
     .then(r=>r.json())
     .then(meta=>{
@@ -189,7 +200,6 @@ function init() {
       document.getElementById('g-bull').textContent = meta.bull_count || 0;
       document.getElementById('g-bear').textContent = meta.bear_count || 0;
       document.getElementById('g-date').textContent = meta.date || '—';
-      // Color regime
       const el = document.getElementById('g-regime');
       if(meta.regime==='BULL'||meta.regime==='STRONG_BULL') el.style.color='var(--bull)';
       else if(meta.regime==='BEAR'||meta.regime==='STRONG_BEAR') el.style.color='var(--bear)';
@@ -197,7 +207,7 @@ function init() {
     })
     .catch(err=>{console.warn('Failed to load meta.json:', err);});
 
-  // Load data.csv - using raw.githubusercontent.com for GitHub Pages compatibility
+  // Load data.csv
   Papa.parse('https://raw.githubusercontent.com/rupak-sarkar/xchart-app/master/data.csv',{
     download:true, header:true,
     complete:function(results){
@@ -222,7 +232,6 @@ function buildTickerList(filter='all', search=''){
   list.innerHTML = '';
   const s = search.toLowerCase();
 
-  // Sort: bull first, then bear, then neut, then alphabetical
   const sorted = [...allData].sort((a,b)=>{
     const da=getDirection(a), db=getDirection(b);
     const order={bull:0,bear:1,neut:2};
@@ -264,41 +273,38 @@ document.querySelectorAll('.filter-btn').forEach(btn=>{
 function selectTicker(ticker){
   selectedTicker = ticker;
 
-  // Update active state
   document.querySelectorAll('.ticker-item').forEach(el=>{
     el.classList.toggle('active', el.querySelector('.ticker-name')?.textContent===ticker);
   });
 
-  // Hide placeholder, show content
   document.getElementById('placeholder').style.display='none';
   document.getElementById('kpiStrip').style.display='flex';
   document.getElementById('chartWrap').style.display='block';
   document.getElementById('detailPanel').style.display='grid';
 
-  // Get row data
   const row = allData.find(r=>r.Ticker===ticker) || {};
   updateKPIs(row);
   updateDetails(row);
 
-  // Load chart data - using raw.githubusercontent.com for GitHub Pages compatibility
   const chartUrl = `https://raw.githubusercontent.com/rupak-sarkar/xchart-app/master/charts/${ticker}.json`;
   fetch(chartUrl)
     .then(r=>{
-      if(!r.ok) throw new Error(`Chart fetch failed: ${r.status}`);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     })
     .then(data=>{
-      if(data.ohlc && Array.isArray(data.ohlc)){
+      if(data.ohlc && Array.isArray(data.ohlc) && data.ohlc.length > 0){
         renderChart(ticker, row, data.ohlc, data.markers || []);
       } else {
-        throw new Error('Invalid chart data format');
+        throw new Error('No valid OHLC data');
       }
     })
     .catch(err=>{
-      console.warn(`Chart load error for ${ticker}:`, err);
-      if(chart){chart.remove();chart=null;candleSeries=null;}
+      console.error(`Chart error for ${ticker}:`, err);
+      if(chart){try{chart.remove();}catch(e){}}
+      chart=null;candleSeries=null;
       document.getElementById('chartContainer').innerHTML =
-        '<div class="placeholder" style="height:100%;color:var(--text2)"><div>📊</div><div>No chart data available for '+ticker+'</div><div style="font-size:10px;margin-top:8px">'+err.message+'</div></div>';
+        '<div class="placeholder" style="height:100%;color:var(--text2)"><div>📊</div><div>No chart for '+ticker+'</div><div style="font-size:10px;margin-top:8px">'+err.message+'</div></div>';
     });
 }
 
@@ -316,38 +322,14 @@ function updateKPIs(row){
   const atr = parseFloat(row.BT_ATR_Pct||0).toFixed(1);
 
   document.getElementById('kpiStrip').innerHTML = `
-    <div class="kpi-card">
-      <div class="kpi-val ${dir}">${dirLabel}</div>
-      <div class="kpi-label">Signal</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-val ${parseFloat(comp)>0?'bull':parseFloat(comp)<0?'bear':'neut'}">${comp>0?'+':''}${comp}</div>
-      <div class="kpi-label">Composite</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-val">${cat}</div>
-      <div class="kpi-label">Category</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-val">${bt6}%</div>
-      <div class="kpi-label">Dir Accuracy</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-val ${parseFloat(pf)>=1.2?'bull':parseFloat(pf)<0.9?'bear':''}">${pf}</div>
-      <div class="kpi-label">Trade PF</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-val">${wr}%</div>
-      <div class="kpi-label">Win Rate</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-val ${parseFloat(totalRet)>0?'bull':'bear'}">${totalRet>0?'+':''}${totalRet}%</div>
-      <div class="kpi-label">Total Return</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-val">${atr}%</div>
-      <div class="kpi-label">ATR</div>
-    </div>
+    <div class="kpi-card"><div class="kpi-val ${dir}">${dirLabel}</div><div class="kpi-label">Signal</div></div>
+    <div class="kpi-card"><div class="kpi-val ${parseFloat(comp)>0?'bull':parseFloat(comp)<0?'bear':'neut'}">${comp>0?'+':''}${comp}</div><div class="kpi-label">Composite</div></div>
+    <div class="kpi-card"><div class="kpi-val">${cat}</div><div class="kpi-label">Category</div></div>
+    <div class="kpi-card"><div class="kpi-val">${bt6}%</div><div class="kpi-label">Dir Accuracy</div></div>
+    <div class="kpi-card"><div class="kpi-val ${parseFloat(pf)>=1.2?'bull':parseFloat(pf)<0.9?'bear':''}">${pf}</div><div class="kpi-label">Trade PF</div></div>
+    <div class="kpi-card"><div class="kpi-val">${wr}%</div><div class="kpi-label">Win Rate</div></div>
+    <div class="kpi-card"><div class="kpi-val ${parseFloat(totalRet)>0?'bull':'bear'}">${totalRet>0?'+':''}${totalRet}%</div><div class="kpi-label">Total Return</div></div>
+    <div class="kpi-card"><div class="kpi-val">${atr}%</div><div class="kpi-label">ATR</div></div>
   `;
 }
 
@@ -419,66 +401,51 @@ function updateDetails(row){
 
 // ─── CHART ───
 function renderChart(ticker, row, ohlc, markers){
-  const container = document.getElementById('chartContainer');
-  const dir = getDirection(row);
-  const comp = parseFloat(row.Composite_Score||0).toFixed(1);
-  const cat = row.BT_Category||'';
-  const sector = row.Sector||'';
+  try {
+    const container = document.getElementById('chartContainer');
+    const dir = getDirection(row);
+    const comp = parseFloat(row.Composite_Score||0).toFixed(1);
+    const cat = row.BT_Category||'';
+    const sector = row.Sector||'';
 
-  document.getElementById('chartTitle').innerHTML =
-    `${ticker} <span class="chart-subtitle">${cat} · ${sector} · Composite: ${comp>0?'+':''}${comp}</span>`;
+    document.getElementById('chartTitle').innerHTML =
+      `${ticker} <span class="chart-subtitle">${cat} · ${sector} · Composite: ${comp>0?'+':''}${comp}</span>`;
 
-  // Destroy old chart
-  if(chart){ chart.remove(); chart=null; candleSeries=null; }
+    if(chart){ try{chart.remove();}catch(e){} }
+    chart=null;candleSeries=null;
 
-  chart = LightweightCharts.createChart(container, {
-    width: container.clientWidth,
-    height: container.clientHeight,
-    layout:{
-      background:{type:'solid',color:'#0c0e14'},
-      textColor:'#8b949e',
-      fontSize:11,
-    },
-    grid:{
-      vertLines:{color:'#1a1d29'},
-      horzLines:{color:'#1a1d29'},
-    },
-    crosshair:{
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine:{color:'#3b82f6',width:1,style:2,labelBackgroundColor:'#3b82f6'},
-      horzLine:{color:'#3b82f6',width:1,style:2,labelBackgroundColor:'#3b82f6'},
-    },
-    rightPriceScale:{borderColor:'#2a2e3d'},
-    timeScale:{borderColor:'#2a2e3d',timeVisible:false},
-  });
+    chart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      layout:{background:{type:'solid',color:'#0c0e14'},textColor:'#8b949e',fontSize:11},
+      grid:{vertLines:{color:'#1a1d29'},horzLines:{color:'#1a1d29'}},
+      crosshair:{mode: LightweightCharts.CrosshairMode.Normal,vertLine:{color:'#3b82f6',width:1,style:2,labelBackgroundColor:'#3b82f6'},horzLine:{color:'#3b82f6',width:1,style:2,labelBackgroundColor:'#3b82f6'}},
+      rightPriceScale:{borderColor:'#2a2e3d'},
+      timeScale:{borderColor:'#2a2e3d',timeVisible:false},
+    });
 
-  candleSeries = chart.addCandlestickSeries({
-    upColor:'#22c55e', downColor:'#ef4444',
-    borderUpColor:'#22c55e', borderDownColor:'#ef4444',
-    wickUpColor:'#22c55e88', wickDownColor:'#ef444488',
-  });
+    candleSeries = chart.addCandlestickSeries({
+      upColor:'#22c55e', downColor:'#ef4444',
+      borderUpColor:'#22c55e', borderDownColor:'#ef4444',
+      wickUpColor:'#22c55e88', wickDownColor:'#ef444488',
+    });
 
-  // Set data
-  if(ohlc && ohlc.length > 0){
     candleSeries.setData(ohlc);
-    // Set markers
-    if(markers && markers.length > 0){
-      candleSeries.setMarkers(markers);
-    }
+    if(markers && markers.length > 0) candleSeries.setMarkers(markers);
     chart.timeScale().fitContent();
-  }
 
-  // Resize handler
-  const ro = new ResizeObserver(()=>{
-    if(chart){
-      chart.applyOptions({width:container.clientWidth,height:container.clientHeight});
-    }
-  });
-  ro.observe(container);
+    const ro = new ResizeObserver(()=>{
+      if(chart && container) chart.applyOptions({width:container.clientWidth,height:container.clientHeight});
+    });
+    ro.observe(container);
+  } catch(err) {
+    console.error('renderChart:', err);
+    document.getElementById('chartContainer').innerHTML = '<div class="placeholder" style="height:100%;color:var(--text2)"><div>❌</div><div>Render failed</div></div>';
+  }
 }
 
-// ─── INIT ───
-init();
+// Start init when LightweightCharts is ready
+waitForLightweightCharts(init);
 </script>
 </body>
 </html>
