@@ -1,15 +1,15 @@
-name: Daily Stock Data Update
+name: Fetch Stock Data
 
 on:
   schedule:
-    # 4:30 PM IST = 11:00 AM UTC (after market close at 3:30 PM IST)
-    - cron: '0 11 * * 1-5'
-  workflow_dispatch:  # Manual trigger
+    # Every weekday at 12:00 PM UTC (5:30 PM IST - after market close)
+    - cron: '0 12 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   fetch-data:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -21,15 +21,16 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: pip install pandas yfinance numpy
+        run: pip install pandas numpy yfinance feedparser
 
-      - name: Run daily data update
-        run: python -m engine.data_fetcher daily
+      - name: Fetch data
+        run: python -c "from engine.data_fetcher import ensure_data_exists; ensure_data_exists()"
 
-      - name: Commit updated data
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add stock_data.csv
-          git diff --staged --quiet || git commit -m "📊 Daily stock data update $(date -u +%Y-%m-%d)"
+          git add -A
+          git diff --staged --quiet || git commit -m "📊 Data update $(date -u +%Y-%m-%d)"
+          git pull --rebase origin master
           git push
