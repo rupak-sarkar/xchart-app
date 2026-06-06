@@ -32,11 +32,8 @@ jobs:
         key: finbert-model-v1
         restore-keys: finbert-model-
 
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pandas yfinance feedparser transformers requests numpy
-        pip install torch --index-url https://download.pytorch.org/whl/cpu
+    - name: Install dependencies
+      run: pip install pandas numpy yfinance feedparser requests beautifulsoup4 transformers torch
 
     - name: Download Stock OHLCV Data + Indicators
       run: python create_stock_data.py
