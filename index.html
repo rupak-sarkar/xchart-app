@@ -35,7 +35,7 @@ a{color:var(--accent);text-decoration:none}
 /* Main Layout */
 .main{display:flex;flex:1;overflow:hidden;height:calc(100vh - 110px)}
 
-/* Sidebar with internal scroll */
+/* Sidebar */
 .sidebar{width:240px;background:var(--card);border-right:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
 .search-box{padding:8px;border-bottom:1px solid var(--border)}
@@ -69,12 +69,42 @@ a{color:var(--accent);text-decoration:none}
 .kpi-label{font-size:10px;color:var(--text2);margin-top:2px;text-transform:uppercase}
 .kpi-val.bull{color:var(--bull)}.kpi-val.bear{color:var(--bear)}.kpi-val.neut{color:var(--neut)}
 
+/* Dashboard Overview Panel (Default State) */
+.dashboard-view{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px;gap:16px}
+.table-container{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  flex:1;display:flex;flex-direction:column;overflow:hidden}
+.table-header-tools{padding:12px;border-bottom:1px solid var(--border);display:flex;
+  justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card2)}
+.table-title{font-size:14px;font-weight:600;color:var(--white)}
+.table-search{padding:6px 12px;background:var(--bg);border:1px solid var(--border);
+  border-radius:6px;color:var(--white);font-size:12px;outline:none;width:220px}
+.table-wrapper{flex:1;overflow:auto}
+table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
+th{background:var(--card2);color:var(--text2);font-size:11px;font-weight:600;
+  text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:10;cursor:pointer;user-select:none}
+th:hover{color:var(--white)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.ticker-click{color:var(--accent);font-weight:600;cursor:pointer}
+.ticker-click:hover{text-decoration:underline}
+
+/* Momentum Caps */
+.m-badge{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700}
+.m-strong{background:rgba(34,197,94,0.2);color:var(--bull)}
+.m-fading{background:rgba(239,68,68,0.2);color:var(--bear)}
+.m-neut{background:var(--border);color:var(--text2)}
+
+/* Single Asset Showcase Layout */
 .showcase-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px 16px}
 .showcase-title{font-size:16px;font-weight:600;color:var(--white)}
 .showcase-subtitle{font-size:12px;color:var(--text2);font-weight:400;margin-left:6px}
 .view-chart-btn{background:var(--accent);color:#fff;border:none;padding:6px 12px;
   border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;transition:background 0.2s}
 .view-chart-btn:hover{background:#2563eb}
+.back-dash-btn{background:transparent;color:var(--text2);border:1px solid var(--border);
+  padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;margin-right:10px}
+.back-dash-btn:hover{color:var(--white);border-color:var(--text2)}
 
 .detail-panel{display:grid;grid-template-columns:repeat(2,1fr);
   gap:12px;padding:12px 16px;flex:1;overflow-y:auto}
@@ -85,7 +115,7 @@ a{color:var(--accent);text-decoration:none}
 .detail-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid dotted var(--border)}
 .detail-row .label{color:var(--text2)}.detail-row .value{color:var(--white);font-weight:600}
 
-/* Chart Popup & Indicators Strip Styles */
+/* Chart Canvas Modal & Indicator Strips */
 .modal-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;
   background:rgba(5,5,8,0.85);backdrop-filter:blur(4px);z-index:1000;
   display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s ease}
@@ -118,13 +148,12 @@ a{color:var(--accent);text-decoration:none}
 .footer{background:var(--card);border-top:1px solid var(--border);padding:8px 20px;
   display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
   gap:8px;font-size:11px;color:var(--text2);flex-shrink:0}
-.placeholder{display:flex;align-items:center;justify-content:center;flex:1;
-  color:var(--text2);font-size:14px;flex-direction:column;gap:8px}
 
 @media(max-width:768px){
   body{overflow:auto;height:auto}
   .main{flex-direction:column;height:auto;overflow:visible}
   .sidebar{width:100%;max-height:220px;border-right:none;border-bottom:1px solid var(--border)}
+  .dashboard-view{padding:8px}
   .detail-panel{grid-template-columns:1fr;overflow:visible}
   .modal-container{width:95vw;height:92vh}
   #chartContainer{height:280px}
@@ -135,7 +164,7 @@ a{color:var(--accent);text-decoration:none}
 
 <div class="header">
   <div style="display:flex;align-items:center">
-    <div class="logo">x<span>chart</span>.in<span class="version">v6.3</span></div>
+    <div class="logo" style="cursor:pointer" onclick="showDashboard()">x<span>chart</span>.in<span class="version">v6.3</span></div>
   </div>
   <div class="global-kpis" id="globalKpis">
     <div class="gkpi"><div class="gkpi-val" id="g-regime">—</div><div class="gkpi-label">Regime</div></div>
@@ -161,16 +190,40 @@ a{color:var(--accent);text-decoration:none}
   </div>
 
   <div class="content" id="contentArea">
-    <div class="placeholder" id="placeholder">
-      <div style="font-size:36px">📊</div>
-      <div>Select a ticker to view analysis &amp; charts</div>
+    
+    <div class="dashboard-view" id="dashboardView">
+      <div class="table-container">
+        <div class="table-header-tools">
+          <div class="table-title">Signal Monitor Overview Matrix</div>
+          <input type="text" class="table-search" id="tableSearchInput" placeholder="🔍 Search table contents..." onkeyup="filterMonitorTable()">
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sortTable(0)">Ticker</th>
+                <th onclick="sortTable(1)">Sector</th>
+                <th onclick="sortTable(2)">Signal</th>
+                <th onclick="sortTable(3)">Comp Score</th>
+                <th onclick="sortTable(4)">Technical</th>
+                <th onclick="sortTable(5)">FinBERT News</th>
+                <th onclick="sortTable(6)">Momentum</th>
+                <th onclick="sortTable(7)">Streak</th>
+              </tr>
+            </thead>
+            <tbody id="monitorTableBody">
+              <tr><td colspan="8" style="text-align:center;color:var(--text2);padding:40px;">Parsing matrix signals...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
-    <div class="kpi-strip" id="kpiStrip" style="display:none"></div>
-    
+    <div id="kpiStrip" class="kpi-strip" style="display:none"></div>
     <div id="showcaseWrapper" style="display:none; flex:1; flex-direction:column; overflow:hidden;">
       <div class="showcase-header">
          <div>
+            <button class="back-dash-btn" onclick="showDashboard()">← Overview</button>
             <span class="showcase-title" id="showcaseTitle">Ticker</span>
             <span class="showcase-subtitle" id="showcaseSubtitle">Sector Context</span>
          </div>
@@ -178,6 +231,7 @@ a{color:var(--accent);text-decoration:none}
       </div>
       <div class="detail-panel" id="detailPanel"></div>
     </div>
+
   </div>
 </div>
 
@@ -221,6 +275,8 @@ let indicatorSeries = {};
 let activeInds = new Set(["sma9", "sma22"]);
 let selectedTicker = null;
 let chartResizeObserver = null;
+let sortAsc = true;
+let currentSortCol = -1;
 
 const MH = 380, MHR = 260, RH = 110;
 
@@ -248,6 +304,7 @@ function init() {
     complete: function(results) {
       allData = results.data.filter(r => r.Ticker && r.Ticker.trim());
       buildTickerList();
+      populateMonitorTable();
     }
   });
 }
@@ -255,6 +312,14 @@ function init() {
 function getDir(row) {
   const d = parseInt(row.Composite_Direction || row.Forecast_Direction || 0);
   return d === 1 ? 'bull' : d === -1 ? 'bear' : 'neut';
+}
+
+function showDashboard() {
+  selectedTicker = null;
+  document.querySelectorAll('.ticker-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('dashboardView').style.display = 'flex';
+  document.getElementById('kpiStrip').style.display = 'none';
+  document.getElementById('showcaseWrapper').style.display = 'none';
 }
 
 function buildTickerList(filter = 'all', search = '') {
@@ -276,6 +341,62 @@ function buildTickerList(filter = 'all', search = '') {
   });
 }
 
+function populateMonitorTable() {
+  const tbody = document.getElementById('monitorTableBody');
+  tbody.innerHTML = '';
+
+  allData.forEach(row => {
+    const dir = getDir(row);
+    const tr = document.createElement('tr');
+    
+    let momClass = 'm-neut';
+    if (row.Momentum === 'Strong' || row.Momentum === 'Building') momClass = 'm-strong';
+    if (row.Momentum === 'Fading') momClass = 'm-fading';
+
+    tr.innerHTML = `
+      <td class="ticker-click" onclick="selectTicker('${row.Ticker}')">${row.Ticker}</td>
+      <td>${row.Sector || '—'}</td>
+      <td><span class="signal-badge badge-${dir}">${dir.toUpperCase()}</span></td>
+      <td style="font-weight:700">${parseFloat(row.Composite_Score || 0).toFixed(1)}</td>
+      <td>${row.Technical_Score || 0}</td>
+      <td>${row.Forecast_Score || 0}</td>
+      <td><span class="m-badge ${momClass}">${row.Momentum || 'Neutral'}</span></td>
+      <td>${row.Streak_Days || 0}d</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterMonitorTable() {
+  const query = document.getElementById('tableSearchInput').value.toLowerCase();
+  const rows = document.getElementById('monitorTableBody').getElementsByTagName('tr');
+  for (let row of rows) {
+    const txt = row.textContent.toLowerCase();
+    row.style.display = txt.includes(query) ? '' : 'none';
+  }
+}
+
+function sortTable(colIndex) {
+  const tbody = document.getElementById('monitorTableBody');
+  const rows = Array.from(tbody.getElementsByTagName('tr'));
+  if (currentSortCol === colIndex) sortAsc = !sortAsc;
+  else { currentSortCol = colIndex; sortAsc = true; }
+
+  rows.sort((a, b) => {
+    let tdA = a.getElementsByTagName('td')[colIndex].textContent.trim();
+    let tdB = b.getElementsByTagName('td')[colIndex].textContent.trim();
+    
+    let valA = isNaN(parseFloat(tdA)) ? tdA.toLowerCase() : parseFloat(tdA);
+    let valB = isNaN(parseFloat(tdB)) ? tdB.toLowerCase() : parseFloat(tdB);
+
+    if (valA < valB) return sortAsc ? -1 : 1;
+    if (valA > valB) return sortAsc ? 1 : -1;
+    return 0;
+  });
+
+  rows.forEach(r => tbody.appendChild(r));
+}
+
 document.getElementById('searchInput').addEventListener('input', function () {
   buildTickerList(document.querySelector('.filter-btn.active')?.dataset.filter || 'all', this.value);
 });
@@ -294,7 +415,7 @@ function selectTicker(ticker) {
     el.classList.toggle('active', el.querySelector('.ticker-name')?.textContent === ticker);
   });
 
-  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('dashboardView').style.display = 'none';
   document.getElementById('kpiStrip').style.display    = 'flex';
   document.getElementById('showcaseWrapper').style.display = 'flex';
 
@@ -355,7 +476,6 @@ function preloadChartData(ticker) {
     }).catch(() => {});
 }
 
-/* Modal Open Engine logic */
 function openChartModal() {
   if (!selectedTicker) return;
   const modal = document.getElementById('chartModal');
@@ -419,7 +539,7 @@ function renderPopupChart(actual) {
   candleSeries.setData(cleaned);
   indicatorSeries = {};
   
-  // Refresh active indicators on creation
+  // Re-render whatever indicators were left marked active by the user context
   activeInds.forEach(ind => addInd(ind, actual));
   chart.timeScale().fitContent();
 
@@ -434,7 +554,6 @@ function renderPopupChart(actual) {
   chartResizeObserver.observe(container);
 }
 
-/* Modular Indicator Controllers matched to legacy structure specs */
 function toggleInd(btn) {
   const ind = btn.dataset.ind;
   if (activeInds.has(ind)) {
@@ -452,37 +571,37 @@ function toggleInd(btn) {
 function addInd(ind, data) {
   if (!chart) return;
   
-  if (ind === 'sma9' && data[0].SMA_9 != null) {
+  if (ind === 'sma9' && (data[0].SMA_9 != null || data[0].sma_9 != null)) {
     indicatorSeries.sma9 = chart.addLineSeries({ color: '#facc15', lineWidth: 1, title: 'SMA 9' });
-    indicatorSeries.sma9.setData(data.filter(r => r.SMA_9).map(r => ({ time: r.time||r.Date, value: +r.SMA_9 })));
+    indicatorSeries.sma9.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.SMA_9 ?? r.sma_9) })).filter(x => !isNaN(x.value)));
   }
-  if (ind === 'sma22' && data[0].SMA_22 != null) {
+  if (ind === 'sma22' && (data[0].SMA_22 != null || data[0].sma_22 != null)) {
     indicatorSeries.sma22 = chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, title: 'SMA 22' });
-    indicatorSeries.sma22.setData(data.filter(r => r.SMA_22).map(r => ({ time: r.time||r.Date, value: +r.SMA_22 })));
+    indicatorSeries.sma22.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.SMA_22 ?? r.sma_22) })).filter(x => !isNaN(x.value)));
   }
-  if (ind === 'sma52' && data[0].SMA_52 != null) {
+  if (ind === 'sma52' && (data[0].SMA_52 != null || data[0].sma_52 != null)) {
     indicatorSeries.sma52 = chart.addLineSeries({ color: '#a855f7', lineWidth: 1, title: 'SMA 52' });
-    indicatorSeries.sma52.setData(data.filter(r => r.SMA_52).map(r => ({ time: r.time||r.Date, value: +r.SMA_52 })));
+    indicatorSeries.sma52.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.SMA_52 ?? r.sma_52) })).filter(x => !isNaN(x.value)));
   }
-  if (ind === 'sma200' && data[0].SMA_200 != null) {
+  if (ind === 'sma200' && (data[0].SMA_200 != null || data[0].sma_200 != null)) {
     indicatorSeries.sma200 = chart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: 2, title: 'SMA 200' });
-    indicatorSeries.sma200.setData(data.filter(r => r.SMA_200).map(r => ({ time: r.time||r.Date, value: +r.SMA_200 })));
+    indicatorSeries.sma200.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.SMA_200 ?? r.sma_200) })).filter(x => !isNaN(x.value)));
   }
-  if (ind === 'vwap' && data[0].VWAP != null) {
+  if (ind === 'vwap' && (data[0].VWAP != null || data[0].vwap != null)) {
     indicatorSeries.vwap = chart.addLineSeries({ color: '#14b8a6', lineWidth: 1, title: 'VWAP' });
-    indicatorSeries.vwap.setData(data.filter(r => r.VWAP).map(r => ({ time: r.time||r.Date, value: +r.VWAP })));
+    indicatorSeries.vwap.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.VWAP ?? r.vwap) })).filter(x => !isNaN(x.value)));
   }
-  if (ind === 'bb' && data[0].BB_Upper != null) {
+  if (ind === 'bb' && (data[0].BB_Upper != null || data[0].bb_upper != null)) {
     indicatorSeries.bbu = chart.addAreaSeries({ topColor: 'rgba(249,146,60,0.05)', bottomColor: 'rgba(249,146,60,0.01)', lineColor: '#f97316', lineWidth: 1, lineStyle: 2, title: 'BB+' });
-    indicatorSeries.bbu.setData(data.filter(r => r.BB_Upper).map(r => ({ time: r.time||r.Date, value: +r.BB_Upper })));
+    indicatorSeries.bbu.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.BB_Upper ?? r.bb_upper) })).filter(x => !isNaN(x.value)));
     indicatorSeries.bbl = chart.addAreaSeries({ topColor: 'transparent', bottomColor: 'transparent', lineColor: '#f97316', lineWidth: 1, lineStyle: 2, title: 'BB-' });
-    indicatorSeries.bbl.setData(data.filter(r => r.BB_Lower).map(r => ({ time: r.time||r.Date, value: +r.BB_Lower })));
+    indicatorSeries.bbl.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.BB_Lower ?? r.bb_lower) })).filter(x => !isNaN(x.value)));
   }
-  if (ind === 'ich' && data[0].Senkou_Span_A != null) {
+  if (ind === 'ich' && (data[0].Senkou_Span_A != null || data[0].senkou_span_a != null)) {
     indicatorSeries.icha = chart.addLineSeries({ color: 'rgba(34,197,94,0.4)', lineWidth: 1, title: 'Span A' });
-    indicatorSeries.icha.setData(data.filter(r => r.Senkou_Span_A).map(r => ({ time: r.time||r.Date, value: +r.Senkou_Span_A })));
+    indicatorSeries.icha.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.Senkou_Span_A ?? r.senkou_span_a) })).filter(x => !isNaN(x.value)));
     indicatorSeries.ichb = chart.addLineSeries({ color: 'rgba(239,68,68,0.4)', lineWidth: 1, title: 'Span B' });
-    indicatorSeries.ichb.setData(data.filter(r => r.Senkou_Span_B).map(r => ({ time: r.time||r.Date, value: +r.Senkou_Span_B })));
+    indicatorSeries.ichb.setData(data.map(r => ({ time: r.time||r.Date, value: +(r.Senkou_Span_B ?? r.senkou_span_b) })).filter(x => !isNaN(x.value)));
   }
   if (ind === 'vol') {
     indicatorSeries.vol = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
@@ -493,7 +612,7 @@ function addInd(ind, data) {
     })));
   }
   if (ind === 'rsi') {
-    const rData = data.filter(r => r.RSI_14 != null).map(r => ({ time: r.time||r.Date, value: +r.RSI_14 }));
+    const rData = data.map(r => ({ time: r.time||r.Date, value: +(r.RSI_14 ?? r.rsi_14 ?? r.RSI ?? r.rsi) })).filter(x => !isNaN(x.value));
     if (!rData.length) return;
     document.getElementById('chartContainer').style.height = MHR + 'px';
     chart.applyOptions({ height: MHR });
@@ -528,11 +647,6 @@ function addInd(ind, data) {
 }
 
 function remInd(ind) {
-  const mapping = {
-    sma9:['sma9'], sma22:['sma22'], sma52:['sma52'], sma200:['sma200'], 
-    vwap:['vwap'], bb:['bbu','bbl'], ich:['icha','ichb'], vol:['vol']
-  };
-  
   if (ind === 'rsi') {
     if (rsiChart) { rsiChart.remove(); rsiChart = null; }
     document.getElementById('rsiContainer').style.display = 'none';
@@ -540,6 +654,11 @@ function remInd(ind) {
     if (chart) chart.applyOptions({ height: MH });
     return;
   }
+  
+  const mapping = {
+    sma9:['sma9'], sma22:['sma22'], sma52:['sma52'], sma200:['sma200'], 
+    vwap:['vwap'], bb:['bbu','bbl'], ich:['icha','ichb'], vol:['vol']
+  };
   
   (mapping[ind] || []).forEach(x => {
     if (indicatorSeries[x]) {
