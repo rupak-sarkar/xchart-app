@@ -32,10 +32,10 @@ a{color:var(--accent);text-decoration:none}
 .gkpi-val{font-size:16px;font-weight:700;color:var(--white)}
 .gkpi-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
 
-/* Main layout - Locked viewport heights */
+/* Main Layout */
 .main{display:flex;flex:1;overflow:hidden;height:calc(100vh - 110px)}
 
-/* Sidebar with internal scrolling */
+/* Sidebar with internal scroll */
 .sidebar{width:240px;background:var(--card);border-right:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
 .search-box{padding:8px;border-bottom:1px solid var(--border)}
@@ -59,10 +59,8 @@ a{color:var(--accent);text-decoration:none}
 .badge-bear{background:rgba(239,68,68,0.15);color:var(--bear)}
 .badge-neut{background:rgba(234,179,8,0.1);color:var(--neut)}
 
-/* Content area */
+/* Content Window Panels */
 .content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:var(--bg)}
-
-/* KPI strip */
 .kpi-strip{display:flex;gap:8px;padding:12px 16px;flex-wrap:wrap;
   border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0}
 .kpi-card{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);
@@ -71,7 +69,6 @@ a{color:var(--accent);text-decoration:none}
 .kpi-label{font-size:10px;color:var(--text2);margin-top:2px;text-transform:uppercase}
 .kpi-val.bull{color:var(--bull)}.kpi-val.bear{color:var(--bear)}.kpi-val.neut{color:var(--neut)}
 
-/* Main Showcase Panel - Replaces the main dashboard chart area */
 .showcase-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px 16px}
 .showcase-title{font-size:16px;font-weight:600;color:var(--white)}
 .showcase-subtitle{font-size:12px;color:var(--text2);font-weight:400;margin-left:6px}
@@ -88,22 +85,29 @@ a{color:var(--accent);text-decoration:none}
 .detail-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid dotted var(--border)}
 .detail-row .label{color:var(--text2)}.detail-row .value{color:var(--white);font-weight:600}
 
-/* Chart Modal Popup */
+/* Chart Popup & Indicators Strip Styles */
 .modal-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;
-  background:rgba(5,5,8,0.85);backdrop-filter:blur(4px);z-index:100;
+  background:rgba(5,5,8,0.85);backdrop-filter:blur(4px);z-index:1000;
   display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s ease}
 .modal-overlay.open{opacity:1;pointer-events:auto}
 .modal-container{background:var(--card);border:1px solid var(--border);border-radius:12px;
-  width:90vw;height:85vh;max-width:1200px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+  width:92vw;height:88vh;max-width:1200px;display:flex;flex-direction:column;overflow:hidden;position:relative}
 .modal-header{padding:12px 20px;border-bottom:1px solid var(--border);display:flex;
   justify-content:space-between;align-items:center;background:var(--card2)}
-.modal-title{font-size:16px;font-weight:600;color:var(--white)}
+.modal-title{font-size:15px;font-weight:600;color:var(--white)}
 .close-modal-btn{background:var(--bear);color:#fff;border:none;padding:6px 12px;
   border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer}
-.chart-wrap{flex:1;position:relative;background:var(--bg);overflow:hidden;min-height:0}
-#chartContainer{width:100%;height:100%}
+.modal-body{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:12px}
 
-/* Loading state inside popup */
+#chartContainer{width:100%;height:380px;border-radius:var(--radius);overflow:hidden;transition:height 0.2s ease}
+#rsiContainer{width:100%;height:110px;border-radius:var(--radius);overflow:hidden;margin-top:4px;display:none}
+
+.chart-indicators{display:flex;gap:6px;flex-wrap:wrap;padding:10px 0 2px 0;border-top:1px solid var(--border);margin-top:6px;flex-shrink:0}
+.chart-ind-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:var(--bg);color:var(--text2);transition:all 0.15s}
+.chart-ind-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(59,130,246,0.1)}
+.chart-ind-btn:hover{border-color:var(--accent);color:var(--accent)}
+
 .chart-loading{display:flex;align-items:center;justify-content:center;
   height:100%;color:var(--text2);font-size:14px;flex-direction:column;gap:12px}
 .spinner{width:32px;height:32px;border:3px solid var(--border);
@@ -114,18 +118,16 @@ a{color:var(--accent);text-decoration:none}
 .footer{background:var(--card);border-top:1px solid var(--border);padding:8px 20px;
   display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
   gap:8px;font-size:11px;color:var(--text2);flex-shrink:0}
-
-/* Placeholder */
 .placeholder{display:flex;align-items:center;justify-content:center;flex:1;
   color:var(--text2);font-size:14px;flex-direction:column;gap:8px}
 
-/* Mobile responsive fixes */
 @media(max-width:768px){
   body{overflow:auto;height:auto}
   .main{flex-direction:column;height:auto;overflow:visible}
   .sidebar{width:100%;max-height:220px;border-right:none;border-bottom:1px solid var(--border)}
   .detail-panel{grid-template-columns:1fr;overflow:visible}
-  .modal-container{width:95vw;height:90vh}
+  .modal-container{width:95vw;height:92vh}
+  #chartContainer{height:280px}
 }
 </style>
 </head>
@@ -162,7 +164,6 @@ a{color:var(--accent);text-decoration:none}
     <div class="placeholder" id="placeholder">
       <div style="font-size:36px">📊</div>
       <div>Select a ticker to view analysis &amp; charts</div>
-      <div style="font-size:11px;color:var(--text2)">Multi-Layer Trading Engine — FinBERT + Technical + Macro + Fundamentals</div>
     </div>
 
     <div class="kpi-strip" id="kpiStrip" style="display:none"></div>
@@ -173,7 +174,7 @@ a{color:var(--accent);text-decoration:none}
             <span class="showcase-title" id="showcaseTitle">Ticker</span>
             <span class="showcase-subtitle" id="showcaseSubtitle">Sector Context</span>
          </div>
-         <button class="view-chart-btn" onclick="openChartModal()">✨ Open Interactive Chart</button>
+         <button class="view-chart-btn" onclick="openChartModal()">✨ Open Interactive Chart Canvas</button>
       </div>
       <div class="detail-panel" id="detailPanel"></div>
     </div>
@@ -183,11 +184,24 @@ a{color:var(--accent);text-decoration:none}
 <div class="modal-overlay" id="chartModal">
   <div class="modal-container">
     <div class="modal-header">
-      <div class="modal-title" id="modalChartTitle">Interactive Chart Canvas</div>
+      <div class="modal-title" id="modalChartTitle">Telemetry Chart Canvas</div>
       <button class="close-modal-btn" onclick="closeChartModal()">✕ Close Chart</button>
     </div>
-    <div class="chart-wrap">
+    <div class="modal-body">
       <div id="chartContainer"></div>
+      <div id="rsiContainer"></div>
+      
+      <div class="chart-indicators">
+        <button class="chart-ind-btn active" data-ind="sma9" onclick="toggleInd(this)">SMA 9</button>
+        <button class="chart-ind-btn active" data-ind="sma22" onclick="toggleInd(this)">SMA 22</button>
+        <button class="chart-ind-btn" data-ind="sma52" onclick="toggleInd(this)">SMA 52</button>
+        <button class="chart-ind-btn" data-ind="sma200" onclick="toggleInd(this)">SMA 200</button>
+        <button class="chart-ind-btn" data-ind="bb" onclick="toggleInd(this)">Bollinger</button>
+        <button class="chart-ind-btn" data-ind="vwap" onclick="toggleInd(this)">VWAP</button>
+        <button class="chart-ind-btn" data-ind="ich" onclick="toggleInd(this)">Ichimoku</button>
+        <button class="chart-ind-btn" data-ind="vol" onclick="toggleInd(this)">Volume</button>
+        <button class="chart-ind-btn" data-ind="rsi" onclick="toggleInd(this)">RSI</button>
+      </div>
     </div>
   </div>
 </div>
@@ -199,22 +213,26 @@ a{color:var(--accent);text-decoration:none}
 
 <script>
 let allData = [];
+let stockHistoricalData = {};
 let chart = null;
+let rsiChart = null;
 let candleSeries = null;
+let indicatorSeries = {};
+let activeInds = new Set(["sma9", "sma22"]);
 let selectedTicker = null;
 let chartResizeObserver = null;
 
+const MH = 380, MHR = 260, RH = 110;
+
 function base() {
   const p = window.location.pathname;
-  const dir = p.endsWith('/') ? p : p.substring(0, p.lastIndexOf('/') + 1);
-  return window.location.origin + dir;
+  return window.location.origin + (p.endsWith('/') ? p : p.substring(0, p.lastIndexOf('/') + 1));
 }
 
 function init() {
   const b = base();
-
   fetch(b + 'meta.json')
-    .then(r => { if (!r.ok) throw 0; return r.json(); })
+    .then(r => r.json())
     .then(meta => {
       document.getElementById('g-regime').textContent   = meta.regime || '—';
       document.getElementById('g-accuracy').textContent = meta.direction_accuracy ? meta.direction_accuracy + '%' : '—';
@@ -223,19 +241,14 @@ function init() {
       document.getElementById('g-bull').textContent     = meta.bull_count ?? '—';
       document.getElementById('g-bear').textContent     = meta.bear_count ?? '—';
       document.getElementById('g-date').textContent     = meta.date || '—';
-      const el = document.getElementById('g-regime');
-      const r  = (meta.regime || '').toUpperCase();
-      el.style.color = r.includes('BULL') ? 'var(--bull)' : r.includes('BEAR') ? 'var(--bear)' : 'var(--neut)';
-    })
-    .catch(() => {});
+    }).catch(() => {});
 
   Papa.parse(b + 'data.csv', {
     download: true, header: true,
     complete: function(results) {
       allData = results.data.filter(r => r.Ticker && r.Ticker.trim());
       buildTickerList();
-    },
-    error: function(err) { console.warn('data.csv error:', err); }
+    }
   });
 }
 
@@ -248,30 +261,25 @@ function buildTickerList(filter = 'all', search = '') {
   const list = document.getElementById('tickerList');
   list.innerHTML = '';
   const s = search.toLowerCase();
-  const order = { bull: 0, bear: 1, neut: 2 };
-
-  [...allData]
-    .sort((a, b) => {
-      const da = getDir(a), db = getDir(b);
-      if (order[da] !== order[db]) return order[da] - order[db];
-      return (a.Ticker || '').localeCompare(b.Ticker || '');
-    })
-    .forEach(row => {
-      const tk  = row.Ticker;
-      const dir = getDir(row);
-      if (filter !== 'all' && dir !== filter) return;
-      if (s && !tk.toLowerCase().includes(s)) return;
-      const item = document.createElement('div');
-      item.className = 'ticker-item' + (tk === selectedTicker ? ' active' : '');
-      item.innerHTML = `<span class="ticker-name">${tk}</span><span class="signal-badge badge-${dir}">${dir.toUpperCase()}</span>`;
-      item.onclick = () => selectTicker(tk);
-      list.appendChild(item);
-    });
+  
+  allData.forEach(row => {
+    const tk = row.Ticker;
+    const dir = getDir(row);
+    if (filter !== 'all' && dir !== filter) return;
+    if (s && !tk.toLowerCase().includes(s)) return;
+    
+    const item = document.createElement('div');
+    item.className = 'ticker-item' + (tk === selectedTicker ? ' active' : '');
+    item.innerHTML = `<span class="ticker-name">${tk}</span><span class="signal-badge badge-${dir}">${dir.toUpperCase()}</span>`;
+    item.onclick = () => selectTicker(tk);
+    list.appendChild(item);
+  });
 }
 
 document.getElementById('searchInput').addEventListener('input', function () {
   buildTickerList(document.querySelector('.filter-btn.active')?.dataset.filter || 'all', this.value);
 });
+
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', function () {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -291,183 +299,254 @@ function selectTicker(ticker) {
   document.getElementById('showcaseWrapper').style.display = 'flex';
 
   const row = allData.find(r => r.Ticker === ticker) || {};
-  
-  const comp = parseFloat(row.Composite_Score || 0).toFixed(1);
-  const cat  = row.BT_Category || '';
-  const sec  = row.Sector || '';
-  
   document.getElementById('showcaseTitle').textContent = ticker;
-  document.getElementById('showcaseSubtitle').textContent = `${cat} · ${sec} · Composite: ${parseFloat(comp) > 0 ? '+' : ''}${comp}`;
+  document.getElementById('showcaseSubtitle').textContent = `${row.BT_Category || ''} · ${row.Sector || ''}`;
 
   updateKPIs(row);
   updateDetails(row);
-  loadChartData(ticker, row);
+  preloadChartData(ticker);
 }
 
 function updateKPIs(row) {
-  const dir  = getDir(row);
-  const comp = parseFloat(row.Composite_Score || 0).toFixed(1);
-  const cat  = row.BT_Category || '—';
-  const bt6  = parseFloat(row.BT_6M || 0).toFixed(0);
-  const pf   = parseFloat(row.TR_profit_factor || 0).toFixed(2);
-  const wr   = parseFloat(row.TR_win_rate || 0).toFixed(0);
-  const ret  = parseFloat(row.TR_total_return_pct || 0).toFixed(1);
-  const atr  = parseFloat(row.BT_ATR_Pct || 0).toFixed(1);
-  const cv   = parseFloat(comp);
+  const dir = getDir(row);
   document.getElementById('kpiStrip').innerHTML = `
     <div class="kpi-card"><div class="kpi-val ${dir}">${dir.toUpperCase()}</div><div class="kpi-label">Signal</div></div>
-    <div class="kpi-card"><div class="kpi-val ${cv>0?'bull':cv<0?'bear':'neut'}">${cv>0?'+':''}${comp}</div><div class="kpi-label">Composite</div></div>
-    <div class="kpi-card"><div class="kpi-val">${cat}</div><div class="kpi-label">Category</div></div>
-    <div class="kpi-card"><div class="kpi-val">${bt6}%</div><div class="kpi-label">Dir Accuracy</div></div>
-    <div class="kpi-card"><div class="kpi-val ${parseFloat(pf)>=1.2?'bull':parseFloat(pf)<0.9?'bear':''}">${pf}</div><div class="kpi-label">Trade PF</div></div>
-    <div class="kpi-card"><div class="kpi-val">${wr}%</div><div class="kpi-label">Win Rate</div></div>
-    <div class="kpi-card"><div class="kpi-val ${parseFloat(ret)>0?'bull':'bear'}">${parseFloat(ret)>0?'+':''}${ret}%</div><div class="kpi-label">Total Return</div></div>
-    <div class="kpi-card"><div class="kpi-val">${atr}%</div><div class="kpi-label">ATR</div></div>`;
+    <div class="kpi-card"><div class="kpi-val">${parseFloat(row.Composite_Score || 0).toFixed(1)}</div><div class="kpi-label">Composite</div></div>
+    <div class="kpi-card"><div class="kpi-val">${row.BT_Category || '—'}</div><div class="kpi-label">Category</div></div>
+    <div class="kpi-card"><div class="kpi-val">${parseFloat(row.BT_6M || 0).toFixed(0)}%</div><div class="kpi-label">Accuracy</div></div>
+    <div class="kpi-card"><div class="kpi-val">${parseFloat(row.TR_profit_factor || 0).toFixed(2)}</div><div class="kpi-label">Trade PF</div></div>
+    <div class="kpi-card"><div class="kpi-val">${parseFloat(row.TR_win_rate || 0).toFixed(0)}%</div><div class="kpi-label">Win Rate</div></div>
+    <div class="kpi-card"><div class="kpi-val">${parseFloat(row.TR_total_return_pct || 0).toFixed(1)}%</div><div class="kpi-label">Return</div></div>`;
 }
 
 function updateDetails(row) {
-  const tech    = parseInt(row.Technical_Score || 0);
-  const macro   = parseInt(row.Macro_Score || 0);
-  const fund    = parseInt(row.Fundamental_Score || 0);
-  const news    = parseFloat(row.Forecast_Score || 0).toFixed(1);
-  const severity= row.Composite_Severity || row.Severity || '—';
-  const quality = row.Signal_Quality || '—';
-  const sector  = row.Sector || '—';
-  const bt1m    = parseFloat(row.BT_1M || 0).toFixed(0);
-  const bt3m    = parseFloat(row.BT_3M || 0).toFixed(0);
-  const bt6m    = parseFloat(row.BT_6M || 0).toFixed(0);
-  const fwd     = row.BT_Forward_Days || '—';
-  const thr     = parseFloat(row.BT_Threshold || 0).toFixed(2);
-  const avgW    = parseFloat(row.TR_avg_win_pct || 0).toFixed(1);
-  const avgL    = parseFloat(row.TR_avg_loss_pct || 0).toFixed(1);
-  const hold    = parseFloat(row.TR_avg_holding_days || 0).toFixed(0);
-  const trades  = parseInt(row.TR_total_trades || 0);
-  const slEx    = parseInt(row.TR_stop_loss_exits || 0);
-  const streak  = parseInt(row.Streak_Days || 0);
-  const mom     = row.Momentum || '—';
-  const hl      = row.Latest_Headline || '';
-  const macroC  = row.Macro_Context || '';
-  function sc(v) { return v > 0 ? 'var(--bull)' : v < 0 ? 'var(--bear)' : 'var(--text2)'; }
-  function ss(v) { return v > 0 ? '+' + v : v; }
   document.getElementById('detailPanel').innerHTML = `
     <div class="detail-section">
       <div class="detail-title">📊 Score Breakdown</div>
-      <div class="detail-row"><span class="label">Technical</span><span class="value" style="color:${sc(tech)}">${ss(tech)}</span></div>
-      <div class="detail-row"><span class="label">Macro/Sector</span><span class="value" style="color:${sc(macro)}">${ss(macro)}</span></div>
-      <div class="detail-row"><span class="label">Fundamental</span><span class="value" style="color:${sc(fund)}">${ss(fund)}</span></div>
-      <div class="detail-row"><span class="label">News Sentiment</span><span class="value" style="color:${sc(parseFloat(news))}">${parseFloat(news)>0?'+':''}${news}</span></div>
-      <div class="detail-row"><span class="label">Severity</span><span class="value">${severity}</span></div>
-      <div class="detail-row"><span class="label">Quality</span><span class="value">${quality}</span></div>
+      <div class="detail-row"><span class="label">Technical Matrix</span><span class="value">${row.Technical_Score || 0}</span></div>
+      <div class="detail-row"><span class="label">Macro Environment</span><span class="value">${row.Macro_Score || 0}</span></div>
+      <div class="detail-row"><span class="label">Fundamental Vector</span><span class="value">${row.Fundamental_Score || 0}</span></div>
+      <div class="detail-row"><span class="label">FinBERT News Value</span><span class="value">${row.Forecast_Score || 0}</span></div>
     </div>
     <div class="detail-section">
-      <div class="detail-title">🎯 Backtest Accuracy</div>
-      <div class="detail-row"><span class="label">1 Month</span><span class="value">${bt1m}%</span></div>
-      <div class="detail-row"><span class="label">3 Month</span><span class="value">${bt3m}%</span></div>
-      <div class="detail-row"><span class="label">All Time</span><span class="value">${bt6m}%</span></div>
-      <div class="detail-row"><span class="label">Horizon</span><span class="value">${fwd} days</span></div>
-      <div class="detail-row"><span class="label">Neutral Band</span><span class="value">±${thr}%</span></div>
+      <div class="detail-title">🎯 Backtest Performance Metrics</div>
+      <div class="detail-row"><span class="label">1 Month Strategy Match</span><span class="value">${row.BT_1M || 0}%</span></div>
+      <div class="detail-row"><span class="label">3 Month Horizon Shift</span><span class="value">${row.BT_3M || 0}%</span></div>
+      <div class="detail-row"><span class="label">All Time Realized Base</span><span class="value">${row.BT_6M || 0}%</span></div>
     </div>
     <div class="detail-section">
-      <div class="detail-title">💰 Trade Simulation</div>
-      <div class="detail-row"><span class="label">Total Trades</span><span class="value">${trades}</span></div>
-      <div class="detail-row"><span class="label">Avg Win</span><span class="value" style="color:var(--bull)">+${avgW}%</span></div>
-      <div class="detail-row"><span class="label">Avg Loss</span><span class="value" style="color:var(--bear)">-${avgL}%</span></div>
-      <div class="detail-row"><span class="label">Avg Hold</span><span class="value">${hold} days</span></div>
-      <div class="detail-row"><span class="label">SL Exits</span><span class="value">${slEx}</span></div>
-      <div class="detail-row"><span class="label">Stop-Loss</span><span class="value">${parseFloat(row.BT_SL_Level||0).toFixed(1)}%</span></div>
+      <div class="detail-title">💰 Core Simulated Parameters</div>
+      <div class="detail-row"><span class="label">Simulated Trades Run</span><span class="value">${row.TR_total_trades || 0}</span></div>
+      <div class="detail-row"><span class="label">Average Profit Run</span><span class="value">${row.TR_avg_win_pct || 0}%</span></div>
+      <div class="detail-row"><span class="label">Average Drawdown Cap</span><span class="value">${row.TR_avg_loss_pct || 0}%</span></div>
     </div>
     <div class="detail-section">
-      <div class="detail-title">📈 Context</div>
-      <div class="detail-row"><span class="label">Sector</span><span class="value">${sector}</span></div>
-      <div class="detail-row"><span class="label">Streak</span><span class="value">${streak} days</span></div>
-      <div class="detail-row"><span class="label">Momentum</span><span class="value">${mom}</span></div>
-      ${hl ? `<div style="margin-top:6px;font-size:11px;color:var(--text2);line-height:1.4">📰 ${hl}</div>` : ''}
-      ${macroC ? `<div style="margin-top:4px;font-size:11px;color:var(--text2)">🌍 ${macroC}</div>` : ''}
+      <div class="detail-title">📈 Micro Structure Context</div>
+      <div class="detail-row"><span class="label">Macro Class Sector</span><span class="value">${row.Sector || '—'}</span></div>
+      <div class="detail-row"><span class="label">Historical Engine Run Streak</span><span class="value">${row.Streak_Days || 0} days</span></div>
     </div>`;
 }
 
-// Pre-fetches chart data cleanly without breaking layout flow
-function loadChartData(ticker, row) {
-  const container = document.getElementById('chartContainer');
-  container.innerHTML = '<div class="chart-loading"><div class="spinner"></div><div>Loading interactive telemetry canvas…</div></div>';
-  document.getElementById('modalChartTitle').innerHTML = `${ticker} · Performance History Matrix`;
-
+function preloadChartData(ticker) {
   fetch(base() + 'charts/' + ticker + '.json')
-    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(r => r.json())
     .then(data => {
-      const ohlc    = data.ohlc    || data.OHLC    || data;
-      const markers = data.markers || data.Markers || [];
-      if (!Array.isArray(ohlc) || ohlc.length === 0) throw new Error('No Data content metrics inside JSON structure');
-      renderChart(ticker, row, ohlc, markers);
-    })
-    .catch(err => {
-      container.innerHTML =
-        '<div class="chart-loading">📊<div style="color:var(--bear)">Chart unavailable for ' + ticker + '</div>' +
-        '<div style="font-size:11px">' + err.message + '</div></div>';
-    });
+      stockHistoricalData[ticker] = data.ohlc || data.OHLC || data;
+    }).catch(() => {});
 }
 
-function renderChart(ticker, row, ohlc, markers) {
-  const container = document.getElementById('chartContainer');
+/* Modal Open Engine logic */
+function openChartModal() {
+  if (!selectedTicker) return;
+  const modal = document.getElementById('chartModal');
+  modal.classList.add('open');
   
-  if (chartResizeObserver) { chartResizeObserver.disconnect(); chartResizeObserver = null; }
-  if (chart) { try { chart.remove(); } catch (e) {} chart = null; candleSeries = null; }
+  const container = document.getElementById('chartContainer');
+  container.innerHTML = '<div class="chart-loading"><div class="spinner"></div><div>Constructing analytical overlays...</div></div>';
+  document.getElementById('modalChartTitle').textContent = `${selectedTicker} · Multi-Indicator Target Board`;
+
+  const data = stockHistoricalData[selectedTicker];
+  if (data && data.length) {
+    renderPopupChart(data);
+  } else {
+    fetch(base() + 'charts/' + selectedTicker + '.json')
+      .then(r => r.json())
+      .then(res => {
+        const arr = res.ohlc || res.OHLC || res;
+        stockHistoricalData[selectedTicker] = arr;
+        renderPopupChart(arr);
+      })
+      .catch(() => {
+        container.innerHTML = '<div class="chart-loading">❌ Data profile error for this ticker</div>';
+      });
+  }
+}
+
+function renderPopupChart(actual) {
+  const container = document.getElementById('chartContainer');
+  if (chartResizeObserver) chartResizeObserver.disconnect();
+  if (chart) { chart.remove(); chart = null; }
+  if (rsiChart) { rsiChart.remove(); rsiChart = null; }
   container.innerHTML = '';
+  
+  const useRSI = activeInds.has('rsi');
+  const mainH = useRSI ? MHR : MH;
+  container.style.height = mainH + 'px';
 
   chart = LightweightCharts.createChart(container, {
-    width:  container.clientWidth || 800,
-    height: container.clientHeight || 500,
+    width: container.clientWidth,
+    height: mainH,
     layout: { background: { type: 'solid', color: '#0c0e14' }, textColor: '#8b949e', fontSize: 11 },
-    grid:   { vertLines: { color: '#1a1d29' }, horzLines: { color: '#1a1d29' } },
-    crosshair: {
-      mode: LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: '#3b82f6', width: 1, style: 2, labelBackgroundColor: '#3b82f6' },
-      horzLine: { color: '#3b82f6', width: 1, style: 2, labelBackgroundColor: '#3b82f6' }
-    },
-    rightPriceScale: { borderColor: '#2a2e3d' },
-    timeScale:       { borderColor: '#2a2e3d', timeVisible: false },
+    grid: { vertLines: { color: '#1a1d29' }, horzLines: { color: '#1a1d29' } },
+    timeScale: { borderColor: '#2a2e3d' },
+    rightPriceScale: { borderColor: '#2a2e3d' }
   });
 
   candleSeries = chart.addCandlestickSeries({
-    upColor:        '#22c55e', downColor:        '#ef4444',
-    borderUpColor:  '#22c55e', borderDownColor:  '#ef4444',
-    wickUpColor:    '#22c55e', wickDownColor:    '#ef4444',
+    upColor: '#22c55e', downColor: '#ef4444',
+    borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+    wickUpColor: '#22c55e', wickDownColor: '#ef4444'
   });
 
-  const cleaned = ohlc
-    .filter(d => d.time && d.open != null && d.close != null)
-    .map(d => ({ time: d.time, open: +d.open, high: +d.high, low: +d.low, close: +d.close }))
-    .sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
+  const cleaned = actual.map(d => ({
+    time: d.time || d.Date,
+    open: +d.open || +d.Open,
+    high: +d.high || +d.High,
+    low: +d.low || +d.Low,
+    close: +d.close || +d.Close
+  })).sort((a,b) => a.time < b.time ? -1 : 1);
 
   candleSeries.setData(cleaned);
-
-  if (markers && markers.length > 0) {
-    const sorted = [...markers].sort((a, b) => a.time < b.time ? -1 : 1);
-    candleSeries.setMarkers(sorted);
-  }
-
+  indicatorSeries = {};
+  
+  // Refresh active indicators on creation
+  activeInds.forEach(ind => addInd(ind, actual));
   chart.timeScale().fitContent();
 
+  chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (rsiChart && range) rsiChart.timeScale().setVisibleLogicalRange(range);
+  });
+
   chartResizeObserver = new ResizeObserver(() => {
-    if (chart && container.clientWidth > 0 && container.clientHeight > 0) {
-      chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-    }
+    if (chart && container.clientWidth > 0) chart.applyOptions({ width: container.clientWidth });
+    if (rsiChart && document.getElementById('rsiContainer').clientWidth > 0) rsiChart.applyOptions({ width: document.getElementById('rsiContainer').clientWidth });
   });
   chartResizeObserver.observe(container);
 }
 
-/* Modal Popup Core Handlers */
-function openChartModal() {
-  const modal = document.getElementById('chartModal');
-  modal.classList.add('open');
-  // Trigger a resize calculate check once modal finishes display styling transition updates
-  setTimeout(() => {
-    const container = document.getElementById('chartContainer');
-    if (chart && container.clientWidth > 0 && container.clientHeight > 0) {
-      chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-      chart.timeScale().fitContent();
+/* Modular Indicator Controllers matched to legacy structure specs */
+function toggleInd(btn) {
+  const ind = btn.dataset.ind;
+  if (activeInds.has(ind)) {
+    activeInds.delete(ind);
+    btn.classList.remove('active');
+    remInd(ind);
+  } else {
+    activeInds.add(ind);
+    btn.classList.add('active');
+    const data = stockHistoricalData[selectedTicker];
+    if (data) addInd(ind, data);
+  }
+}
+
+function addInd(ind, data) {
+  if (!chart) return;
+  
+  if (ind === 'sma9' && data[0].SMA_9 != null) {
+    indicatorSeries.sma9 = chart.addLineSeries({ color: '#facc15', lineWidth: 1, title: 'SMA 9' });
+    indicatorSeries.sma9.setData(data.filter(r => r.SMA_9).map(r => ({ time: r.time||r.Date, value: +r.SMA_9 })));
+  }
+  if (ind === 'sma22' && data[0].SMA_22 != null) {
+    indicatorSeries.sma22 = chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, title: 'SMA 22' });
+    indicatorSeries.sma22.setData(data.filter(r => r.SMA_22).map(r => ({ time: r.time||r.Date, value: +r.SMA_22 })));
+  }
+  if (ind === 'sma52' && data[0].SMA_52 != null) {
+    indicatorSeries.sma52 = chart.addLineSeries({ color: '#a855f7', lineWidth: 1, title: 'SMA 52' });
+    indicatorSeries.sma52.setData(data.filter(r => r.SMA_52).map(r => ({ time: r.time||r.Date, value: +r.SMA_52 })));
+  }
+  if (ind === 'sma200' && data[0].SMA_200 != null) {
+    indicatorSeries.sma200 = chart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: 2, title: 'SMA 200' });
+    indicatorSeries.sma200.setData(data.filter(r => r.SMA_200).map(r => ({ time: r.time||r.Date, value: +r.SMA_200 })));
+  }
+  if (ind === 'vwap' && data[0].VWAP != null) {
+    indicatorSeries.vwap = chart.addLineSeries({ color: '#14b8a6', lineWidth: 1, title: 'VWAP' });
+    indicatorSeries.vwap.setData(data.filter(r => r.VWAP).map(r => ({ time: r.time||r.Date, value: +r.VWAP })));
+  }
+  if (ind === 'bb' && data[0].BB_Upper != null) {
+    indicatorSeries.bbu = chart.addAreaSeries({ topColor: 'rgba(249,146,60,0.05)', bottomColor: 'rgba(249,146,60,0.01)', lineColor: '#f97316', lineWidth: 1, lineStyle: 2, title: 'BB+' });
+    indicatorSeries.bbu.setData(data.filter(r => r.BB_Upper).map(r => ({ time: r.time||r.Date, value: +r.BB_Upper })));
+    indicatorSeries.bbl = chart.addAreaSeries({ topColor: 'transparent', bottomColor: 'transparent', lineColor: '#f97316', lineWidth: 1, lineStyle: 2, title: 'BB-' });
+    indicatorSeries.bbl.setData(data.filter(r => r.BB_Lower).map(r => ({ time: r.time||r.Date, value: +r.BB_Lower })));
+  }
+  if (ind === 'ich' && data[0].Senkou_Span_A != null) {
+    indicatorSeries.icha = chart.addLineSeries({ color: 'rgba(34,197,94,0.4)', lineWidth: 1, title: 'Span A' });
+    indicatorSeries.icha.setData(data.filter(r => r.Senkou_Span_A).map(r => ({ time: r.time||r.Date, value: +r.Senkou_Span_A })));
+    indicatorSeries.ichb = chart.addLineSeries({ color: 'rgba(239,68,68,0.4)', lineWidth: 1, title: 'Span B' });
+    indicatorSeries.ichb.setData(data.filter(r => r.Senkou_Span_B).map(r => ({ time: r.time||r.Date, value: +r.Senkou_Span_B })));
+  }
+  if (ind === 'vol') {
+    indicatorSeries.vol = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
+    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
+    indicatorSeries.vol.setData(data.map(r => ({
+      time: r.time||r.Date, value: +(r.volume||r.Volume||0),
+      color: +(r.close||r.Close) >= +(r.open||r.Open) ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'
+    })));
+  }
+  if (ind === 'rsi') {
+    const rData = data.filter(r => r.RSI_14 != null).map(r => ({ time: r.time||r.Date, value: +r.RSI_14 }));
+    if (!rData.length) return;
+    document.getElementById('chartContainer').style.height = MHR + 'px';
+    chart.applyOptions({ height: MHR });
+    
+    const rc = document.getElementById('rsiContainer');
+    rc.style.display = 'block'; rc.innerHTML = '';
+    
+    rsiChart = LightweightCharts.createChart(rc, {
+      width: rc.clientWidth, height: RH,
+      layout: { background: { type: 'solid', color: '#0c0e14' }, textColor: '#8b949e', fontSize: 10 },
+      grid: { vertLines: { color: '#1a1d29' }, horzLines: { color: '#1a1d29' } },
+      timeScale: { borderColor: '#2a2e3d' },
+      rightPriceScale: { borderColor: '#2a2e3d', scaleMargins: { top: 0.1, bottom: 0.1 } }
+    });
+    
+    indicatorSeries.rsi = rsiChart.addLineSeries({ color: '#facc15', lineWidth: 1.5, title: 'RSI (14)' });
+    indicatorSeries.rsi.setData(rData);
+    
+    indicatorSeries.rsi70 = rsiChart.addLineSeries({ color: 'rgba(239,68,68,0.25)', lineWidth: 1, lineStyle: 2 });
+    indicatorSeries.rsi70.setData(rData.map(x => ({ time: x.time, value: 70 })));
+    indicatorSeries.rsi30 = rsiChart.addLineSeries({ color: 'rgba(34,197,94,0.25)', lineWidth: 1, lineStyle: 2 });
+    indicatorSeries.rsi30.setData(rData.map(x => ({ time: x.time, value: 30 })));
+    
+    rsiChart.timeScale().fitContent();
+    const range = chart.timeScale().getVisibleLogicalRange();
+    if (range) rsiChart.timeScale().setVisibleLogicalRange(range);
+    
+    rsiChart.timeScale().subscribeVisibleLogicalRangeChange(rg => {
+      if (chart && rg) chart.timeScale().setVisibleLogicalRange(rg);
+    });
+  }
+}
+
+function remInd(ind) {
+  const mapping = {
+    sma9:['sma9'], sma22:['sma22'], sma52:['sma52'], sma200:['sma200'], 
+    vwap:['vwap'], bb:['bbu','bbl'], ich:['icha','ichb'], vol:['vol']
+  };
+  
+  if (ind === 'rsi') {
+    if (rsiChart) { rsiChart.remove(); rsiChart = null; }
+    document.getElementById('rsiContainer').style.display = 'none';
+    document.getElementById('chartContainer').style.height = MH + 'px';
+    if (chart) chart.applyOptions({ height: MH });
+    return;
+  }
+  
+  (mapping[ind] || []).forEach(x => {
+    if (indicatorSeries[x]) {
+      chart.removeSeries(indicatorSeries[x]);
+      delete indicatorSeries[x];
     }
-  }, 200);
+  });
 }
 
 function closeChartModal() {
