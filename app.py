@@ -1,4 +1,5 @@
 """XChart Predictive Engine v6.3 - ATR-SL, Hysteresis, Dynamic Threshold"""
+import os
 import json
 import pandas as pd
 import time
@@ -61,9 +62,27 @@ from engine.utils import is_bad_str, safe_float
 DM = {1: "BULL", -1: "BEAR", 0: "NEUT"}
 
 
+def _cleanup_stale_charts():
+    """Remove chart files for tickers no longer in tickers.csv."""
+    if not os.path.exists('charts'):
+        return
+    tl, _ = load_tickers()
+    valid = set(tl)
+    removed = 0
+    for f in os.listdir('charts'):
+        if f.endswith('.json'):
+            tk = f.replace('.json', '')
+            if tk not in valid:
+                os.remove(os.path.join('charts', f))
+                removed += 1
+    if removed:
+        print(f"  Cleaned {removed} stale chart files")
+
+
 def phase0_data():
     print("Checking historical data...")
     ensure_data_exists()
+    _cleanup_stale_charts()
 
 
 def phase1_news(tl):
@@ -380,7 +399,7 @@ def phase5_charts(stock_df, mcap_threshold, bt_results, regime,
     print(f"\nPHASE 5: Generating chart data + meta...")
     print("-" * 110)
 
-    # Generate chart JSON files with signal flip markers
+    # Generate chart JSON files with signal flip markers + indicators
     generate_chart_data(stock_df, mcap_threshold)
 
     # Compute avg PF
