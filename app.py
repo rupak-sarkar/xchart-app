@@ -1,7 +1,8 @@
-"""XChart Predictive Engine v6.3 - ATR-SL, Hysteresis, Dynamic Threshold"""
+"""XChart Predictive Engine v7.0 — σ-band, 5% SL, Cap-Aware Scoring"""
 import os
 import json
 import pandas as pd
+import numpy as np
 import time
 
 from engine.config import (
@@ -49,6 +50,11 @@ from engine.accuracy import (
     compute_per_ticker_accuracy,
     print_accuracy_report,
     is_hit,
+    ENTRY_THRESHOLD,
+    EXIT_THRESHOLD,
+    HORIZONS,
+    HOLD_DAYS,
+    STOP_LOSS_PCT,
 )
 from engine.history import (
     load_history,
@@ -189,7 +195,7 @@ def phase2_finbert(tl, sm, nc):
 
 
 def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
-    print("Computing technical scores (v6.3 S/R-centric)...")
+    print("Computing technical scores (v7.0 cap-aware)...")
     tech_count = 0
     lc_count = 0
     smc_count = 0
@@ -243,7 +249,7 @@ def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
 
 
 def phase3b_backtest(stock_df, mcap_threshold, all_rows):
-    print(f"\nPHASE 3b: Backtest (ATR threshold + ATR SL)...")
+    print(f"\nPHASE 3b: Backtest (σ-band + 5% SL)...")
     bt_results = compute_per_ticker_accuracy(stock_df, mcap_threshold)
     bt_count = len(bt_results)
     avg_1m = 0.0
@@ -269,7 +275,6 @@ def phase3b_backtest(stock_df, mcap_threshold, all_rows):
         row["BT_ATR_Pct"] = bt.get("BT_ATR_Pct", 0)
         row["BT_SL_Level"] = bt.get("BT_SL_Level", 0)
         row["BT_Category"] = bt.get("BT_Category", "")
-        # Trade simulation fields
         for k in ["TR_total_trades", "TR_wins", "TR_losses", "TR_win_rate",
                    "TR_avg_win_pct", "TR_avg_loss_pct", "TR_profit_factor",
                    "TR_total_return_pct", "TR_avg_holding_days",
@@ -399,20 +404,17 @@ def phase5_charts(stock_df, mcap_threshold, bt_results, regime,
     print(f"\nPHASE 5: Generating chart data + meta...")
     print("-" * 110)
 
-    # Generate chart JSON files with signal flip markers + indicators
     generate_chart_data(stock_df, mcap_threshold)
 
-    # Compute avg PF
     pfs = [
         r.get("TR_profit_factor", 0) for r in bt_results.values()
         if r.get("TR_total_trades", 0) >= 5
     ]
     avg_pf = round(sum(pfs) / len(pfs), 2) if pfs else 0
 
-    # Generate meta.json for frontend
     meta = {
         "date": TODAY_IST,
-        "version": "6.3",
+        "version": "7.0",
         "regime": regime["regime"],
         "regime_detail": regime["detail"],
         "total_tickers": total,
@@ -437,13 +439,22 @@ def run():
     tl, sm = load_tickers()
     total = len(tl)
 
-    print(f"\nPREDICTIVE Engine v6.3 - {total} tickers | {TODAY_IST}")
+    print(f"\nPREDICTIVE Engine v7.0 - {total} tickers | {TODAY_IST}")
     print(
         f"News: {NEWS_START_DATE} to "
         f"{NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | CATALYST-ONLY FinBERT"
     )
-    print(f"Tech: S/R-CENTRIC | ATR threshold + ATR stop-loss")
-    print(f"Horizons: MEGA=14d LARGE=14d MID=7d SMALL=5d")
+    print(f"Tech: MEGA/LARGE=S/R-centric | MID/SMALL=BB-centric")
+    print(
+        f"Horizons: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d "
+        f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d"
+    )
+    print(
+        f"MinHold: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
+        f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d"
+    )
+    print(f"SL: {STOP_LOSS_PCT}% fixed | Neutral band: σ-based (std×√horizon)")
+    print(f"Entry: ±{ENTRY_THRESHOLD} | Exit: ±{EXIT_THRESHOLD}")
     print(f"Validation: neutral=HIT | Per-ticker: Swing/1M/3M/ALL")
     print("=" * 110)
 
@@ -496,7 +507,6 @@ def run():
     comp_bull = sum(1 for r in all_rows if r.get("Composite_Direction", 0) == 1)
     comp_bear = sum(1 for r in all_rows if r.get("Composite_Direction", 0) == -1)
 
-    # Phase 5: Charts + meta
     phase5_charts(
         stock_df, mcap_threshold, bt_results, regime,
         avg_all, bt_count, comp_bull, comp_bear, total,
@@ -504,14 +514,21 @@ def run():
     )
 
     print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v6.3 ATR-SL + Hysteresis")
+    print(f"data.csv | {TODAY_IST} | ENGINE v7.0 σ-band + 5% SL")
     print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news")
     print(f"REGIME: {regime['regime']} ({regime['detail']})")
     print(
         f"STRATEGY: LC({lc_count}) SMC({smc_count}) | "
-        f"ATR threshold + ATR SL | Neutral=HIT"
+        f"MEGA/LARGE=S/R | MID/SMALL=BB | σ-neutral | 5% SL"
     )
-    print(f"HORIZONS: MEGA=14d LARGE=14d MID=7d SMALL=5d")
+    print(
+        f"HORIZONS: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d "
+        f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d"
+    )
+    print(
+        f"HOLD: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
+        f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d"
+    )
     if bt_count > 0:
         print(
             f"BACKTEST: {bt_count} tickers | "
