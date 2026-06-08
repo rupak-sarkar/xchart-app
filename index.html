@@ -400,6 +400,7 @@ function showRsi(){
     s70.setData([{time:t1,value:70},{time:t2,value:70}]);rsiSeries['rsi70']=s70;
   }
   syncTimeScales();
+  try{rsiChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
   new ResizeObserver(function(){if(rsiChart)rsiChart.applyOptions({width:el.clientWidth})}).observe(el);
 }
 function hideRsi(){
@@ -415,6 +416,7 @@ function showMacd(){
   if(CD.macd_signal&&CD.macd_signal.length){var ms=macdChart.addLineSeries({color:'#f97316',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});ms.setData(CD.macd_signal);macdSeries['ms']=ms}
   if(CD.macd_hist&&CD.macd_hist.length){var mh=macdChart.addHistogramSeries({priceFormat:{type:'price',precision:4,minMove:0.0001}});mh.setData(CD.macd_hist);macdSeries['mh']=mh}
   syncTimeScales();
+  try{macdChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
   new ResizeObserver(function(){if(macdChart)macdChart.applyOptions({width:el.clientWidth})}).observe(el);
 }
 function hideMacd(){
@@ -429,6 +431,7 @@ function showAdx(){
   var as2=adxChart.addLineSeries({color:'#06b6d4',lineWidth:1,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false});
   as2.setData(CD.adx);adxSeries['adx']=as2;
   syncTimeScales();
+  try{adxChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
   new ResizeObserver(function(){if(adxChart)adxChart.applyOptions({width:el.clientWidth})}).observe(el);
 }
 function hideAdx(){
