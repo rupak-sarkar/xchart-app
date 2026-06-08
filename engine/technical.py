@@ -53,7 +53,58 @@ def detect_mcap_scale(stock_df):
     else:
         return 10000  # Crores
 
-    return 10000
+
+def get_latest_valid_rows(stock_df, n=22):
+    """Get the latest N rows per ticker with valid Close."""
+    if stock_df is None or stock_df.empty:
+        return pd.DataFrame()
+    out = []
+    for ticker in stock_df['Ticker'].unique():
+        tk = stock_df[stock_df['Ticker'] == ticker].sort_values('Date')
+        tk = tk[tk['Close'].notna()]
+        if len(tk) >= n:
+            out.append(tk.tail(n))
+        elif not tk.empty:
+            out.append(tk)
+    return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
+
+
+def get_broad_sector(sub_industry):
+    """Map sub-industry to broad sector for regime/macro analysis."""
+    if not sub_industry or str(sub_industry).lower() in ('nan', 'none', ''):
+        return 'Other'
+    s = str(sub_industry).lower()
+    mapping = {
+        'Technology': ['software', 'tech', 'it ', 'digital', 'computer', 'saas',
+                       'cloud', 'cyber', 'semiconductor', 'internet'],
+        'Financial Services': ['bank', 'financ', 'insur', 'capital', 'credit',
+                               'lending', 'nbfc', 'broker', 'asset management',
+                               'wealth', 'exchange', 'rating'],
+        'Healthcare': ['pharma', 'health', 'hospital', 'medic', 'biotech',
+                       'diagnos', 'drug', 'therapeutic'],
+        'Consumer Discretionary': ['auto', 'vehicle', 'retail', 'hotel',
+                                   'restaurant', 'textile', 'apparel', 'fashion',
+                                   'consumer durable', 'jewel', 'footwear',
+                                   'leisure', 'media', 'entertainment'],
+        'Consumer Staples': ['fmcg', 'food', 'beverage', 'dairy', 'agri',
+                             'tobacco', 'personal care', 'household',
+                             'consumer staple', 'packaged'],
+        'Industrials': ['engineer', 'industrial', 'manufactur', 'capital goods',
+                        'defence', 'defense', 'aerospace', 'logistics',
+                        'shipping', 'transport', 'infra', 'construct',
+                        'electric equipment', 'machinery', 'power equipment'],
+        'Materials': ['metal', 'steel', 'mining', 'cement', 'chemical',
+                      'ceramic', 'glass', 'paper', 'plastic', 'rubber',
+                      'fertiliz', 'paint', 'packaging', 'refractor'],
+        'Energy': ['oil', 'gas', 'energy', 'petrol', 'coal', 'power',
+                   'renewable', 'solar', 'wind', 'utility'],
+        'Real Estate': ['real estate', 'property', 'housing', 'realty'],
+        'Specialty': ['conglomerate', 'diversified', 'holding', 'specialty'],
+    }
+    for broad, keywords in mapping.items():
+        if any(kw in s for kw in keywords):
+            return broad
+    return 'Other'
 
 
 def get_sector_from_stock_data(ticker, stock_df):
