@@ -1,454 +1,483 @@
-"""Fetch 2Y historical OHLC data + compute all technical indicators.
-Run modes:
-  - FULL: Download 2 years if stock_data.csv doesn't exist or is stale
-  - DAILY: Append today's data post-market close
-"""
+"""Smart data fetcher — auto-detects ticker changes, syncs everything.
+Handles: new tickers, removed tickers, daily updates, full resets."""
 import os
+import time
+import shutil
 import pandas as pd
 import numpy as np
-import yfinance as yf
-from datetime import datetime, timedelta, timezone
-import time
+from datetime import datetime, timedelta
 
-IST = timezone(timedelta(hours=5, minutes=30))
-STOCK_DATA_FILE = "stock_data.csv"
-TICKERS_FILE = "tickers.csv"
+try:
+    import yfinance as yf
+    HAS_YF = True
+except ImportError:
+    HAS_YF = False
 
+from engine.config import TODAY_IST
 
-def load_ticker_list():
-    if os.path.exists(TICKERS_FILE):
-        df = pd.read_csv(TICKERS_FILE)
-        df.columns = df.columns.str.strip()
-        if 'Ticker' not in df.columns:
-            first_col = df.columns[0]
-            df.rename(columns={first_col: 'Ticker'}, inplace=True)
-        tks = [t.replace('.NS', '').strip().upper() for t in df['Ticker'].dropna().astype(str).tolist() if t.strip()]
-        return list(dict.fromkeys(tks))
-    return []
+DATA_FILE = 'stock_data.csv'
+HISTORY_FILE = 'history.csv'
+CHARTS_DIR = 'charts'
+ML_FILE = 'ml_predictions.csv'
+ENSEMBLE_FILE = 'ensemble_predictions.csv'
+TICKERS_FILE = 'tickers.csv'
 
+LOOKBACK_YEARS = 2
+BATCH_SIZE = 20
+SLEEP_BETWEEN = 1.5
 
-# ═══════════════════════════════════════════════════════════════
-# TECHNICAL INDICATOR CALCULATIONS
-# ═══════════════════════════════════════════════════════════════
-
-def compute_sma(series, window):
-    return series.rolling(window=window, min_periods=window).mean()
-
-def compute_ema(series, span):
-    return series.ewm(span=span, adjust=False).mean()
-
-def compute_rsi(series, period=14):
-    delta = series.diff()
-    gain = delta.where(delta > 0, 0.0)
-    loss = -delta.where(delta < 0, 0.0)
-    avg_gain = gain.rolling(window=period, min_periods=period).mean()
-    avg_loss = loss.rolling(window=period, min_periods=period).mean()
-    for i in range(period, len(avg_gain)):
-        avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (period - 1) + gain.iloc[i]) / period
-        avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (period - 1) + loss.iloc[i]) / period
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-def compute_macd(close, fast=12, slow=26, signal=9):
-    ema_fast = compute_ema(close, fast)
-    ema_slow = compute_ema(close, slow)
-    macd_line = ema_fast - ema_slow
-    macd_signal = compute_ema(macd_line, signal)
-    macd_hist = macd_line - macd_signal
-    return macd_line, macd_signal, macd_hist
-
-def compute_bollinger(close, window=22):
-    sma = compute_sma(close, window)
-    std = close.rolling(window=window, min_periods=window).std()
-    upper = sma + 2 * std
-    lower = sma - 2 * std
-    bb_flag = pd.Series("", index=close.index)
-    bb_flag[close <= lower] = "BBL"
-    bb_flag[close >= upper] = "BBH"
-    return upper, lower, std, bb_flag
-
-def compute_adx(high, low, close, period=14):
-    plus_dm = high.diff()
-    minus_dm = low.diff().apply(lambda x: -x)
-    plus_dm[plus_dm < 0] = 0
-    minus_dm[minus_dm < 0] = 0
-    mask = plus_dm > minus_dm
-    minus_dm[mask & (plus_dm > 0)] = 0
-    plus_dm[~mask & (minus_dm > 0)] = 0
-    tr1 = high - low
-    tr2 = (high - close.shift(1)).abs()
-    tr3 = (low - close.shift(1)).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=period, min_periods=period).mean()
-    plus_di = 100 * (plus_dm.rolling(window=period, min_periods=period).mean() / atr)
-    minus_di = 100 * (minus_dm.rolling(window=period, min_periods=period).mean() / atr)
-    dx = 100 * ((plus_di - minus_di).abs() / (plus_di + minus_di))
-    adx = dx.rolling(window=period, min_periods=period).mean()
-    return adx
-
-def compute_supertrend(high, low, close, period=10, multiplier=3):
-    hl2 = (high + low) / 2
-    tr1 = high - low
-    tr2 = (high - close.shift(1)).abs()
-    tr3 = (low - close.shift(1)).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    atr = tr.rolling(window=period, min_periods=period).mean()
-    upper_band = hl2 + multiplier * atr
-    lower_band = hl2 - multiplier * atr
-    st_direction = pd.Series(1, index=close.index)
-    final_upper = upper_band.copy()
-    final_lower = lower_band.copy()
-    for i in range(1, len(close)):
-        if pd.isna(atr.iloc[i]):
-            continue
-        if final_upper.iloc[i] < final_upper.iloc[i-1] or close.iloc[i-1] > final_upper.iloc[i-1]:
-            pass
-        else:
-            final_upper.iloc[i] = final_upper.iloc[i-1]
-        if final_lower.iloc[i] > final_lower.iloc[i-1] or close.iloc[i-1] < final_lower.iloc[i-1]:
-            pass
-        else:
-            final_lower.iloc[i] = final_lower.iloc[i-1]
-        if st_direction.iloc[i-1] == 1:
-            if close.iloc[i] < final_lower.iloc[i]:
-                st_direction.iloc[i] = -1
-            else:
-                st_direction.iloc[i] = 1
-        else:
-            if close.iloc[i] > final_upper.iloc[i]:
-                st_direction.iloc[i] = 1
-            else:
-                st_direction.iloc[i] = -1
-    return st_direction
-
-def compute_knoxville_divergence(close, rsi, period=20):
-    knox = pd.Series("", index=close.index)
-    if len(close) < period + 5:
-        return knox
-    for i in range(period, len(close)):
-        window_close = close.iloc[i-period:i+1]
-        window_rsi = rsi.iloc[i-period:i+1]
-        if window_rsi.isna().any() or window_close.isna().any():
-            continue
-        if close.iloc[i] <= window_close.min() * 1.01:
-            rsi_at_prev_low = window_rsi.iloc[window_close.values.argmin()]
-            if rsi.iloc[i] > rsi_at_prev_low + 3:
-                knox.iloc[i] = "Bullish"
-        elif close.iloc[i] >= window_close.max() * 0.99:
-            rsi_at_prev_high = window_rsi.iloc[window_close.values.argmax()]
-            if rsi.iloc[i] < rsi_at_prev_high - 3:
-                knox.iloc[i] = "Bearish"
-    return knox
-
-def compute_obv(close, volume):
-    obv = pd.Series(0.0, index=close.index)
-    for i in range(1, len(close)):
-        if close.iloc[i] > close.iloc[i-1]:
-            obv.iloc[i] = obv.iloc[i-1] + volume.iloc[i]
-        elif close.iloc[i] < close.iloc[i-1]:
-            obv.iloc[i] = obv.iloc[i-1] - volume.iloc[i]
-        else:
-            obv.iloc[i] = obv.iloc[i-1]
-    return obv
-
-def compute_fii_dii_proxy(close, volume, period=20):
-    avg_vol = volume.rolling(window=period, min_periods=period).mean()
-    up_true = pd.Series(0, index=close.index)
-    for i in range(1, len(close)):
-        if pd.isna(avg_vol.iloc[i]) or avg_vol.iloc[i] == 0:
-            continue
-        vol_ratio = volume.iloc[i] / avg_vol.iloc[i]
-        price_change = (close.iloc[i] - close.iloc[i-1]) / close.iloc[i-1] * 100
-        if vol_ratio > 2.0 and price_change > 1.0:
-            up_true.iloc[i] = 1
-    return up_true
+# Columns we expect in stock_data.csv
+REQUIRED_COLS = [
+    'Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume',
+    'SMA_9', 'SMA_22', 'SMA_50', 'SMA_52', 'SMA_200',
+    'EMA_9', 'EMA_21',
+    'RSI_14', 'MACD_Line', 'MACD_Signal', 'MACD_Hist',
+    'ADX_14', 'BB_Upper', 'BB_Lower',
+    'SuperTrend', 'ST_Direction', 'Market_Cap',
+]
 
 
-def compute_all_indicators(df):
-    """Compute ALL technical indicators for a single ticker dataframe"""
-    if len(df) < 30:
-        return df
+def _get_tickers_from_csv():
+    """Load tickers from tickers.csv."""
+    if not os.path.exists(TICKERS_FILE):
+        return []
+    df = pd.read_csv(TICKERS_FILE)
+    col = 'Ticker' if 'Ticker' in df.columns else df.columns[0]
+    return [str(t).strip() for t in df[col].dropna().unique() if str(t).strip()]
 
-    close = df['Close'].astype(float)
-    high = df['High'].astype(float)
-    low = df['Low'].astype(float)
-    volume = df['Volume'].astype(float)
 
-    df['SMA_9'] = compute_sma(close, 9)
-    df['SMA_22'] = compute_sma(close, 22)
-    df['STD_22'] = close.rolling(window=22, min_periods=22).std()
-    df['SMA_50'] = compute_sma(close, 50)
-    df['SMA_52'] = compute_sma(close, 52)
-    df['SMA_200'] = compute_sma(close, 200)
-    df['EMA_9'] = compute_ema(close, 9)
-    df['EMA_21'] = compute_ema(close, 21)
-    df['RSI_14'] = compute_rsi(close, 14)
-    df['MACD_Line'], df['MACD_Signal'], df['MACD_Hist'] = compute_macd(close)
-    df['BB_Upper'], df['BB_Lower'], _, df['BB_Flag'] = compute_bollinger(close, 22)
-    df['ADX_14'] = compute_adx(high, low, close, 14)
-    df['ST_Direction'] = compute_supertrend(high, low, close)
-    df['Knoxville_Divergence'] = compute_knoxville_divergence(close, df['RSI_14'])
-    df['OBV'] = compute_obv(close, volume)
-    df['up_true'] = compute_fii_dii_proxy(close, volume)
+def _get_tickers_in_data():
+    """Get tickers currently in stock_data.csv."""
+    if not os.path.exists(DATA_FILE):
+        return []
+    try:
+        df = pd.read_csv(DATA_FILE, usecols=['Ticker'])
+        return list(df['Ticker'].dropna().unique())
+    except Exception:
+        return []
+
+
+def _compute_indicators(df):
+    """Compute all technical indicators for a single ticker dataframe."""
+    df = df.sort_values('Date').reset_index(drop=True)
+    c = df['Close']
+    h = df['High']
+    l = df['Low']
+
+    # SMAs
+    df['SMA_9'] = c.rolling(9).mean()
+    df['SMA_22'] = c.rolling(22).mean()
+    df['SMA_50'] = c.rolling(50).mean()
+    df['SMA_52'] = c.rolling(52).mean()
+    df['SMA_200'] = c.rolling(200).mean()
+
+    # EMAs
+    df['EMA_9'] = c.ewm(span=9, adjust=False).mean()
+    df['EMA_21'] = c.ewm(span=21, adjust=False).mean()
+
+    # RSI
+    delta = c.diff()
+    gain = delta.clip(lower=0).rolling(14).mean()
+    loss = (-delta.clip(upper=0)).rolling(14).mean()
+    rs = gain / loss.replace(0, np.nan)
+    df['RSI_14'] = 100 - (100 / (1 + rs))
+
+    # MACD
+    ema12 = c.ewm(span=12, adjust=False).mean()
+    ema26 = c.ewm(span=26, adjust=False).mean()
+    df['MACD_Line'] = ema12 - ema26
+    df['MACD_Signal'] = df['MACD_Line'].ewm(span=9, adjust=False).mean()
+    df['MACD_Hist'] = df['MACD_Line'] - df['MACD_Signal']
+
+    # Bollinger Bands
+    sma20 = c.rolling(20).mean()
+    std20 = c.rolling(20).std()
+    df['BB_Upper'] = sma20 + 2 * std20
+    df['BB_Lower'] = sma20 - 2 * std20
+
+    # ADX
+    df['ADX_14'] = _compute_adx(h, l, c, 14)
+
+    # SuperTrend
+    st, st_dir = _compute_supertrend(h, l, c, period=10, multiplier=3)
+    df['SuperTrend'] = st
+    df['ST_Direction'] = st_dir
 
     return df
 
 
-# ═══════════════════════════════════════════════════════════════
-# FUNDAMENTAL DATA
-# ═══════════════════════════════════════════════════════════════
+def _compute_adx(high, low, close, period=14):
+    """Compute ADX."""
+    plus_dm = high.diff()
+    minus_dm = low.diff().abs()
+    plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0), 0)
+    minus_dm = minus_dm.where((minus_dm > plus_dm) & (minus_dm > 0), 0)
 
-def get_fundamentals(ticker_ns):
-    try:
-        info = yf.Ticker(ticker_ns).info
-        mcap = info.get('marketCap', None)
-        if mcap and mcap > 1e7:
-            mcap = round(mcap / 1e7)
-        debt_eq = info.get('debtToEquity', None)
-        industry = info.get('industry', '')
-        return {"Market_Cap": mcap, "Debt_Eq": debt_eq, "Industry": industry}
-    except:
-        return {"Market_Cap": None, "Debt_Eq": None, "Industry": ""}
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
 
-
-# ═══════════════════════════════════════════════════════════════
-# FULL FETCH: 2 Years
-# ═══════════════════════════════════════════════════════════════
-
-def fetch_full_history(tickers, period="2y"):
-    print(f"\n{'='*80}")
-    print(f"FULL HISTORICAL DATA FETCH - {len(tickers)} tickers, period={period}")
-    print(f"{'='*80}")
-
-    all_data = []
-    success = 0
-    failed = 0
-    fund_count = 0
-
-    for i, tk in enumerate(tickers):
-        symbol = f"{tk}.NS"
-        try:
-            hist = yf.Ticker(symbol).history(period=period)
-            if hist.empty:
-                symbol = f"{tk}.BO"
-                hist = yf.Ticker(symbol).history(period=period)
-            if hist.empty:
-                print(f"  [{i+1:3d}] {tk:<14s} SKIP - no data")
-                failed += 1
-                continue
-
-            df = hist[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
-            df = df.reset_index()
-            df['Date'] = pd.to_datetime(df['Date']).dt.strftime('%Y-%m-%d')
-            df['Ticker'] = tk
-
-            fund = get_fundamentals(symbol)
-            df['Market_Cap'] = fund['Market_Cap']
-            df['Debt_Eq'] = fund['Debt_Eq']
-            df['Industry'] = fund['Industry']
-
-            if fund['Market_Cap'] is not None:
-                fund_count += 1
-
-            df = compute_all_indicators(df)
-            all_data.append(df)
-            success += 1
-            days = len(df)
-            ind = fund['Industry'][:30] if fund['Industry'] else ''
-            print(f"  [{i+1:3d}] {tk:<14s} OK - {days} days | MCap={fund['Market_Cap']} | {ind}")
-
-        except Exception as e:
-            print(f"  [{i+1:3d}] {tk:<14s} ERROR - {str(e)[:60]}")
-            failed += 1
-
-        if (i + 1) % 10 == 0:
-            time.sleep(1)
-
-    if not all_data:
-        print("ERROR: No data fetched!")
-        return
-
-    combined = pd.concat(all_data, ignore_index=True)
-
-    col_order = ['Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume',
-                 'Market_Cap', 'Debt_Eq', 'Industry', 'SMA_9', 'SMA_22', 'STD_22',
-                 'SMA_50', 'SMA_52', 'SMA_200', 'EMA_9', 'EMA_21', 'RSI_14',
-                 'MACD_Line', 'MACD_Signal', 'MACD_Hist', 'BB_Upper', 'BB_Lower',
-                 'BB_Flag', 'ADX_14', 'ST_Direction', 'Knoxville_Divergence',
-                 'OBV', 'up_true']
-    existing_cols = [c for c in col_order if c in combined.columns]
-    extra_cols = [c for c in combined.columns if c not in col_order]
-    combined = combined[existing_cols + extra_cols]
-
-    combined.to_csv(STOCK_DATA_FILE, index=False)
-
-    print(f"\n{'='*80}")
-    print(f"SAVED: {STOCK_DATA_FILE}")
-    print(f"  Tickers: {success} success / {failed} failed")
-    print(f"  Rows: {len(combined):,} | Days: ~{len(combined)//max(success,1)}")
-    print(f"  Fundamentals: {fund_count} with Market Cap")
-    print(f"  Indicators: SMA(9,22,50,52,200) EMA(9,21) RSI MACD BB ADX ST Knox OBV UP20")
-    print(f"  File size: {os.path.getsize(STOCK_DATA_FILE)/1024/1024:.1f} MB")
-    print(f"{'='*80}")
+    atr = tr.rolling(period).mean()
+    plus_di = 100 * (plus_dm.rolling(period).mean() / atr.replace(0, np.nan))
+    minus_di = 100 * (minus_dm.rolling(period).mean() / atr.replace(0, np.nan))
+    dx = (abs(plus_di - minus_di) / (plus_di + minus_di).replace(0, np.nan)) * 100
+    adx = dx.rolling(period).mean()
+    return adx
 
 
-# ═══════════════════════════════════════════════════════════════
-# DAILY UPDATE
-# ═══════════════════════════════════════════════════════════════
+def _compute_supertrend(high, low, close, period=10, multiplier=3):
+    """Compute SuperTrend indicator."""
+    hl2 = (high + low) / 2
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.rolling(period).mean()
 
-def update_daily(tickers):
-    if not os.path.exists(STOCK_DATA_FILE):
-        print("stock_data.csv not found - running full fetch instead")
-        fetch_full_history(tickers)
-        return
+    upper = hl2 + multiplier * atr
+    lower = hl2 - multiplier * atr
 
-    print(f"\n{'='*80}")
-    print(f"DAILY UPDATE - {len(tickers)} tickers")
-    print(f"{'='*80}")
+    st = pd.Series(np.nan, index=close.index)
+    direction = pd.Series(1, index=close.index)
 
-    existing = pd.read_csv(STOCK_DATA_FILE)
-    existing['Ticker'] = existing['Ticker'].astype(str).str.replace('.NS', '', regex=False).str.strip().str.upper()
+    for i in range(period, len(close)):
+        if i == period:
+            st.iloc[i] = upper.iloc[i]
+            direction.iloc[i] = -1 if close.iloc[i] > upper.iloc[i] else 1
+            continue
 
-    today_str = datetime.now(IST).strftime('%Y-%m-%d')
-    updated = 0
-    skipped = 0
-    errors = 0
-
-    for i, tk in enumerate(tickers):
-        symbol = f"{tk}.NS"
-        try:
-            tk_data = existing[existing['Ticker'] == tk]
-            if not tk_data.empty and 'Date' in tk_data.columns:
-                last_date = tk_data['Date'].max()
-                if last_date >= today_str:
-                    skipped += 1
-                    continue
-                start = (pd.to_datetime(last_date) + timedelta(days=1)).strftime('%Y-%m-%d')
+        if direction.iloc[i - 1] == 1:  # bearish
+            if close.iloc[i] > st.iloc[i - 1]:
+                direction.iloc[i] = -1  # flip to bullish
+                st.iloc[i] = lower.iloc[i]
             else:
-                start = (datetime.now(IST) - timedelta(days=730)).strftime('%Y-%m-%d')
-
-            hist = yf.Ticker(symbol).history(start=start)
-            if hist.empty:
-                hist = yf.Ticker(f"{tk}.BO").history(start=start)
-            if hist.empty:
-                skipped += 1
-                continue
-
-            new_df = hist[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
-            new_df = new_df.reset_index()
-            new_df['Date'] = pd.to_datetime(new_df['Date']).dt.strftime('%Y-%m-%d')
-            new_df['Ticker'] = tk
-
-            existing_dates = set(tk_data['Date'].values) if not tk_data.empty else set()
-            new_df = new_df[~new_df['Date'].isin(existing_dates)]
-
-            if new_df.empty:
-                skipped += 1
-                continue
-
-            fund = get_fundamentals(symbol)
-            new_df['Market_Cap'] = fund['Market_Cap']
-            new_df['Debt_Eq'] = fund['Debt_Eq']
-            new_df['Industry'] = fund['Industry']
-
-            if not tk_data.empty:
-                combined_tk = pd.concat([tk_data, new_df], ignore_index=True)
+                direction.iloc[i] = 1
+                st.iloc[i] = min(upper.iloc[i], st.iloc[i - 1])
+        else:  # bullish
+            if close.iloc[i] < st.iloc[i - 1]:
+                direction.iloc[i] = 1  # flip to bearish
+                st.iloc[i] = upper.iloc[i]
             else:
-                combined_tk = new_df.copy()
+                direction.iloc[i] = -1
+                st.iloc[i] = max(lower.iloc[i], st.iloc[i - 1])
 
-            combined_tk = combined_tk.sort_values('Date').reset_index(drop=True)
-            combined_tk = compute_all_indicators(combined_tk)
-
-            existing = existing[existing['Ticker'] != tk]
-            existing = pd.concat([existing, combined_tk], ignore_index=True)
-
-            updated += 1
-            print(f"  [{i+1:3d}] {tk:<14s} +{len(new_df)} days (total: {len(combined_tk)})")
-
-        except Exception as e:
-            errors += 1
-            print(f"  [{i+1:3d}] {tk:<14s} ERROR: {str(e)[:60]}")
-
-        if (i + 1) % 15 == 0:
-            time.sleep(1)
-
-    cutoff = (datetime.now(IST) - timedelta(days=730)).strftime('%Y-%m-%d')
-    if 'Date' in existing.columns:
-        existing = existing[existing['Date'] >= cutoff]
-
-    existing = existing.sort_values(['Ticker', 'Date']).reset_index(drop=True)
-    existing.to_csv(STOCK_DATA_FILE, index=False)
-
-    print(f"\n  Updated: {updated} | Skipped: {skipped} | Errors: {errors}")
-    print(f"  Total rows: {len(existing):,} | Tickers: {existing['Ticker'].nunique()}")
-    print(f"  File size: {os.path.getsize(STOCK_DATA_FILE)/1024/1024:.1f} MB")
-    print(f"{'='*80}")
+    return st, direction
 
 
-# ═══════════════════════════════════════════════════════════════
-# CHECK IF FULL FETCH NEEDED
-# ═══════════════════════════════════════════════════════════════
-
-def needs_full_fetch():
-    if not os.path.exists(STOCK_DATA_FILE):
-        print("stock_data.csv not found - full fetch needed")
-        return True
+def _fetch_ticker_data(ticker, start_date, end_date):
+    """Fetch OHLCV data for a single ticker from yfinance."""
+    if not HAS_YF:
+        return None
     try:
-        df = pd.read_csv(STOCK_DATA_FILE)
-        if len(df) < 1000:
-            print(f"stock_data.csv too small ({len(df)} rows) - full fetch needed")
-            return True
-        if 'Date' in df.columns:
-            min_date = pd.to_datetime(df['Date']).min()
-            days_span = (datetime.now(IST).date() - min_date.date()).days
-            if days_span < 300:
-                print(f"Only {days_span} days of data - full fetch needed (want 500+)")
-                return True
-        required = ['SMA_9', 'SMA_22', 'SMA_200', 'RSI_14', 'MACD_Line', 'ADX_14']
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            print(f"Missing columns {missing} - full fetch needed")
-            return True
-        print(f"stock_data.csv OK: {len(df):,} rows, {df['Ticker'].nunique()} tickers")
-        return False
+        symbol = f"{ticker}.NS"
+        data = yf.download(symbol, start=start_date, end=end_date,
+                           progress=False, auto_adjust=True)
+        if data.empty:
+            # Try BSE
+            symbol = f"{ticker}.BO"
+            data = yf.download(symbol, start=start_date, end=end_date,
+                               progress=False, auto_adjust=True)
+        if data.empty:
+            return None
+
+        # Handle multi-level columns
+        if isinstance(data.columns, pd.MultiIndex):
+            data.columns = data.columns.get_level_values(0)
+
+        data = data.reset_index()
+        data['Ticker'] = ticker
+        data['Date'] = pd.to_datetime(data['Date']).dt.strftime('%Y-%m-%d')
+
+        # Get market cap
+        try:
+            info = yf.Ticker(f"{ticker}.NS").info
+            data['Market_Cap'] = info.get('marketCap', 0)
+            if data['Market_Cap'].iloc[0]:
+                data['Market_Cap'] = data['Market_Cap'] / 1e7  # Convert to Cr
+        except Exception:
+            data['Market_Cap'] = 0
+
+        return data
     except Exception as e:
-        print(f"Error reading stock_data.csv: {e} - full fetch needed")
-        return True
+        print(f"    Error fetching {ticker}: {e}")
+        return None
 
 
-# ═══════════════════════════════════════════════════════════════
-# ENTRY POINTS
-# ═══════════════════════════════════════════════════════════════
+def _fetch_batch(tickers, start_date, end_date, label=""):
+    """Fetch data for a batch of tickers."""
+    all_data = []
+    total = len(tickers)
+
+    for i in range(0, total, BATCH_SIZE):
+        batch = tickers[i:i + BATCH_SIZE]
+        batch_num = i // BATCH_SIZE + 1
+        total_batches = (total + BATCH_SIZE - 1) // BATCH_SIZE
+        print(f"  {label} Batch {batch_num}/{total_batches}: {', '.join(batch[:5])}{'...' if len(batch) > 5 else ''}")
+
+        for tk in batch:
+            df = _fetch_ticker_data(tk, start_date, end_date)
+            if df is not None and not df.empty:
+                df = _compute_indicators(df)
+                all_data.append(df)
+            else:
+                print(f"    ⚠️ No data for {tk}")
+
+        if i + BATCH_SIZE < total:
+            time.sleep(SLEEP_BETWEEN)
+
+    if all_data:
+        return pd.concat(all_data, ignore_index=True)
+    return pd.DataFrame()
+
+
+def _detect_changes():
+    """Detect ticker additions and removals."""
+    wanted = set(_get_tickers_from_csv())
+    existing = set(_get_tickers_in_data())
+
+    added = wanted - existing
+    removed = existing - wanted
+    kept = wanted & existing
+
+    return {
+        'wanted': wanted,
+        'existing': existing,
+        'added': sorted(added),
+        'removed': sorted(removed),
+        'kept': sorted(kept),
+    }
+
+
+def _get_last_date_per_ticker(stock_df):
+    """Get the last date for each ticker in stock_data.csv."""
+    if stock_df.empty:
+        return {}
+    stock_df['Date'] = pd.to_datetime(stock_df['Date'])
+    return stock_df.groupby('Ticker')['Date'].max().to_dict()
+
+
+def _cleanup_removed_tickers(removed):
+    """Remove stale data for removed tickers."""
+    if not removed:
+        return
+
+    print(f"\n  Cleaning up {len(removed)} removed tickers...")
+
+    # Remove from stock_data.csv
+    if os.path.exists(DATA_FILE):
+        df = pd.read_csv(DATA_FILE)
+        before = len(df)
+        df = df[~df['Ticker'].isin(removed)]
+        df.to_csv(DATA_FILE, index=False)
+        print(f"    stock_data.csv: {before} → {len(df)} rows")
+
+    # Remove from history.csv
+    if os.path.exists(HISTORY_FILE):
+        try:
+            hdf = pd.read_csv(HISTORY_FILE)
+            hdf = hdf[~hdf['Ticker'].isin(removed)]
+            hdf.to_csv(HISTORY_FILE, index=False)
+            print(f"    history.csv: cleaned")
+        except Exception:
+            pass
+
+    # Remove chart files
+    for tk in removed:
+        chart_file = os.path.join(CHARTS_DIR, f'{tk}.json')
+        if os.path.exists(chart_file):
+            os.remove(chart_file)
+    print(f"    charts/: removed {len(removed)} stale files")
+
+    # Remove from ML/ensemble predictions
+    for f in [ML_FILE, ENSEMBLE_FILE]:
+        if os.path.exists(f):
+            try:
+                mdf = pd.read_csv(f)
+                mdf = mdf[~mdf['Ticker'].isin(removed)]
+                mdf.to_csv(f, index=False)
+            except Exception:
+                pass
+
+    print(f"    ✅ Cleanup done for: {', '.join(removed[:10])}{'...' if len(removed) > 10 else ''}")
+
+
+def _update_existing_tickers(kept, stock_df):
+    """Fetch only missing recent days for existing tickers."""
+    if not kept:
+        return pd.DataFrame()
+
+    last_dates = _get_last_date_per_ticker(stock_df[stock_df['Ticker'].isin(kept)])
+    today = datetime.now()
+    tickers_to_update = []
+
+    for tk in kept:
+        last = last_dates.get(tk)
+        if last is None:
+            tickers_to_update.append(tk)
+            continue
+        days_behind = (today - last).days
+        if days_behind > 1:
+            tickers_to_update.append(tk)
+
+    if not tickers_to_update:
+        print(f"  All {len(kept)} existing tickers are up to date")
+        return pd.DataFrame()
+
+    # Find the earliest gap
+    min_last = min(
+        (last_dates.get(tk, datetime(2020, 1, 1)) for tk in tickers_to_update),
+        default=datetime(2020, 1, 1)
+    )
+    start = (min_last + timedelta(days=1)).strftime('%Y-%m-%d')
+    end = today.strftime('%Y-%m-%d')
+
+    print(f"\n  Updating {len(tickers_to_update)}/{len(kept)} existing tickers ({start} → {end})...")
+    new_data = _fetch_batch(tickers_to_update, start, end, label="[UPDATE]")
+
+    if not new_data.empty:
+        # Remove any overlapping dates
+        existing_dates = stock_df[stock_df['Ticker'].isin(tickers_to_update)].copy()
+        existing_dates['Date'] = pd.to_datetime(existing_dates['Date']).dt.strftime('%Y-%m-%d')
+        new_data['Date'] = pd.to_datetime(new_data['Date']).dt.strftime('%Y-%m-%d')
+
+        # Create key for dedup
+        existing_keys = set(
+            existing_dates.apply(lambda r: f"{r['Ticker']}_{r['Date']}", axis=1)
+        )
+        new_data['_key'] = new_data.apply(lambda r: f"{r['Ticker']}_{r['Date']}", axis=1)
+        new_data = new_data[~new_data['_key'].isin(existing_keys)].drop('_key', axis=1)
+
+        print(f"    → {len(new_data)} new rows fetched")
+
+    return new_data
+
+
+def _fetch_new_tickers(added):
+    """Fetch full history for new tickers."""
+    if not added:
+        return pd.DataFrame()
+
+    end = datetime.now().strftime('%Y-%m-%d')
+    start = (datetime.now() - timedelta(days=LOOKBACK_YEARS * 365)).strftime('%Y-%m-%d')
+
+    print(f"\n  Fetching {len(added)} NEW tickers ({start} → {end})...")
+    return _fetch_batch(added, start, end, label="[NEW]")
+
 
 def ensure_data_exists():
-    tickers = load_ticker_list()
-    if not tickers:
-        print("ERROR: No tickers found")
-        return
-    if needs_full_fetch():
-        fetch_full_history(tickers)
+    """Main entry point — smart sync of stock data.
+
+    1. Detect added/removed tickers
+    2. Clean up removed tickers from all files
+    3. Fetch full history for new tickers
+    4. Fetch missing recent days for existing tickers
+    5. Merge everything into stock_data.csv
+    """
+    print(f"Smart Data Sync | {TODAY_IST}")
+    print("=" * 80)
+
+    # Detect changes
+    changes = _detect_changes()
+    print(f"\n  Tickers wanted:   {len(changes['wanted'])}")
+    print(f"  Tickers in data:  {len(changes['existing'])}")
+    print(f"  New tickers:      {len(changes['added'])}")
+    print(f"  Removed tickers:  {len(changes['removed'])}")
+    print(f"  Kept tickers:     {len(changes['kept'])}")
+
+    if changes['added']:
+        print(f"  → NEW: {', '.join(changes['added'][:15])}{'...' if len(changes['added']) > 15 else ''}")
+    if changes['removed']:
+        print(f"  → REMOVED: {', '.join(changes['removed'][:15])}{'...' if len(changes['removed']) > 15 else ''}")
+
+    # Step 1: Cleanup removed tickers
+    _cleanup_removed_tickers(changes['removed'])
+
+    # Step 2: Load existing data (after cleanup)
+    if os.path.exists(DATA_FILE):
+        stock_df = pd.read_csv(DATA_FILE)
+        print(f"\n  Loaded {DATA_FILE}: {len(stock_df)} rows, {stock_df['Ticker'].nunique()} tickers")
     else:
-        print("Historical data exists - skipping full fetch")
+        stock_df = pd.DataFrame()
+        print(f"\n  No existing {DATA_FILE} — full fetch needed")
+
+    # Step 3: Fetch new tickers (full history)
+    new_data = _fetch_new_tickers(changes['added'])
+
+    # Step 4: Update existing tickers (recent days only)
+    update_data = _update_existing_tickers(changes['kept'], stock_df)
+
+    # Step 5: Merge everything
+    frames = [stock_df]
+    if not new_data.empty:
+        frames.append(new_data)
+    if not update_data.empty:
+        frames.append(update_data)
+
+    if len(frames) > 1 or stock_df.empty:
+        merged = pd.concat(frames, ignore_index=True)
+
+        # Ensure all required columns exist
+        for col in REQUIRED_COLS:
+            if col not in merged.columns:
+                merged[col] = np.nan
+
+        # Sort
+        merged = merged.sort_values(['Ticker', 'Date']).reset_index(drop=True)
+
+        # Deduplicate
+        before = len(merged)
+        merged = merged.drop_duplicates(subset=['Ticker', 'Date'], keep='last')
+        if len(merged) < before:
+            print(f"  Deduped: {before} → {len(merged)} rows")
+
+        # Save
+        merged.to_csv(DATA_FILE, index=False)
+        n_tickers = merged['Ticker'].nunique()
+        avg_days = len(merged) // max(n_tickers, 1)
+        print(f"\n  ✅ Saved {DATA_FILE}: {len(merged):,} rows, {n_tickers} tickers (~{avg_days} days/ticker)")
+    else:
+        print(f"\n  ✅ No changes needed — {DATA_FILE} is up to date")
+
+    # Validate
+    _validate_data()
+    print("=" * 80)
 
 
-def run_daily_update():
-    tickers = load_ticker_list()
-    if not tickers:
-        print("ERROR: No tickers found")
+def _validate_data():
+    """Quick validation of stock_data.csv."""
+    if not os.path.exists(DATA_FILE):
+        print("  ⚠️ WARNING: stock_data.csv not found!")
         return
-    if needs_full_fetch():
-        fetch_full_history(tickers)
+
+    df = pd.read_csv(DATA_FILE)
+    wanted = set(_get_tickers_from_csv())
+    in_data = set(df['Ticker'].unique())
+
+    missing = wanted - in_data
+    if missing:
+        print(f"  ⚠️ Missing {len(missing)} tickers: {', '.join(sorted(missing)[:10])}")
+
+    # Check data freshness
+    df['Date'] = pd.to_datetime(df['Date'])
+    latest = df['Date'].max()
+    days_old = (datetime.now() - latest).days
+    if days_old > 3:
+        print(f"  ⚠️ Data is {days_old} days old (latest: {latest.strftime('%Y-%m-%d')})")
     else:
-        update_daily(tickers)
+        print(f"  ✅ Data fresh — latest: {latest.strftime('%Y-%m-%d')}")
+
+    # Check for tickers with very little data
+    counts = df.groupby('Ticker').size()
+    thin = counts[counts < 30]
+    if len(thin) > 0:
+        print(f"  ⚠️ {len(thin)} tickers with <30 days: {', '.join(thin.index[:5])}")
+
+
+def fetch_daily():
+    """Quick daily update — just fetch today's data for all tickers."""
+    ensure_data_exists()
 
 
 if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "daily":
-        run_daily_update()
-    elif len(sys.argv) > 1 and sys.argv[1] == "full":
-        tickers = load_ticker_list()
-        fetch_full_history(tickers)
-    else:
-        ensure_data_exists()
+    ensure_data_exists()
