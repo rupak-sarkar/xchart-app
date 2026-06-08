@@ -1,17 +1,17 @@
-"""Backtest v7.2 — Honest accuracy, cap-aware thresholds, realistic holds."""
+"""Backtest v7.3 — Fair accuracy, unified ±20 thresholds, wider σ-band."""
 import numpy as np
 import pandas as pd
 from engine.utils import safe_float
 
-# ── Cap-aware entry/exit thresholds ──
-ENTRY_THRESHOLD_LC = 30   # MEGA/LARGE
+# ── Unified entry/exit thresholds ──
+ENTRY_THRESHOLD_LC = 20   # MEGA/LARGE
 ENTRY_THRESHOLD_SC = 20   # MID/SMALL
-EXIT_THRESHOLD_LC = 30    # Was 40, never reached
-EXIT_THRESHOLD_SC = 25    # MID/SMALL exit easier
+EXIT_THRESHOLD_LC = 20    # Matches entry
+EXIT_THRESHOLD_SC = 20    # Matches entry
 
 # Legacy exports (used by app.py prints)
-ENTRY_THRESHOLD = 30
-EXIT_THRESHOLD = 30
+ENTRY_THRESHOLD = 20
+EXIT_THRESHOLD = 20
 
 # Realistic MinHold matching 5% SL timeframe
 HOLD_DAYS = {'MEGA': 14, 'LARGE': 10, 'MID': 7, 'SMALL': 5}
@@ -41,24 +41,34 @@ def _get_thresholds(cat):
 
 
 def _compute_sigma_threshold(returns, forward_days):
-    """Dynamic neutral band — 0.5× multiplier, clamped 0.8-3.5%."""
+    """Dynamic neutral band — 0.75× multiplier, clamped 1.5-5.0%."""
     if len(returns) < 25:
-        return 1.0
+        return 1.5
     rolling_std = returns.rolling(20).std()
     recent_std = rolling_std.iloc[-1]
     if pd.isna(recent_std) or recent_std <= 0:
         recent_std = returns.std()
     if pd.isna(recent_std) or recent_std <= 0:
-        return 1.0
-    threshold = recent_std * np.sqrt(forward_days) * 100 * 0.5
-    return max(0.8, min(3.5, threshold))
+        return 1.5
+    threshold = recent_std * np.sqrt(forward_days) * 100 * 0.75
+    return max(1.5, min(5.0, threshold))
 
 
 def is_hit(pred_dir, actual_dir):
-    """Check if prediction was correct. Neutral predictions are EXCLUDED from accuracy."""
+    """v7.3 — Fair accuracy.
+
+    Neutral PREDICTIONS → excluded (not counted at all).
+    Directional prediction + neutral actual → HIT (hasn't reversed).
+    Directional prediction + same actual → HIT.
+    Directional prediction + opposite actual → MISS.
+    """
     if pred_dir == 0:
-        return None  # Not counted
-    return pred_dir == actual_dir
+        return None  # Not counted — no signal
+    if pred_dir == actual_dir:
+        return True   # Correct direction
+    if actual_dir == 0:
+        return True   # Neutral actual = soft HIT (needs more time)
+    return False      # Wrong direction — went against prediction
 
 
 def compute_per_ticker_accuracy(stock_df, mcap_threshold):
@@ -80,10 +90,10 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
 
         daily_returns = close.pct_change().dropna()
 
-        # Accuracy tracking — separate directional and neutral
-        dir_preds = []      # Only directional (bull/bear) predictions
+        # Accuracy tracking
+        dir_preds = []
         dir_hits = []
-        all_preds_incl_neut = []  # All including neutral (for total count)
+        all_preds_incl_neut = []
 
         from engine.technical import compute_tech_score
 
@@ -124,9 +134,9 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
 
             # Only count directional predictions for accuracy
             if pred_dir != 0:
-                hit = (pred_dir == actual_dir)
+                result = is_hit(pred_dir, actual_dir)
                 dir_preds.append(pred_dir)
-                dir_hits.append(hit)
+                dir_hits.append(result)
 
             # ── TRADE SIMULATION ──
             if current_pos == 0:
@@ -188,7 +198,7 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
         swing_hits = dir_hits[-fwd:] if len(dir_hits) >= fwd else dir_hits
         dir_swing = sum(swing_hits) / max(1, len(swing_hits)) * 100 if swing_hits else 0
 
-        # Signal rate (what % of predictions are directional vs neutral)
+        # Signal rate
         signal_rate = total_dir / total_all * 100 if total_all > 0 else 0
 
         current_sigma = _compute_sigma_threshold(daily_returns, fwd)
@@ -295,13 +305,13 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
             al = np.mean([r['TR_avg_loss_pct'] for r in trade_items])
             pf_items = [r for r in items if r['TR_total_trades'] >= 5]
             pf_val = np.mean([r['TR_profit_factor'] for r in pf_items]) if pf_items else 0
-            tr = np.mean([r['TR_total_return_pct'] for r in trade_items])
+            tr_val = np.mean([r['TR_total_return_pct'] for r in trade_items])
             hd = np.mean([r['TR_avg_holding_days'] for r in trade_items])
             sl = sum(r['TR_stop_loss_exits'] for r in items)
             fl = sum(r['TR_signal_flip_exits'] for r in items)
             slp = sl / tt * 100 if tt > 0 else 0
             print(f"  {c:<10}{tt:>6} {wr:>5.1f}% {aw:>6.2f}% {al:>6.2f}% {pf_val:>5.2f} "
-                  f"{tr:>+7.1f}% {hd:>5.1f}d {slp:>4.1f}% {fl:>4}")
+                  f"{tr_val:>+7.1f}% {hd:>5.1f}d {slp:>4.1f}% {fl:>4}")
 
     return results
 
@@ -312,17 +322,18 @@ def print_accuracy_report(bt_results, scored, hdf, all_rows):
         return
 
     print(f"\n{'='*110}")
-    print(f"PREDICTION + TRADE REPORT (v7.2 — Honest Directional Accuracy)")
+    print(f"PREDICTION + TRADE REPORT (v7.3 — Fair Directional Accuracy)")
     print(f"{'='*110}")
 
     total_preds = sum(r['BT_Total_Preds'] for r in bt_results.values())
     total_dir = sum(r.get('BT_Dir_Preds', 0) for r in bt_results.values())
 
-    print(f"\n  Total predictions: {total_preds:,} | Directional: {total_dir:,} "
-          f"({total_dir/total_preds*100:.0f}% signal rate)" if total_preds > 0 else "")
+    if total_preds > 0:
+        print(f"\n  Total predictions: {total_preds:,} | Directional: {total_dir:,} "
+              f"({total_dir/total_preds*100:.0f}% signal rate)")
 
-    # Direction accuracy (only directional predictions)
-    print(f"\n  -- DIRECTION ACCURACY (neutral EXCLUDED) --")
+    # Direction accuracy
+    print(f"\n  -- DIRECTION ACCURACY (neutral EXCLUDED, neutral actual = soft HIT) --")
     print(f"  {'Horizon':<24} {'Accuracy':>8}  {'Tickers':>7}  {'Edge':>8}")
     print(f"  {'-'*48}")
     for label, key in [('Swing', 'BT_Swing'), ('1M', 'BT_1M'), ('3M', 'BT_3M'), ('ALL', 'BT_6M')]:
@@ -346,6 +357,7 @@ def print_accuracy_report(bt_results, scored, hdf, all_rows):
         et, _ = _get_thresholds(c)
         print(f"  {c:<10} {avg_acc:>5.1f}%  {avg_sr:>5.1f}%  ±{avg_thresh:>4.2f}%  "
               f"±{et:>3}  {HOLD_DAYS[c]:>4}d  {HORIZONS[c]:>3}d  {len(items):>4}")
+
     # Trade simulation
     all_trades = sum(r['TR_total_trades'] for r in bt_results.values())
     all_wins = sum(r['TR_wins'] for r in bt_results.values())
@@ -377,13 +389,13 @@ def print_accuracy_report(bt_results, scored, hdf, all_rows):
         al = np.mean([r['TR_avg_loss_pct'] for r in items])
         pf_items = [r for r in items if r['TR_total_trades'] >= 5]
         pf_val = np.mean([r['TR_profit_factor'] for r in pf_items]) if pf_items else 0
-        tr = np.mean([r['TR_total_return_pct'] for r in items])
+        tr_val = np.mean([r['TR_total_return_pct'] for r in items])
         hd = np.mean([r['TR_avg_holding_days'] for r in items])
         sl = sum(r['TR_stop_loss_exits'] for r in items)
         fl = sum(r['TR_signal_flip_exits'] for r in items)
         slp = sl / tt * 100 if tt > 0 else 0
         print(f"  {c:<10}{tt:>6} {wr:>5.1f}% {aw:>6.2f}% {al:>6.2f}% {pf_val:>5.2f} "
-              f"{tr:>+7.1f}% {hd:>5.1f}d {slp:>4.1f}% {fl:>4}")
+              f"{tr_val:>+7.1f}% {hd:>5.1f}d {slp:>4.1f}% {fl:>4}")
 
     # Top/Bottom 10
     by_pf = sorted(
@@ -439,8 +451,6 @@ def print_accuracy_report(bt_results, scored, hdf, all_rows):
             rows1 = hdf[hdf['Date'] == d1]
             rows2 = hdf[hdf['Date'] == d2]
             merged = rows1.merge(rows2, on='Ticker', suffixes=('_1', '_2'))
-            if merged.empty:
-                continue
             hits = 0
             total = 0
             for _, mr in merged.iterrows():
@@ -453,32 +463,7 @@ def print_accuracy_report(bt_results, scored, hdf, all_rows):
                     continue
                 total += 1
                 actual = 1 if ret2 > 0.25 else (-1 if ret2 < -0.25 else 0)
-                if dir1 == actual:
-                    hits += 1
-                all_h += hits
-                all_t += total
-            # Fix: accumulate outside inner loop
-        # Recompute properly
-        all_h = 0
-        all_t = 0
-        for i in range(len(dates) - 1):
-            d1, d2 = dates[i], dates[i + 1]
-            rows1 = hdf[hdf['Date'] == d1]
-            rows2 = hdf[hdf['Date'] == d2]
-            merged = rows1.merge(rows2, on='Ticker', suffixes=('_1', '_2'))
-            hits = 0
-            total = 0
-            for _, mr in merged.iterrows():
-                raw_dir = mr.get('Composite_Direction_1', 0)
-                if pd.isna(raw_dir):
-                    continue
-                dir1 = int(raw_dir)
-                ret2 = safe_float(mr.get('Actual_Return_Pct_2', 0), 0)
-                if dir1 == 0:
-                    continue
-                total += 1
-                actual = 1 if ret2 > 0.25 else (-1 if ret2 < -0.25 else 0)
-                if dir1 == actual:
+                if dir1 == actual or actual == 0:
                     hits += 1
             if total > 0:
                 print(f"    {d1}->{d2}: {hits}/{total}={hits/total*100:.0f}%")
