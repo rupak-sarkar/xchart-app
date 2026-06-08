@@ -273,7 +273,7 @@ def compute_per_ticker_accuracy(stock_df, mcap_threshold):
             avg_sr = np.mean([r['BT_Signal_Rate'] for r in items])
             avg_thresh = np.mean([r['BT_Threshold'] for r in items])
             et, _ = _get_thresholds(c)
-            print(f"  {c:<10} {n:>3}  {avg_acc:>5.1f}%  {avg_sr:>5.1f}%  ±{avg_thresh:>4.2f}%  ±{et:>3}  {HORIZONS>3}d")
+            print(f"  {c:<10} {n:>3}  {avg_acc:>5.1f}%  {avg_sr:>5.1f}%  ±{avg_thresh:>4.2f}%  ±{et:>3}  {HORIZONS[c]:>3}d")
 
         print(f"\n  Per-category TRADE SIMULATION (5% fixed SL):")
         print(f"  Entry: LC±{ENTRY_THRESHOLD_LC} SC±{ENTRY_THRESHOLD_SC} | "
@@ -345,8 +345,7 @@ def print_accuracy_report(bt_results, scored, hdf, all_rows):
         avg_thresh = np.mean([r['BT_Threshold'] for r in items])
         et, _ = _get_thresholds(c)
         print(f"  {c:<10} {avg_acc:>5.1f}%  {avg_sr:>5.1f}%  ±{avg_thresh:>4.2f}%  "
-              f"±{et:>3}  {HOLD_DAYS>4}d  {HORIZONS>3}d  {len(items):>4}")
-
+              f"±{et:>3}  {HOLD_DAYS[c]:>4}d  {HORIZONS[c]:>3}d  {len(items):>4}")
     # Trade simulation
     all_trades = sum(r['TR_total_trades'] for r in bt_results.values())
     all_wins = sum(r['TR_wins'] for r in bt_results.values())
