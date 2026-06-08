@@ -1,4 +1,4 @@
-"""Technical scoring v7.0 — Cap-aware: S/R for MEGA/LARGE, BB for MID/SMALL."""
+"""Technical scoring v7.2 — Dampened LC scoring, better BB range for SC."""
 import os
 import pandas as pd
 import numpy as np
@@ -8,17 +8,14 @@ DATA_FILE = 'stock_data.csv'
 
 
 def load_stock_data():
-    """Load stock_data.csv and print summary."""
     if not os.path.exists(DATA_FILE):
         print(f"  ⚠️ {DATA_FILE} not found")
         return pd.DataFrame()
-
     df = pd.read_csv(DATA_FILE)
     n_tickers = df['Ticker'].nunique()
     n_rows = len(df)
     avg_days = n_rows // max(n_tickers, 1)
     print(f"  -> Loaded {DATA_FILE}: {n_tickers} tickers, {n_rows:,} rows (~{avg_days} days/ticker)")
-
     key_cols = [
         'Ticker', 'Date', 'Open', 'High', 'Low', 'Close', 'Volume',
         'SMA_9', 'SMA_22', 'SMA_50', 'SMA_52', 'SMA_200',
@@ -32,30 +29,24 @@ def load_stock_data():
 
 
 def detect_mcap_scale(stock_df):
-    """Detect market cap scale (Cr vs absolute)."""
     if stock_df is None or stock_df.empty:
         return 10000
     if 'Market_Cap' not in stock_df.columns:
         return 10000
-
     latest = stock_df.groupby('Ticker').last()
     mcaps = latest['Market_Cap'].dropna()
     mcaps = mcaps[mcaps > 0]
-
     if mcaps.empty:
         return 10000
-
     median = mcaps.median()
     if median > 1e9:
-        return 50000 * 1e7  # Absolute
+        return 50000 * 1e7
     elif median > 1e6:
-        return 50000  # Lakhs
-    else:
-        return 10000  # Crores
+        return 50000
+    return 10000
 
 
 def get_latest_valid_rows(stock_df, n=22):
-    """Get the latest N rows per ticker with valid Close."""
     if stock_df is None or stock_df.empty:
         return pd.DataFrame()
     out = []
@@ -70,7 +61,6 @@ def get_latest_valid_rows(stock_df, n=22):
 
 
 def get_broad_sector(sub_industry):
-    """Map sub-industry to broad sector for regime/macro analysis."""
     if not sub_industry or str(sub_industry).lower() in ('nan', 'none', ''):
         return 'Other'
     s = str(sub_industry).lower()
@@ -108,7 +98,6 @@ def get_broad_sector(sub_industry):
 
 
 def get_sector_from_stock_data(ticker, stock_df):
-    """Try to get sector/industry from stock data columns."""
     if stock_df is None or stock_df.empty:
         return ""
     tk = stock_df[stock_df['Ticker'] == ticker]
@@ -123,13 +112,12 @@ def get_sector_from_stock_data(ticker, stock_df):
 
 
 def _find_support_levels(lows, current_price, band):
-    """Find recent swing low support levels."""
     levels = []
     arr = lows.values
     for i in range(2, len(arr) - 2):
         try:
-            if (arr[i] < arr[i - 1] and arr[i] < arr[i - 2] and
-                    arr[i] < arr[i + 1] and arr[i] < arr[i + 2]):
+            if (arr[i] < arr[i-1] and arr[i] < arr[i-2] and
+                    arr[i] < arr[i+1] and arr[i] < arr[i+2]):
                 v = float(arr[i])
                 if v < current_price:
                     levels.append(v)
@@ -139,13 +127,12 @@ def _find_support_levels(lows, current_price, band):
 
 
 def _find_resistance_levels(highs, current_price, band):
-    """Find recent swing high resistance levels."""
     levels = []
     arr = highs.values
     for i in range(2, len(arr) - 2):
         try:
-            if (arr[i] > arr[i - 1] and arr[i] > arr[i - 2] and
-                    arr[i] > arr[i + 1] and arr[i] > arr[i + 2]):
+            if (arr[i] > arr[i-1] and arr[i] > arr[i-2] and
+                    arr[i] > arr[i+1] and arr[i] > arr[i+2]):
                 v = float(arr[i])
                 if v > current_price:
                     levels.append(v)
@@ -155,14 +142,12 @@ def _find_resistance_levels(highs, current_price, band):
 
 
 def _detect_knox(window):
-    """Detect Ichimoku Kijun/Tenkan cross pattern."""
     if len(window) < 26:
         return None
     last = window.iloc[-1]
     tenkan = safe_float(last.get('Ichi_Tenkan'), None)
     kijun = safe_float(last.get('Ichi_Kijun'), None)
     if tenkan is None or kijun is None:
-        # Compute inline if not in dataframe
         try:
             h = window['High'].astype(float)
             l = window['Low'].astype(float)
@@ -179,12 +164,10 @@ def _detect_knox(window):
 
 
 def compute_tech_score(window, mcap_threshold, debug=False):
-    """v7.0 — Cap-aware scoring.
+    """v7.2 — Dampened LC scoring, wider BB scoring range for SC.
 
-    MEGA/LARGE: S/R-centric (wider bands), trend-following
-    MID/SMALL:  Bollinger Band-centric, momentum-driven
-
-    Returns: (score, signals, info)
+    MEGA/LARGE: Trend dampened so max bearish from trend alone = -21 (not -30)
+    MID/SMALL:  Higher BB weights so score can exceed ±20 entry threshold
     """
     if len(window) < 20:
         return 0, [], {}
@@ -195,7 +178,7 @@ def compute_tech_score(window, mcap_threshold, debug=False):
         return 0, [], {}
 
     mcap = safe_float(last.get('Market_Cap', 0), 0)
-    is_largecap = mcap > mcap_threshold  # MEGA or LARGE
+    is_largecap = mcap > mcap_threshold
 
     signals = []
     score = 0
@@ -214,44 +197,44 @@ def compute_tech_score(window, mcap_threshold, debug=False):
     bb_lower = safe_float(last.get('BB_Lower'), None)
     st_dir = safe_float(last.get('ST_Direction'), 0)
 
-    # Volume trend
     vol = window['Volume'].astype(float) if 'Volume' in window.columns else pd.Series([0])
     vol_avg = vol.rolling(20).mean().iloc[-1] if len(vol) >= 20 else vol.mean()
     vol_current = safe_float(last.get('Volume', 0), 0)
     vol_surge = vol_current > vol_avg * 1.5 if vol_avg > 0 else False
 
-    # Knox pattern (Ichimoku)
     knox = _detect_knox(window) if len(window) >= 26 else None
 
     if is_largecap:
         # ═══════════════════════════════════════
-        # MEGA / LARGE — S/R CENTRIC + TREND
+        # MEGA / LARGE — DAMPENED TREND + S/R
+        # Max from trend alone: ±21 (below ±30 entry threshold)
+        # Needs S/R or confirmations to trigger signal
         # ═══════════════════════════════════════
 
-        # Trend: Price vs long-term SMAs (primary weight: ~40%)
+        # Trend: Price vs long-term SMAs (dampened: max ±16)
         if close > sma200 and sma50 > sma200:
-            score += 15
+            score += 10
             signals.append('Above SMA200+50 uptrend')
         elif close < sma200 and sma50 < sma200:
-            score -= 15
+            score -= 10
             signals.append('Below SMA200+50 downtrend')
 
         if close > sma50:
-            score += 8
+            score += 6
             signals.append('Above SMA50')
         elif close < sma50:
-            score -= 8
+            score -= 6
             signals.append('Below SMA50')
 
-        # EMA cross (secondary: ~15%)
+        # EMA cross (max ±5)
         if ema9 > ema21:
-            score += 7
+            score += 5
             signals.append('EMA9>21 bullish')
         elif ema9 < ema21:
-            score -= 7
+            score -= 5
             signals.append('EMA9<21 bearish')
 
-        # S/R proximity with WIDE bands (3% of price)
+        # S/R proximity (3% band)
         sr_band = close * 0.03
         highs = window['High'].astype(float)
         lows = window['Low'].astype(float)
@@ -259,12 +242,8 @@ def compute_tech_score(window, mcap_threshold, debug=False):
         support_levels = _find_support_levels(lows, close, sr_band)
         resistance_levels = _find_resistance_levels(highs, close, sr_band)
 
-        near_support = any(
-            abs(close - s) < sr_band for s in support_levels
-        ) if support_levels else False
-        near_resistance = any(
-            abs(close - r) < sr_band for r in resistance_levels
-        ) if resistance_levels else False
+        near_support = any(abs(close - s) < sr_band for s in support_levels) if support_levels else False
+        near_resistance = any(abs(close - r) < sr_band for r in resistance_levels) if resistance_levels else False
 
         if near_support and rsi < 45:
             score += 10
@@ -273,7 +252,15 @@ def compute_tech_score(window, mcap_threshold, debug=False):
             score -= 10
             signals.append('Near resistance + RSI high')
 
-        # ADX trend strength (bonus, not primary)
+        # RSI extremes (new for LC — adds conviction)
+        if rsi < 30:
+            score += 6
+            signals.append(f'RSI oversold ({rsi:.0f})')
+        elif rsi > 70:
+            score -= 6
+            signals.append(f'RSI overbought ({rsi:.0f})')
+
+        # ADX trend strength
         if adx > 30:
             if macd_hist > 0:
                 score += 5
@@ -282,23 +269,23 @@ def compute_tech_score(window, mcap_threshold, debug=False):
                 score -= 5
                 signals.append('Strong trend + MACD bear')
 
-        # SuperTrend confirmation
+        # SuperTrend
         if st_dir < 0:
-            score += 5
+            score += 4
             signals.append('SuperTrend bull')
         elif st_dir > 0:
-            score -= 5
+            score -= 4
             signals.append('SuperTrend bear')
 
-        # Ichimoku confirmation
+        # Ichimoku
         if knox == 'Bullish':
-            score += 5
+            score += 4
             signals.append('Ichimoku bull')
         elif knox == 'Bearish':
-            score -= 5
+            score -= 4
             signals.append('Ichimoku bear')
 
-        # Volume confirmation (bonus)
+        # Volume
         if vol_surge:
             if close > sma9:
                 score += 3
@@ -312,68 +299,67 @@ def compute_tech_score(window, mcap_threshold, debug=False):
     else:
         # ═══════════════════════════════════════
         # MID / SMALL — BOLLINGER BAND CENTRIC
+        # Higher weights so total can exceed ±20 entry threshold
+        # Max possible: ~±45 (BB:±25 + RSI:±12 + MACD:±8 + trend:±5 + vol:±5)
         # ═══════════════════════════════════════
 
-        # Bollinger Band position (primary weight: ~40%)
         if bb_upper is not None and bb_lower is not None and bb_upper > bb_lower:
             bb_mid = (bb_upper + bb_lower) / 2
             bb_width = bb_upper - bb_lower
-            bb_pct = (close - bb_lower) / bb_width * 100  # 0=lower, 100=upper
+            bb_pct = (close - bb_lower) / bb_width * 100
 
-            # BB squeeze detection
             bb_width_pct = bb_width / bb_mid * 100 if bb_mid > 0 else 5
             is_squeeze = bb_width_pct < 4
 
-            if bb_pct < 15:
-                score += 15
+            # Primary BB scoring (max ±25)
+            if bb_pct < 10:
+                score += 18
                 signals.append(f'Near BB lower ({bb_pct:.0f}%)')
                 if is_squeeze:
-                    score += 5
+                    score += 7
                     signals.append('BB squeeze + oversold')
-            elif bb_pct < 30:
-                score += 8
+            elif bb_pct < 25:
+                score += 10
                 signals.append(f'Below BB mid ({bb_pct:.0f}%)')
-            elif bb_pct > 85:
-                score -= 15
+            elif bb_pct > 90:
+                score -= 18
                 signals.append(f'Near BB upper ({bb_pct:.0f}%)')
                 if is_squeeze:
-                    score -= 5
+                    score -= 7
                     signals.append('BB squeeze + overbought')
-            elif bb_pct > 70:
-                score -= 8
+            elif bb_pct > 75:
+                score -= 10
                 signals.append(f'Above BB mid ({bb_pct:.0f}%)')
 
-            # BB breakout
             if close > bb_upper:
-                score -= 10
+                score -= 12
                 signals.append('Above BB upper - overbought')
             elif close < bb_lower:
-                score += 10
+                score += 12
                 signals.append('Below BB lower - oversold')
         else:
-            # No BB data — fallback to SMA-based
             if close > sma22:
-                score += 5
+                score += 6
                 signals.append('Above SMA22 (no BB)')
             elif close < sma22:
-                score -= 5
+                score -= 6
                 signals.append('Below SMA22 (no BB)')
 
-        # RSI (secondary: ~25%)
+        # RSI (max ±12)
         if rsi < 30:
-            score += 10
+            score += 12
             signals.append(f'RSI oversold ({rsi:.0f})')
         elif rsi < 40:
-            score += 5
+            score += 6
             signals.append(f'RSI weak ({rsi:.0f})')
         elif rsi > 70:
-            score -= 10
+            score -= 12
             signals.append(f'RSI overbought ({rsi:.0f})')
         elif rsi > 60:
-            score -= 5
+            score -= 6
             signals.append(f'RSI elevated ({rsi:.0f})')
 
-        # MACD momentum (~15%)
+        # MACD (max ±8)
         if macd_hist > 0:
             score += 5
             signals.append('MACD bull')
@@ -387,23 +373,23 @@ def compute_tech_score(window, mcap_threshold, debug=False):
                 score -= 3
                 signals.append('MACD bear + trending')
 
-        # Short-term trend (~10%)
+        # Short-term trend (max ±5)
         if close > sma22:
-            score += 4
+            score += 5
             signals.append('Above SMA22')
         elif close < sma22:
-            score -= 4
+            score -= 5
             signals.append('Below SMA22')
 
-        # SuperTrend (~10%)
+        # SuperTrend (max ±5)
         if st_dir < 0:
-            score += 4
+            score += 5
             signals.append('SuperTrend bull')
         elif st_dir > 0:
-            score -= 4
+            score -= 5
             signals.append('SuperTrend bear')
 
-        # Volume spike on small caps is more significant
+        # Volume spike (max ±5)
         if vol_surge:
             if close > ema9:
                 score += 5
@@ -425,29 +411,23 @@ def compute_tech_score(window, mcap_threshold, debug=False):
         cap_label = 'LC' if is_largecap else 'SMC'
         print(
             f"    DEBUG {last.get('Ticker', '?')}({cap_label}): "
-            f"RSI={rsi}, Close={close}, SMA50={sma50}, SMA200={sma200}, "
+            f"RSI={rsi:.1f}, Close={close}, SMA50={sma50}, SMA200={sma200}, "
             f"BB={'yes' if bb_upper else 'no'}, Knox={knox}, "
-            f"ADX={adx}, MCap={mcap:.0f}"
+            f"ADX={adx:.1f}, MCap={mcap:.0f}, Score={score}"
         )
 
     return score, signals, info
 
 
 def get_technical_score(ticker, stock_df, mcap_threshold, debug=False):
-    """Get technical score for a ticker from stock_data.csv."""
     if stock_df is None or stock_df.empty:
         return {'score': 0, 'signals': [], 'horizon': 7}
-
     tk = stock_df[stock_df['Ticker'] == ticker].sort_values('Date')
     tk = tk[tk['Close'].notna()]
-
     if len(tk) < 20:
         return {'score': 0, 'signals': [], 'horizon': 7}
-
-    # Use last 200 rows for full context
     window = tk.tail(200).reset_index(drop=True)
     score, signals, info = compute_tech_score(window, mcap_threshold, debug=debug)
-
     return {
         'score': score,
         'signals': signals,
