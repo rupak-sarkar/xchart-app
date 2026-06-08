@@ -309,6 +309,10 @@ def _update_existing_tickers(kept, stock_df):
 
     last_dates = _get_last_date_per_ticker(stock_df[stock_df['Ticker'].isin(kept)])
     today = datetime.now()
+    # Skip weekends — no market data available
+    if today.weekday() >= 5:  # Saturday=5, Sunday=6
+        print(f"  ⏸️ Weekend detected ({today.strftime('%A')}) — skipping data fetch")
+        return pd.DataFrame()
     tickers_to_update = []
 
     for tk in kept:
