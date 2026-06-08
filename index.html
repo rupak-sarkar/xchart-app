@@ -1,781 +1,577 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>xchart.in | AI-Powered Trading Intelligence</title>
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>xchart.in | AI-Powered Trading Intelligence</title>
+<meta name="description" content="Multi-Layer AI Trading Engine for NSE/BSE — FinBERT sentiment, technical signals, sector macro, and backtested accuracy.">
+<link rel="canonical" href="https://xchart.in/">
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0c0e14;--card:#151823;--card2:#1c2030;--border:#2a2e3d;
+  --text:#c9d1d9;--text2:#8b949e;--white:#e6edf3;
+  --bull:#22c55e;--bear:#ef4444;--neut:#eab308;--accent:#3b82f6;
+  --radius:8px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--accent);text-decoration:none}
 
-  <style>
-    :root {
-      --bg-dark: #0c0e14;
-      --panel-dark: #121620;
-      --border-dark: #1a1d29;
-      --text-gray: #8b949e;
-      --text-light: #c9d1d9;
-      --bull-green: #22c55e;
-      --bear-red: #ef4444;
-      --accent-blue: #3b82f6;
-    }
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-light);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg-dark); }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #2a2e3d; border-radius: 3px; }
-    .ticker-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-dark);
-      cursor: pointer; transition: all 0.2s ease;
-    }
-    .ticker-item:hover { background-color: rgba(59,130,246,0.08); }
-    .ticker-item.active { background-color: rgba(59,130,246,0.15); border-left: 4px solid var(--accent-blue); }
-    .signal-badge {
-      font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.4rem; border-radius: 4px; text-transform: uppercase;
-    }
-    .badge-bull { background: rgba(34,197,94,0.15); color: var(--bull-green); }
-    .badge-bear { background: rgba(239,68,68,0.15); color: var(--bear-red); }
-    .badge-neut { background: rgba(139,148,158,0.15); color: var(--text-gray); }
-    .m-badge { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 12px; font-weight: 500; }
-    .m-strong { background: rgba(34,197,94,0.2); color: #4ade80; }
-    .m-fading { background: rgba(239,68,68,0.2); color: #f87171; }
-    .m-neut { background: rgba(250,204,21,0.15); color: #fbbf24; }
-    .kpi-card {
-      background: var(--panel-dark); border: 1px solid var(--border-dark);
-      padding: 1rem; border-radius: 8px; text-align: center; flex: 1; min-width: 110px;
-    }
-    .kpi-val { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.25rem; }
-    .kpi-label { font-size: 0.7rem; color: var(--text-gray); text-transform: uppercase; letter-spacing: 0.05em; }
-    .detail-section {
-      background: var(--panel-dark); border: 1px solid var(--border-dark);
-      border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
-    }
-    .detail-title { font-size: 0.85rem; font-weight: 600; color: #facc15; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border-dark); padding-bottom: 0.25rem; }
-    .detail-row { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 0.35rem 0; }
-    .detail-row .label { color: var(--text-gray); }
-    .detail-row .value { font-weight: 600; }
-    .ticker-click { color: var(--accent-blue); font-weight: 600; cursor: pointer; }
-    .ticker-click:hover { text-decoration: underline; }
-    
-    /* Chart Overlay Modal Layer */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(4,5,7,0.85); display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 1000; padding: 1rem;
-    }
-    .modal-overlay.open { opacity: 1; pointer-events: auto; }
-    .modal-card {
-      background: #0e1118; border: 1px solid #222633; width: 100%; max-width: 780px;
-      border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.6); overflow: hidden; display: flex; flex-direction: column;
-    }
-    .ind-btn {
-      background: #161b26; border: 1px solid #282f42; color: var(--text-gray);
-      padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 600; border-radius: 6px;
-      cursor: pointer; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 0.25rem;
-    }
-    .ind-btn:hover { border-color: #424e6b; color: var(--text-light); }
-    .ind-btn.active { background: rgba(59,130,246,0.15); border-color: var(--accent-blue); color: #60a5fa; }
-    .chart-loading {
-      height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;
-      color: var(--text-gray); font-size: 0.85rem; gap: 0.75rem; background: #0c0e14;
-    }
-    .spinner {
-      width: 24px; height: 24px; border: 2px solid rgba(255,255,255,0.1);
-      border-top-color: var(--accent-blue); border-radius: 50%; animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
+/* Header */
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-size:20px;font-weight:700;color:var(--white);letter-spacing:-0.5px}
+.logo span{color:var(--accent)}
+.version{font-size:10px;background:var(--accent);color:#fff;padding:2px 6px;
+  border-radius:10px;margin-left:6px;vertical-align:middle}
+.global-kpis{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.gkpi{text-align:center}
+.gkpi-val{font-size:14px;font-weight:700;color:var(--white)}
+.gkpi-label{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
+
+/* Ticker bar */
+.ticker-bar{background:var(--card);border-bottom:1px solid var(--border);padding:6px 16px;
+  display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.search-box input{padding:6px 10px;background:var(--card2);border:1px solid var(--border);
+  border-radius:var(--radius);color:var(--white);font-size:12px;outline:none;width:160px}
+.search-box input:focus{border-color:var(--accent)}
+.filter-btn{padding:4px 10px;font-size:10px;border:1px solid var(--border);border-radius:4px;
+  background:transparent;color:var(--text2);cursor:pointer;text-transform:uppercase}
+.filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ticker-scroll{display:flex;gap:4px;overflow-x:auto;flex:1;padding:2px 0}
+.ticker-scroll::-webkit-scrollbar{height:4px}
+.ticker-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ticker-chip{padding:4px 10px;font-size:11px;font-weight:600;border-radius:4px;
+  cursor:pointer;white-space:nowrap;border:1px solid var(--border);transition:all 0.15s;
+  display:flex;align-items:center;gap:4px;background:var(--card2);color:var(--white)}
+.ticker-chip:hover{border-color:var(--accent);background:var(--card)}
+.ticker-chip.active{border-color:var(--accent);background:rgba(59,130,246,0.15)}
+.chip-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.chip-bull{background:var(--bull)}.chip-bear{background:var(--bear)}.chip-neut{background:var(--neut)}
+
+/* Main content */
+.main-content{flex:1;overflow-y:auto;padding:16px}
+
+/* Analytics grid */
+.analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.ana-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.ana-title{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;
+  margin-bottom:10px;font-weight:600;display:flex;align-items:center;gap:6px}
+.ana-row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px}
+.ana-row .label{color:var(--text2)}.ana-row .value{color:var(--white);font-weight:600}
+.ana-big{font-size:28px;font-weight:700;color:var(--white);margin:4px 0}
+.ana-sub{font-size:11px;color:var(--text2)}
+
+/* Top tickers table */
+.top-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.top-table th{color:var(--text2);font-weight:600;text-align:left;padding:4px 6px;
+  border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase}
+.top-table td{padding:4px 6px;border-bottom:1px solid rgba(42,46,61,0.5);color:var(--white)}
+.top-table tr:hover{background:var(--card2)}
+.top-table .tk{font-weight:600;cursor:pointer;color:var(--accent)}
+
+/* Progress bar */
+.prog-bar{height:6px;border-radius:3px;background:var(--border);margin-top:4px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width 0.5s}
+
+/* Chart Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  width:100%;max-width:1100px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{display:flex;justify-content:space-between;align-items:center;
+  padding:12px 16px;border-bottom:1px solid var(--border)}
+.modal-title{font-size:16px;font-weight:700;color:var(--white)}
+.modal-subtitle{font-size:11px;color:var(--text2);margin-left:8px}
+.modal-close{width:32px;height:32px;border-radius:50%;background:var(--card2);
+  border:1px solid var(--border);color:var(--text);font-size:18px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--bear);color:#fff;border-color:var(--bear)}
+.modal-chart{height:400px;position:relative}
+.modal-kpis{display:flex;gap:6px;padding:10px 16px;flex-wrap:wrap;border-top:1px solid var(--border)}
+.mkpi{background:var(--card2);border:1px solid var(--border);border-radius:6px;
+  padding:6px 12px;text-align:center;min-width:70px}
+.mkpi-val{font-size:14px;font-weight:700;color:var(--white)}
+.mkpi-label{font-size:9px;color:var(--text2);text-transform:uppercase}
+
+/* Footer */
+.footer{background:var(--card);border-top:1px solid var(--border);padding:8px 16px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  gap:6px;font-size:10px;color:var(--text2)}
+
+/* Mobile */
+@media(max-width:768px){
+  .header{padding:8px 12px}
+  .global-kpis{gap:8px}
+  .gkpi-val{font-size:12px}
+  .ticker-bar{padding:6px 12px}
+  .search-box input{width:120px}
+  .main-content{padding:10px}
+  .analytics-grid{grid-template-columns:1fr}
+  .modal-chart{height:300px}
+  .modal-kpis{gap:4px}
+  .mkpi{min-width:60px;padding:4px 8px}
+  .mkpi-val{font-size:12px}
+}
+</style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden select-none">
+<body>
 
-  <header class="h-14 bg-[#121620] border-b border-[#1a1d29] flex items-center justify-between px-4 z-10 shrink-0">
-    <div class="flex items-center gap-2 cursor-pointer" onclick="showDashboard()">
-      <div class="w-7 h-7 bg-blue-600 rounded flex items-center justify-center font-black text-white text-sm tracking-tighter">X</div>
-      <span class="font-bold text-sm tracking-tight text-white">xchart<span class="text-blue-500">.in</span></span>
-      <span class="text-[10px] bg-[#1f2433] px-1.5 py-0.5 rounded text-gray-400 font-medium ml-2 border border-[#2b3247]">PRO ENGINE v2.4</span>
-    </div>
-    <div class="flex items-center gap-6 text-[11px] text-gray-400">
-      <div>REGIME: <span id="g-regime" class="font-bold text-yellow-500">—</span></div>
-      <div>DIRECTION ACCURACY: <span id="g-accuracy" class="font-bold text-green-400">—</span></div>
-      <div>AVG PF: <span id="g-pf" class="font-bold text-white">—</span></div>
-      <div class="bg-[#1a1d29] px-2 py-1 rounded border border-[#262a3a]">RUN ENGINE DATE: <span id="g-date" class="font-bold text-blue-400">—</span></div>
-    </div>
-  </header>
-
-  <div class="flex-1 flex overflow-hidden w-full relative">
-    
-    <aside class="w-64 bg-[#121620] border-r border-[#1a1d29] flex flex-col h-full shrink-0">
-      <div class="p-3 border-b border-[#1a1d29] space-y-2">
-        <input type="text" id="searchInput" placeholder="Search operational symbols..." class="w-full bg-[#0c0e14] border border-[#262a3a] rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 placeholder-gray-600">
-        <div class="flex gap-1">
-          <button class="filter-btn active flex-1 py-1 text-[10px] font-bold uppercase rounded bg-[#1f2433] text-white border border-[#2b3247]" data-filter="all">All (<span id="g-tickers">—</span>)</button>
-          <button class="filter-btn flex-1 py-1 text-[10px] font-bold uppercase rounded bg-[#0c0e14] text-gray-400 border border-transparent" data-filter="bull">BULL (<span id="g-bull">—</span>)</button>
-          <button class="filter-btn flex-1 py-1 text-[10px] font-bold uppercase rounded bg-[#0c0e14] text-gray-400 border border-transparent" data-filter="bear">BEAR (<span id="g-bear">—</span>)</button>
-        </div>
-      </div>
-      <div id="tickerList" class="flex-1 overflow-y-auto custom-scrollbar bg-[#0f121a]"></div>
-    </aside>
-
-    <main class="flex-1 flex flex-col overflow-hidden bg-[#0c0e14]">
-      
-      <div id="dashboardView" class="flex-1 flex flex-col overflow-hidden p-4">
-        <div class="flex items-center justify-between mb-3 shrink-0">
-          <div>
-            <h2 class="text-base font-bold text-white tracking-tight">System Core Overview Analytics</h2>
-            <p class="text-xs text-gray-500">Real-time status tracking matrices over computed system entities</p>
-          </div>
-          <input type="text" id="tableSearchInput" oninput="filterMonitorTable()" placeholder="Quick filter table rows..." class="bg-[#121620] border border-[#1a1d29] rounded px-3 py-1 text-xs text-white focus:outline-none focus:border-blue-500 w-52">
-        </div>
-
-        <div class="flex-1 border border-[#1a1d29] rounded-lg overflow-hidden bg-[#121620] flex flex-col">
-          <div class="overflow-y-auto flex-1 custom-scrollbar">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead class="bg-[#161b26] text-gray-400 sticky top-0 font-semibold border-b border-[#1a1d29] z-10">
-                <tr>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(0)">Symbol Name ↕</th>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(1)">Macro Sector ↕</th>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(2)">Forecast Signal ↕</th>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(3)">Composite Score ↕</th>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(4)">Technical Matrix ↕</th>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(5)">FinBERT News Value ↕</th>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(6)">Momentum Phase ↕</th>
-                  <th class="p-3 cursor-pointer hover:bg-[#1f2535]" onclick="sortTable(7)">Current Run Streak ↕</th>
-                </tr>
-              </thead>
-              <tbody id="monitorTableBody" class="divide-y divide-[#1a1d29] text-gray-300"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div id="kpiStrip" class="hidden gap-3 px-4 pt-4 shrink-0 overflow-x-auto custom-scrollbar"></div>
-
-      <div id="showcaseWrapper" class="hidden flex-1 overflow-hidden p-4 gap-4">
-        <div class="flex-1 bg-[#121620] border border-[#1a1d29] rounded-lg flex flex-col overflow-hidden relative group">
-          <div class="p-4 border-b border-[#1a1d29] flex items-center justify-between bg-[#141924]">
-            <div>
-              <h2 id="showcaseTitle" class="text-lg font-black text-white tracking-tight">—</h2>
-              <p id="showcaseSubtitle" class="text-xs text-gray-500">—</p>
-            </div>
-            <button onclick="openChartModal()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2 rounded shadow transition-all flex items-center gap-1.5">
-              <span>📈 Launch Overlay Analytics Board</span>
-            </button>
-          </div>
-          <div class="flex-1 flex items-center justify-center text-gray-600 text-xs bg-[#0c0e14] p-8 text-center">
-            <div class="max-w-xs space-y-2">
-              <div class="text-3xl">🎛️</div>
-              <div class="text-gray-400 font-bold">Interactive Board Diagnostic Model Ready</div>
-              <p class="text-[11px] text-gray-500 leading-relaxed">Click the blue button above to generate full visual system overlays, overlay bands, volume configurations, and algorithmic models instantly inside the execution workspace.</p>
-            </div>
-          </div>
-        </div>
-
-        <div id="detailPanel" class="w-80 overflow-y-auto custom-scrollbar shrink-0 flex flex-col pr-1"></div>
-      </div>
-
-    </main>
+<!-- HEADER -->
+<div class="header">
+  <div style="display:flex;align-items:center">
+    <div class="logo">x<span>chart</span>.in<span class="version">v6.3</span></div>
   </div>
+  <div class="global-kpis" id="globalKpis">
+    <div class="gkpi"><div class="gkpi-val" id="g-regime">—</div><div class="gkpi-label">Regime</div></div>
+    <div class="gkpi"><div class="gkpi-val" id="g-accuracy">—</div><div class="gkpi-label">Accuracy</div></div>
+    <div class="gkpi"><div class="gkpi-val" id="g-pf">—</div><div class="gkpi-label">Avg PF</div></div>
+    <div class="gkpi"><div class="gkpi-val" id="g-tickers">—</div><div class="gkpi-label">Tickers</div></div>
+    <div class="gkpi"><div class="gkpi-val" style="color:var(--bull)" id="g-bull">—</div><div class="gkpi-label">Bull</div></div>
+    <div class="gkpi"><div class="gkpi-val" style="color:var(--bear)" id="g-bear">—</div><div class="gkpi-label">Bear</div></div>
+    <div class="gkpi"><div class="gkpi-val" id="g-date">—</div><div class="gkpi-label">Date</div></div>
+  </div>
+</div>
 
-  <div id="chartModal" class="modal-overlay">
-    <div class="modal-card">
-      <div class="p-4 border-b border-[#1f2433] bg-[#121620] flex items-center justify-between">
-        <div>
-          <h3 id="modalChartTitle" class="text-sm font-bold text-white tracking-tight">Overlay Multi-Indicator Target Board</h3>
-          <p class="text-[11px] text-gray-500">Real-time analytical computations generated directly within browser scope</p>
+<!-- TICKER BAR -->
+<div class="ticker-bar">
+  <div class="search-box"><input type="text" id="searchInput" placeholder="Search..."></div>
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="bull">Bull</button>
+  <button class="filter-btn" data-filter="bear">Bear</button>
+  <button class="filter-btn" data-filter="neut">Neut</button>
+  <div class="ticker-scroll" id="tickerScroll"></div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main-content" id="mainContent"></div>
+
+<!-- CHART MODAL -->
+<div class="modal-overlay" id="chartModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <span class="modal-title" id="modalTitle">—</span>
+        <span class="modal-subtitle" id="modalSubtitle"></span>
+      </div>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-chart" id="modalChart"></div>
+    <div class="modal-kpis" id="modalKpis"></div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div>⚠️ Not financial advice. Past performance ≠ future results.</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span>© 2026 xchart.in</span>
+    <span>·</span>
+    <span>Charts by <a href="https://www.tradingview.com/" target="_blank">TradingView</a></span>
+  </div>
+</div>
+
+<script>
+let allData=[], meta={}, chart=null, candleSeries=null, selectedTicker=null;
+
+// ─── HELPERS ───
+function dir(row){
+  const d=parseInt(row.Composite_Direction||row.Forecast_Direction||0);
+  return d===1?'bull':d===-1?'bear':'neut';
+}
+function dirLabel(d){return d==='bull'?'BULL':d==='bear'?'BEAR':'NEUT'}
+function pf(v){return parseFloat(v||0)}
+function sc(v,n){return pf(v).toFixed(n||0)}
+function signColor(v){return v>0?'var(--bull)':v<0?'var(--bear)':'var(--text2)'}
+function sign(v){return v>0?'+'+v:v}
+
+// ─── INIT ───
+function init(){
+  fetch('meta.json').then(r=>r.json()).then(m=>{
+    meta=m;
+    document.getElementById('g-regime').textContent=m.regime||'—';
+    document.getElementById('g-accuracy').textContent=m.direction_accuracy?m.direction_accuracy+'%':'—';
+    document.getElementById('g-pf').textContent=m.avg_pf||'—';
+    document.getElementById('g-tickers').textContent=m.total_tickers||'—';
+    document.getElementById('g-bull').textContent=m.bull_count||0;
+    document.getElementById('g-bear').textContent=m.bear_count||0;
+    document.getElementById('g-date').textContent=m.date||'—';
+    const el=document.getElementById('g-regime');
+    if(m.regime==='BULL'||m.regime==='STRONG_BULL')el.style.color='var(--bull)';
+    else if(m.regime==='BEAR'||m.regime==='STRONG_BEAR')el.style.color='var(--bear)';
+    else el.style.color='var(--neut)';
+  }).catch(()=>{});
+
+  Papa.parse('data.csv',{download:true,header:true,complete:function(r){
+    allData=r.data.filter(r=>r.Ticker&&r.Ticker.trim());
+    buildTickerBar();
+    showOverallAnalytics();
+  }});
+}
+
+// ─── TICKER BAR ───
+function buildTickerBar(filter='all',search=''){
+  const scroll=document.getElementById('tickerScroll');
+  scroll.innerHTML='';
+  const s=search.toLowerCase();
+  const sorted=[...allData].sort((a,b)=>{
+    const da=dir(a),db=dir(b);
+    const o={bull:0,bear:1,neut:2};
+    if(o[da]!==o[db])return o[da]-o[db];
+    return(a.Ticker||'').localeCompare(b.Ticker||'');
+  });
+  sorted.forEach(row=>{
+    const tk=row.Ticker, d=dir(row);
+    if(filter!=='all'&&d!==filter)return;
+    if(s&&!tk.toLowerCase().includes(s))return;
+    const chip=document.createElement('div');
+    chip.className='ticker-chip'+(tk===selectedTicker?' active':'');
+    chip.innerHTML=`<span class="chip-dot chip-${d}"></span>${tk}`;
+    chip.onclick=()=>selectTicker(tk);
+    scroll.appendChild(chip);
+  });
+}
+
+// ─── SEARCH & FILTER ───
+document.getElementById('searchInput').addEventListener('input',function(){
+  const f=document.querySelector('.filter-btn.active')?.dataset.filter||'all';
+  buildTickerBar(f,this.value);
+});
+document.querySelectorAll('.filter-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    buildTickerBar(this.dataset.filter,document.getElementById('searchInput').value);
+  });
+});
+
+// ─── OVERALL ANALYTICS ───
+function showOverallAnalytics(){
+  const bulls=allData.filter(r=>dir(r)==='bull');
+  const bears=allData.filter(r=>dir(r)==='bear');
+  const neuts=allData.filter(r=>dir(r)==='neut');
+
+  // Top by PF
+  const byPF=[...allData].filter(r=>pf(r.TR_total_trades)>=5)
+    .sort((a,b)=>pf(b.TR_profit_factor)-pf(a.TR_profit_factor));
+  const topPF=byPF.slice(0,10);
+  const botPF=byPF.slice(-10).reverse();
+
+  // Top by accuracy
+  const byAcc=[...allData].filter(r=>pf(r.BT_Total_Preds)>=30)
+    .sort((a,b)=>pf(b.BT_6M)-pf(a.BT_6M));
+  const topAcc=byAcc.slice(0,10);
+
+  // Category stats
+  const cats=['MEGA','LARGE','MID','SMALL'];
+  let catRows='';
+  cats.forEach(c=>{
+    const items=allData.filter(r=>(r.BT_Category||'')==c&&pf(r.TR_total_trades)>=5);
+    if(!items.length)return;
+    const avgPF=items.reduce((s,r)=>s+pf(r.TR_profit_factor),0)/items.length;
+    const avgWR=items.reduce((s,r)=>s+pf(r.TR_win_rate),0)/items.length;
+    const avgAcc=items.reduce((s,r)=>s+pf(r.BT_6M),0)/items.length;
+    const pfColor=avgPF>=1.1?'var(--bull)':avgPF<0.95?'var(--bear)':'var(--white)';
+    catRows+=`<tr>
+      <td style="font-weight:600">${c}</td>
+      <td>${items.length}</td>
+      <td>${avgAcc.toFixed(1)}%</td>
+      <td>${avgWR.toFixed(1)}%</td>
+      <td style="color:${pfColor}">${avgPF.toFixed(2)}</td>
+    </tr>`;
+  });
+
+  document.getElementById('mainContent').innerHTML=`
+    <div class="analytics-grid">
+      <!-- Signal Summary -->
+      <div class="ana-card">
+        <div class="ana-title">📊 Signal Summary</div>
+        <div style="display:flex;gap:16px;margin-bottom:10px">
+          <div><div class="ana-big" style="color:var(--bull)">${bulls.length}</div><div class="ana-sub">Bullish</div></div>
+          <div><div class="ana-big" style="color:var(--bear)">${bears.length}</div><div class="ana-sub">Bearish</div></div>
+          <div><div class="ana-big" style="color:var(--neut)">${neuts.length}</div><div class="ana-sub">Neutral</div></div>
         </div>
-        <button onclick="closeChartModal()" class="bg-[#ef4444] hover:bg-red-500 text-white font-bold text-xs px-3 py-1.5 rounded transition-all">✕ Close Chart</button>
-      </div>
-      
-      <div class="p-3 bg-[#0c0e14] flex flex-col">
-        <div id="chartContainer" class="w-full relative" style="height:380px;"></div>
-        <div id="rsiContainer" class="w-full relative mt-1" style="height:110px; display:none; border-top:1px solid #1a1d29;"></div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${bulls.length/allData.length*100}%;background:var(--bull)"></div></div>
+        <div style="font-size:10px;color:var(--text2);margin-top:4px">
+          Bull ${(bulls.length/allData.length*100).toFixed(0)}% · 
+          Bear ${(bears.length/allData.length*100).toFixed(0)}% · 
+          Neut ${(neuts.length/allData.length*100).toFixed(0)}%
+        </div>
       </div>
 
-      <div class="p-3 bg-[#121620] border-t border-[#1f2433] flex flex-wrap gap-1.5 items-center">
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="sma9">SMA 9</button>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="sma22">SMA 22</button>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="sma52">SMA 52</button>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="sma200">SMA 200</button>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="bb">Bollinger</button>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="vwap">VWAP</button>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="ich">Ichimoku</button>
-        <div class="w-px h-5 bg-[#282f42] mx-1"></div>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="vol">Volume</button>
-        <button onclick="toggleInd(this)" class="ind-btn" data-ind="rsi">RSI</button>
+      <!-- Market Regime -->
+      <div class="ana-card">
+        <div class="ana-title">🌍 Market Regime</div>
+        <div class="ana-big" style="color:var(--neut)">${meta.regime||'—'}</div>
+        <div class="ana-sub">${meta.regime_detail||''}</div>
+        <div style="margin-top:10px">
+          <div class="ana-row"><span class="label">Accuracy</span><span class="value">${meta.direction_accuracy||0}%</span></div>
+          <div class="ana-row"><span class="label">Avg Trade PF</span><span class="value">${meta.avg_pf||0}</span></div>
+          <div class="ana-row"><span class="label">Engine</span><span class="value">v${meta.version||'6.3'}</span></div>
+        </div>
+      </div>
+
+      <!-- Category Performance -->
+      <div class="ana-card" style="grid-column:span 2">
+        <div class="ana-title">📈 Category Performance</div>
+        <table class="top-table">
+          <tr><th>Category</th><th>Tickers</th><th>Dir Acc</th><th>Win Rate</th><th>Trade PF</th></tr>
+          ${catRows}
+        </table>
+      </div>
+
+      <!-- Top Profitable -->
+      <div class="ana-card">
+        <div class="ana-title">🏆 Top 10 Profitable (by PF)</div>
+        <table class="top-table">
+          <tr><th>Ticker</th><th>Cat</th><th>PF</th><th>WR</th><th>Return</th></tr>
+          ${topPF.map(r=>`<tr>
+            <td class="tk" onclick="selectTicker('${r.Ticker}')">${r.Ticker}</td>
+            <td>${r.BT_Category||''}</td>
+            <td style="color:var(--bull)">${sc(r.TR_profit_factor,2)}</td>
+            <td>${sc(r.TR_win_rate,0)}%</td>
+            <td style="color:${pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">
+              ${pf(r.TR_total_return_pct)>0?'+':''}${sc(r.TR_total_return_pct,1)}%</td>
+          </tr>`).join('')}
+        </table>
+      </div>
+
+      <!-- Bottom Profitable -->
+      <div class="ana-card">
+        <div class="ana-title">⚠️ Bottom 10 (by PF)</div>
+        <table class="top-table">
+          <tr><th>Ticker</th><th>Cat</th><th>PF</th><th>WR</th><th>Return</th></tr>
+          ${botPF.map(r=>`<tr>
+            <td class="tk" onclick="selectTicker('${r.Ticker}')">${r.Ticker}</td>
+            <td>${r.BT_Category||''}</td>
+            <td style="color:var(--bear)">${sc(r.TR_profit_factor,2)}</td>
+            <td>${sc(r.TR_win_rate,0)}%</td>
+            <td style="color:var(--bear)">${sc(r.TR_total_return_pct,1)}%</td>
+          </tr>`).join('')}
+        </table>
+      </div>
+
+      <!-- Top Accurate -->
+      <div class="ana-card" style="grid-column:span 2">
+        <div class="ana-title">🎯 Top 10 Most Accurate (All-Time Direction)</div>
+        <table class="top-table">
+          <tr><th>Ticker</th><th>Cat</th><th>1M Acc</th><th>3M Acc</th><th>All Acc</th><th>Trades</th><th>PF</th></tr>
+          ${topAcc.map(r=>`<tr>
+            <td class="tk" onclick="selectTicker('${r.Ticker}')">${r.Ticker}</td>
+            <td>${r.BT_Category||''}</td>
+            <td>${sc(r.BT_1M,0)}%</td>
+            <td>${sc(r.BT_3M,0)}%</td>
+            <td style="font-weight:700">${sc(r.BT_6M,0)}%</td>
+            <td>${sc(r.TR_total_trades,0)}</td>
+            <td style="color:${pf(r.TR_profit_factor)>=1.1?'var(--bull)':'var(--white)'}">${sc(r.TR_profit_factor,2)}</td>
+          </tr>`).join('')}
+        </table>
       </div>
     </div>
-  </div>
+  `;
+}
 
-  <script>
-    let allData = [];
-    let stockHistoricalData = {};
-    let chart = null;
-    let rsiChart = null;
-    let candleSeries = null;
-    let indicatorSeries = {};
-    let activeInds = new Set(["sma9", "sma22"]);
-    let selectedTicker = null;
-    let chartResizeObserver = null;
-    let sortAsc = true;
-    let currentSortCol = -1;
+// ─── TICKER ANALYTICS ───
+function showTickerAnalytics(row){
+  const tk=row.Ticker;
+  const d=dir(row);
+  const comp=pf(row.Composite_Score);
+  const tech=parseInt(row.Technical_Score||0);
+  const macro=parseInt(row.Macro_Score||0);
+  const fund=parseInt(row.Fundamental_Score||0);
+  const news=pf(row.Forecast_Score);
 
-    const MH = 380, MHR = 260, RH = 110;
+  document.getElementById('mainContent').innerHTML=`
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:20px;font-weight:700;color:var(--white)">${tk}</span>
+      <span style="font-size:12px;padding:3px 10px;border-radius:4px;font-weight:700;
+        background:${d==='bull'?'rgba(34,197,94,0.15)':d==='bear'?'rgba(239,68,68,0.15)':'rgba(234,179,8,0.1)'};
+        color:var(--${d})">${dirLabel(d)}</span>
+      <span style="font-size:13px;color:var(--text2)">${row.BT_Category||''} · ${row.Sector||''}</span>
+      <button onclick="openChart('${tk}')" style="margin-left:auto;padding:6px 16px;border-radius:6px;
+        background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600">
+        📈 Open Chart</button>
+      <button onclick="selectedTicker=null;buildTickerBar();showOverallAnalytics()" style="padding:6px 12px;
+        border-radius:6px;background:var(--card2);color:var(--text);border:1px solid var(--border);
+        cursor:pointer;font-size:12px">← Back</button>
+    </div>
+    <div class="analytics-grid">
+      <!-- Composite Score -->
+      <div class="ana-card">
+        <div class="ana-title">📊 Score Breakdown</div>
+        <div class="ana-big" style="color:${signColor(comp)}">${comp>0?'+':''}${comp.toFixed(1)}</div>
+        <div class="ana-sub">Composite Score</div>
+        <div style="margin-top:10px">
+          <div class="ana-row"><span class="label">Technical</span>
+            <span class="value" style="color:${signColor(tech)}">${sign(tech)}</span></div>
+          <div class="ana-row"><span class="label">Macro / Sector</span>
+            <span class="value" style="color:${signColor(macro)}">${sign(macro)}</span></div>
+          <div class="ana-row"><span class="label">Fundamental</span>
+            <span class="value" style="color:${signColor(fund)}">${sign(fund)}</span></div>
+          <div class="ana-row"><span class="label">News Sentiment</span>
+            <span class="value" style="color:${signColor(news)}">${news>0?'+':''}${news.toFixed(1)}</span></div>
+          <div class="ana-row"><span class="label">Severity</span>
+            <span class="value">${row.Composite_Severity||row.Severity||'—'}</span></div>
+          <div class="ana-row"><span class="label">Quality</span>
+            <span class="value">${row.Signal_Quality||'—'}</span></div>
+        </div>
+      </div>
 
-    function base() {
-      const p = window.location.pathname;
-      return window.location.origin + (p.endsWith('/') ? p : p.substring(0, p.lastIndexOf('/') + 1));
-    }
+      <!-- Backtest -->
+      <div class="ana-card">
+        <div class="ana-title">🎯 Backtest Accuracy</div>
+        <div class="ana-big">${sc(row.BT_6M,0)}%</div>
+        <div class="ana-sub">All-Time Direction Accuracy</div>
+        <div style="margin-top:10px">
+          <div class="ana-row"><span class="label">1 Month</span><span class="value">${sc(row.BT_1M,0)}%</span></div>
+          <div class="ana-row"><span class="label">3 Month</span><span class="value">${sc(row.BT_3M,0)}%</span></div>
+          <div class="ana-row"><span class="label">Horizon</span><span class="value">${row.BT_Forward_Days||'—'} days</span></div>
+          <div class="ana-row"><span class="label">Neutral Band</span><span class="value">±${sc(row.BT_Threshold,2)}%</span></div>
+          <div class="ana-row"><span class="label">ATR</span><span class="value">${sc(row.BT_ATR_Pct,1)}%</span></div>
+          <div class="ana-row"><span class="label">Total Predictions</span><span class="value">${sc(row.BT_Total_Preds,0)}</span></div>
+        </div>
+      </div>
 
-    function init() {
-      const b = base();
-      fetch(b + 'meta.json')
-        .then(r => r.json())
-        .then(meta => {
-          document.getElementById('g-regime').textContent   = meta.regime || '—';
-          document.getElementById('g-accuracy').textContent = meta.direction_accuracy ? meta.direction_accuracy + '%' : '—';
-          document.getElementById('g-pf').textContent       = meta.avg_pf || '—';
-          document.getElementById('g-tickers').textContent  = meta.total_tickers || '—';
-          document.getElementById('g-bull').textContent     = meta.bull_count ?? '—';
-          document.getElementById('g-bear').textContent     = meta.bear_count ?? '—';
-          document.getElementById('g-date').textContent     = meta.date || '—';
-        }).catch(() => {});
+      <!-- Trade Simulation -->
+      <div class="ana-card">
+        <div class="ana-title">💰 Trade Simulation</div>
+        <div class="ana-big" style="color:${pf(row.TR_profit_factor)>=1.1?'var(--bull)':pf(row.TR_profit_factor)<0.9?'var(--bear)':'var(--white)'}">
+          ${sc(row.TR_profit_factor,2)}</div>
+        <div class="ana-sub">Profit Factor</div>
+        <div style="margin-top:10px">
+          <div class="ana-row"><span class="label">Total Trades</span><span class="value">${sc(row.TR_total_trades,0)}</span></div>
+          <div class="ana-row"><span class="label">Win Rate</span><span class="value">${sc(row.TR_win_rate,0)}%</span></div>
+          <div class="ana-row"><span class="label">Avg Win</span>
+            <span class="value" style="color:var(--bull)">+${sc(row.TR_avg_win_pct,1)}%</span></div>
+          <div class="ana-row"><span class="label">Avg Loss</span>
+            <span class="value" style="color:var(--bear)">-${sc(row.TR_avg_loss_pct,1)}%</span></div>
+          <div class="ana-row"><span class="label">Total Return</span>
+            <span class="value" style="color:${pf(row.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">
+              ${pf(row.TR_total_return_pct)>0?'+':''}${sc(row.TR_total_return_pct,1)}%</span></div>
+          <div class="ana-row"><span class="label">Avg Hold</span><span class="value">${sc(row.TR_avg_holding_days,0)} days</span></div>
+          <div class="ana-row"><span class="label">Stop-Loss</span><span class="value">${sc(row.BT_SL_Level,1)}%</span></div>
+          <div class="ana-row"><span class="label">SL Exits</span><span class="value">${sc(row.TR_stop_loss_exits,0)}</span></div>
+        </div>
+      </div>
 
-      Papa.parse(b + 'data.csv', {
-        download: true, header: true,
-        complete: function(results) {
-          allData = results.data.filter(r => r.Ticker && r.Ticker.trim());
-          buildTickerList();
-          populateMonitorTable();
-        }
+      <!-- Context -->
+      <div class="ana-card">
+        <div class="ana-title">📈 Context</div>
+        <div style="margin-top:4px">
+          <div class="ana-row"><span class="label">Sector</span><span class="value">${row.Sector||'—'}</span></div>
+          <div class="ana-row"><span class="label">Category</span><span class="value">${row.BT_Category||'—'}</span></div>
+          <div class="ana-row"><span class="label">Streak</span><span class="value">${row.Streak_Days||0} days</span></div>
+          <div class="ana-row"><span class="label">Momentum</span><span class="value">${row.Momentum||'—'}</span></div>
+          <div class="ana-row"><span class="label">Long WR</span><span class="value">${sc(row.TR_long_win_rate,0)}%</span></div>
+          <div class="ana-row"><span class="label">Short WR</span><span class="value">${sc(row.TR_short_win_rate,0)}%</span></div>
+        </div>
+        ${row.Latest_Headline?`<div style="margin-top:10px;padding:8px;background:var(--card2);
+          border-radius:6px;font-size:11px;color:var(--text2);line-height:1.5">
+          📰 ${row.Latest_Headline}</div>`:''}
+        ${row.Macro_Context?`<div style="margin-top:6px;font-size:11px;color:var(--text2)">
+          🌍 ${row.Macro_Context}</div>`:''}
+      </div>
+    </div>
+  `;
+}
+
+// ─── SELECT TICKER ───
+function selectTicker(ticker){
+  selectedTicker=ticker;
+  buildTickerBar(document.querySelector('.filter-btn.active')?.dataset.filter||'all',
+    document.getElementById('searchInput').value);
+  const row=allData.find(r=>r.Ticker===ticker);
+  if(row) showTickerAnalytics(row);
+}
+
+// ─── CHART MODAL ───
+function openChart(ticker){
+  const row=allData.find(r=>r.Ticker===ticker)||{};
+  const d=dir(row);
+  const modal=document.getElementById('chartModal');
+  document.getElementById('modalTitle').textContent=ticker;
+  document.getElementById('modalSubtitle').textContent=
+    `${row.BT_Category||''} · ${row.Sector||''} · Composite: ${sign(sc(row.Composite_Score,1))}`;
+
+  // KPIs
+  document.getElementById('modalKpis').innerHTML=`
+    <div class="mkpi"><div class="mkpi-val" style="color:var(--${d})">${dirLabel(d)}</div><div class="mkpi-label">Signal</div></div>
+    <div class="mkpi"><div class="mkpi-val">${sc(row.BT_6M,0)}%</div><div class="mkpi-label">Accuracy</div></div>
+    <div class="mkpi"><div class="mkpi-val" style="color:${pf(row.TR_profit_factor)>=1.1?'var(--bull)':'var(--white)'}">
+      ${sc(row.TR_profit_factor,2)}</div><div class="mkpi-label">Trade PF</div></div>
+    <div class="mkpi"><div class="mkpi-val">${sc(row.TR_win_rate,0)}%</div><div class="mkpi-label">Win Rate</div></div>
+    <div class="mkpi"><div class="mkpi-val" style="color:${pf(row.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">
+      ${pf(row.TR_total_return_pct)>0?'+':''}${sc(row.TR_total_return_pct,1)}%</div><div class="mkpi-label">Return</div></div>
+    <div class="mkpi"><div class="mkpi-val">${sc(row.BT_ATR_Pct,1)}%</div><div class="mkpi-label">ATR</div></div>
+    <div class="mkpi"><div class="mkpi-val">${sc(row.TR_avg_holding_days,0)}d</div><div class="mkpi-label">Hold</div></div>
+  `;
+
+  modal.classList.add('show');
+
+  // Destroy old chart
+  if(chart){chart.remove();chart=null;candleSeries=null;}
+
+  // Load chart data
+  fetch(`charts/${ticker}.json`)
+    .then(r=>r.json())
+    .then(data=>{
+      const container=document.getElementById('modalChart');
+      chart=LightweightCharts.createChart(container,{
+        width:container.clientWidth,height:container.clientHeight,
+        layout:{background:{type:'solid',color:'#151823'},textColor:'#8b949e',fontSize:11},
+        grid:{vertLines:{color:'#1a1d29'},horzLines:{color:'#1a1d29'}},
+        crosshair:{mode:LightweightCharts.CrosshairMode.Normal,
+          vertLine:{color:'#3b82f6',width:1,style:2,labelBackgroundColor:'#3b82f6'},
+          horzLine:{color:'#3b82f6',width:1,style:2,labelBackgroundColor:'#3b82f6'}},
+        rightPriceScale:{borderColor:'#2a2e3d'},
+        timeScale:{borderColor:'#2a2e3d',timeVisible:false},
       });
-    }
-
-    function getDir(row) {
-      const d = parseInt(row.Composite_Direction || row.Forecast_Direction || 0);
-      return d === 1 ? 'bull' : d === -1 ? 'bear' : 'neut';
-    }
-
-    function showDashboard() {
-      selectedTicker = null;
-      document.querySelectorAll('.ticker-item').forEach(el => el.classList.remove('active'));
-      document.getElementById('dashboardView').style.display = 'flex';
-      document.getElementById('kpiStrip').style.display = 'none';
-      document.getElementById('showcaseWrapper').style.display = 'none';
-    }
-
-    function buildTickerList(filter = 'all', search = '') {
-      const list = document.getElementById('tickerList');
-      list.innerHTML = '';
-      const s = search.toLowerCase();
-      
-      allData.forEach(row => {
-        const tk = row.Ticker;
-        const dir = getDir(row);
-        if (filter !== 'all' && dir !== filter) return;
-        if (s && !tk.toLowerCase().includes(s)) return;
-        
-        const item = document.createElement('div');
-        item.className = 'ticker-item' + (tk === selectedTicker ? ' active' : '');
-        item.innerHTML = `<span class="ticker-name">${tk}</span><span class="signal-badge badge-${dir}">${dir.toUpperCase()}</span>`;
-        item.onclick = () => selectTicker(tk);
-        list.appendChild(item);
+      candleSeries=chart.addCandlestickSeries({
+        upColor:'#22c55e',downColor:'#ef4444',
+        borderUpColor:'#22c55e',borderDownColor:'#ef4444',
+        wickUpColor:'#22c55e88',wickDownColor:'#ef444488',
       });
-    }
-
-    function populateMonitorTable() {
-      const tbody = document.getElementById('monitorTableBody');
-      tbody.innerHTML = '';
-
-      allData.forEach(row => {
-        const dir = getDir(row);
-        const tr = document.createElement('tr');
-        
-        let momClass = 'm-neut';
-        if (row.Momentum === 'Strong' || row.Momentum === 'Building') momClass = 'm-strong';
-        if (row.Momentum === 'Fading') momClass = 'm-fading';
-
-        tr.innerHTML = `
-          <td class="ticker-click" onclick="selectTicker('${row.Ticker}')">${row.Ticker}</td>
-          <td>${row.Sector || '—'}</td>
-          <td><span class="signal-badge badge-${dir}">${dir.toUpperCase()}</span></td>
-          <td style="font-weight:700">${parseFloat(row.Composite_Score || 0).toFixed(1)}</td>
-          <td>${row.Technical_Score || 0}</td>
-          <td>${row.Forecast_Score || 0}</td>
-          <td><span class="m-badge ${momClass}">${row.Momentum || 'Neutral'}</span></td>
-          <td>${row.Streak_Days || 0}d</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function filterMonitorTable() {
-      const query = document.getElementById('tableSearchInput').value.toLowerCase();
-      const rows = document.getElementById('monitorTableBody').getElementsByTagName('tr');
-      for (let row of rows) {
-        const txt = row.textContent.toLowerCase();
-        row.style.display = txt.includes(query) ? '' : 'none';
+      if(data.ohlc&&data.ohlc.length>0){
+        candleSeries.setData(data.ohlc);
+        if(data.markers&&data.markers.length>0) candleSeries.setMarkers(data.markers);
+        chart.timeScale().fitContent();
       }
-    }
-
-    function sortTable(colIndex) {
-      const tbody = document.getElementById('monitorTableBody');
-      const rows = Array.from(tbody.getElementsByTagName('tr'));
-      if (currentSortCol === colIndex) sortAsc = !sortAsc;
-      else { currentSortCol = colIndex; sortAsc = true; }
-
-      rows.sort((a, b) => {
-        let tdA = a.getElementsByTagName('td')[colIndex].textContent.trim();
-        let tdB = b.getElementsByTagName('td')[colIndex].textContent.trim();
-        
-        let valA = isNaN(parseFloat(tdA)) ? tdA.toLowerCase() : parseFloat(tdA);
-        let valB = isNaN(parseFloat(tdB)) ? tdB.toLowerCase() : parseFloat(tdB);
-
-        if (valA < valB) return sortAsc ? -1 : 1;
-        if (valA > valB) return sortAsc ? 1 : -1;
-        return 0;
+      const ro=new ResizeObserver(()=>{
+        chart.applyOptions({width:container.clientWidth,height:container.clientHeight});
       });
-
-      rows.forEach(r => tbody.appendChild(r));
-    }
-
-    document.getElementById('searchInput').addEventListener('input', function () {
-      buildTickerList(document.querySelector('.filter-btn.active')?.dataset.filter || 'all', this.value);
+      ro.observe(container);
+    })
+    .catch(()=>{
+      document.getElementById('modalChart').innerHTML=
+        '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2)">No chart data</div>';
     });
+}
 
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', function () {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        buildTickerList(this.dataset.filter, document.getElementById('searchInput').value);
-      });
-    });
+// Close modal
+document.getElementById('modalClose').addEventListener('click',()=>{
+  document.getElementById('chartModal').classList.remove('show');
+  if(chart){chart.remove();chart=null;candleSeries=null;}
+});
+document.getElementById('chartModal').addEventListener('click',(e)=>{
+  if(e.target===document.getElementById('chartModal')){
+    document.getElementById('chartModal').classList.remove('show');
+    if(chart){chart.remove();chart=null;candleSeries=null;}
+  }
+});
 
-    function selectTicker(ticker) {
-      selectedTicker = ticker;
-      document.querySelectorAll('.ticker-item').forEach(el => {
-        el.classList.toggle('active', el.querySelector('.ticker-name')?.textContent === ticker);
-      });
+// ESC to close
+document.addEventListener('keydown',(e)=>{
+  if(e.key==='Escape'){
+    document.getElementById('chartModal').classList.remove('show');
+    if(chart){chart.remove();chart=null;candleSeries=null;}
+  }
+});
 
-      document.getElementById('dashboardView').style.display = 'none';
-      document.getElementById('kpiStrip').style.display    = 'flex';
-      document.getElementById('showcaseWrapper').style.display = 'flex';
-
-      const row = allData.find(r => r.Ticker === ticker) || {};
-      document.getElementById('showcaseTitle').textContent = ticker;
-      document.getElementById('showcaseSubtitle').textContent = `${row.BT_Category || ''} · ${row.Sector || ''}`;
-
-      updateKPIs(row);
-      updateDetails(row);
-      preloadChartData(ticker);
-    }
-
-    function updateKPIs(row) {
-      const dir = getDir(row);
-      document.getElementById('kpiStrip').innerHTML = `
-        <div class="kpi-card"><div class="kpi-val ${dir}">${dir.toUpperCase()}</div><div class="kpi-label">Signal</div></div>
-        <div class="kpi-card"><div class="kpi-val">${parseFloat(row.Composite_Score || 0).toFixed(1)}</div><div class="kpi-label">Composite</div></div>
-        <div class="kpi-card"><div class="kpi-val">${row.BT_Category || '—'}</div><div class="kpi-label">Category</div></div>
-        <div class="kpi-card"><div class="kpi-val">${parseFloat(row.BT_6M || 0).toFixed(0)}%</div><div class="kpi-label">Accuracy</div></div>
-        <div class="kpi-card"><div class="kpi-val">${parseFloat(row.TR_profit_factor || 0).toFixed(2)}</div><div class="kpi-label">Trade PF</div></div>
-        <div class="kpi-card"><div class="kpi-val">${parseFloat(row.TR_win_rate || 0).toFixed(0)}%</div><div class="kpi-label">Win Rate</div></div>
-        <div class="kpi-card"><div class="kpi-val">${parseFloat(row.TR_total_return_pct || 0).toFixed(1)}%</div><div class="kpi-label">Return</div></div>`;
-    }
-
-    function updateDetails(row) {
-      document.getElementById('detailPanel').innerHTML = `
-        <div class="detail-section">
-          <div class="detail-title">📊 Score Breakdown</div>
-          <div class="detail-row"><span class="label">Technical Matrix</span><span class="value">${row.Technical_Score || 0}</span></div>
-          <div class="detail-row"><span class="label">Macro Environment</span><span class="value">${row.Macro_Score || 0}</span></div>
-          <div class="detail-row"><span class="label">Fundamental Vector</span><span class="value">${row.Fundamental_Score || 0}</span></div>
-          <div class="detail-row"><span class="label">FinBERT News Value</span><span class="value">${row.Forecast_Score || 0}</span></div>
-        </div>
-        <div class="detail-section">
-          <div class="detail-title">🎯 Backtest Performance Metrics</div>
-          <div class="detail-row"><span class="label">1 Month Strategy Match</span><span class="value">${row.BT_1M || 0}%</span></div>
-          <div class="detail-row"><span class="label">3 Month Horizon Shift</span><span class="value">${row.BT_3M || 0}%</span></div>
-          <div class="detail-row"><span class="label">All Time Realized Base</span><span class="value">${row.BT_6M || 0}%</span></div>
-        </div>
-        <div class="detail-section">
-          <div class="detail-title">💰 Core Simulated Parameters</div>
-          <div class="detail-row"><span class="label">Simulated Trades Run</span><span class="value">${row.TR_total_trades || 0}</span></div>
-          <div class="detail-row"><span class="label">Average Profit Run</span><span class="value">${row.TR_avg_win_pct || 0}%</span></div>
-          <div class="detail-row"><span class="label">Average Drawdown Cap</span><span class="value">${row.TR_avg_loss_pct || 0}%</span></div>
-        </div>
-        <div class="detail-section">
-          <div class="detail-title">📈 Micro Structure Context</div>
-          <div class="detail-row"><span class="label">Macro Class Sector</span><span class="value">${row.Sector || '—'}</span></div>
-          <div class="detail-row"><span class="label">Historical Engine Run Streak</span><span class="value">${row.Streak_Days || 0} days</span></div>
-        </div>`;
-    }
-
-    function preloadChartData(ticker) {
-      fetch(base() + 'charts/' + ticker + '.json')
-        .then(r => r.json())
-        .then(data => {
-          stockHistoricalData[ticker] = data.ohlc || data.OHLC || data;
-        }).catch(() => {});
-    }
-
-    function openChartModal() {
-      if (!selectedTicker) return;
-      const modal = document.getElementById('chartModal');
-      modal.classList.add('open');
-      
-      const container = document.getElementById('chartContainer');
-      container.innerHTML = '<div class="chart-loading"><div class="spinner"></div><div>Constructing analytical overlays...</div></div>';
-      document.getElementById('modalChartTitle').textContent = `${selectedTicker} · Multi-Indicator Target Board`;
-
-      const data = stockHistoricalData[selectedTicker];
-      if (data && data.length) {
-        renderPopupChart(data);
-      } else {
-        fetch(base() + 'charts/' + selectedTicker + '.json')
-          .then(r => r.json())
-          .then(res => {
-            const arr = res.ohlc || res.OHLC || res;
-            stockHistoricalData[selectedTicker] = arr;
-            renderPopupChart(arr);
-          })
-          .catch(() => {
-            container.innerHTML = '<div class="chart-loading">❌ Data profile error for this ticker</div>';
-          });
-      }
-    }
-
-    /* =========================================================================
-       DYNAMIC IN-BROWSER ON-THE-FLY COMPUTATION ENGINES
-       ========================================================================= */
-    function calcSMA(data, period) {
-      let res = [];
-      for (let i = 0; i < data.length; i++) {
-        if (i < period - 1) continue;
-        let sum = 0;
-        for (let j = 0; j < period; j++) sum += data[i - j].close;
-        res.push({ time: data[i].time, value: sum / period });
-      }
-      return res;
-    }
-
-    function calcBB(data, period = 20, multiplier = 2) {
-      let upper = [], lower = [];
-      for (let i = 0; i < data.length; i++) {
-        if (i < period - 1) continue;
-        let sum = 0;
-        for (let j = 0; j < period; j++) sum += data[i - j].close;
-        let mean = sum / period;
-        let variance = 0;
-        for (let j = 0; j < period; j++) variance += Math.pow(data[i - j].close - mean, 2);
-        let stdDev = Math.sqrt(variance / period);
-        upper.push({ time: data[i].time, value: mean + (multiplier * stdDev) });
-        lower.push({ time: data[i].time, value: mean - (multiplier * stdDev) });
-      }
-      return { upper, lower };
-    }
-
-    function calcVWAP(data) {
-      let res = [];
-      let cumulativePV = 0;
-      let cumulativeVol = 0;
-      let currentDay = "";
-
-      for (let i = 0; i < data.length; i++) {
-        const d = data[i];
-        const dateStr = typeof d.time === 'string' ? d.time.split(' ')[0] : JSON.stringify(d.time);
-        
-        if (dateStr !== currentDay) {
-          currentDay = dateStr;
-          cumulativePV = 0;
-          cumulativeVol = 0;
-        }
-        
-        let typPrice = (d.high + d.low + d.close) / 3;
-        let vol = d.volume || 1000;
-        cumulativePV += typPrice * vol;
-        cumulativeVol += vol;
-        
-        res.push({ time: d.time, value: cumulativePV / cumulativeVol });
-      }
-      return res;
-    }
-
-    function calcIchimoku(data) {
-      let conversionLine = [], baseLine = [];
-      
-      for (let i = 0; i < data.length; i++) {
-        if (i >= 8) {
-          let slice = data.slice(i - 8, i + 1);
-          let highs = slice.map(x => x.high), lows = slice.map(x => x.low);
-          conversionLine.push({ time: data[i].time, value: (Math.max(...highs) + Math.min(...lows)) / 2 });
-        }
-        if (i >= 25) {
-          let slice = data.slice(i - 25, i + 1);
-          let highs = slice.map(x => x.high), lows = slice.map(x => x.low);
-          baseLine.push({ time: data[i].time, value: (Math.max(...highs) + Math.min(...lows)) / 2 });
-        }
-      }
-      
-      let spanA = [];
-      let validLength = Math.min(conversionLine.length, baseLine.length);
-      for (let i = 0; i < validLength; i++) {
-        let clItem = conversionLine[conversionLine.length - validLength + i];
-        let blItem = baseLine[baseLine.length - validLength + i];
-        if (i + 26 < data.length) {
-          spanA.push({ time: data[i + 26].time, value: (clItem.value + blItem.value) / 2 });
-        }
-      }
-      return { spanA };
-    }
-
-    function calcRSI(data, period = 14) {
-      let res = [];
-      if (data.length < period + 1) return res;
-      let gains = 0, losses = 0;
-      for (let i = 1; i <= period; i++) {
-        let diff = data[i].close - data[i - 1].close;
-        if (diff > 0) gains += diff; else losses -= diff;
-      }
-      let avgGain = gains / period, avgLoss = losses / period;
-      res.push({ time: data[period].time, value: avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss))) });
-
-      for (let i = period + 1; i < data.length; i++) {
-        let diff = data[i].close - data[i - 1].close;
-        avgGain = ((avgGain * (period - 1)) + (diff > 0 ? diff : 0)) / period;
-        avgLoss = ((avgLoss * (period - 1)) + (diff < 0 ? -diff : 0)) / period;
-        res.push({ time: data[i].time, value: avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss))) });
-      }
-      return res;
-    }
-
-    /* ========================================================================= */
-
-    function renderPopupChart(actual) {
-      const container = document.getElementById('chartContainer');
-      if (chartResizeObserver) chartResizeObserver.disconnect();
-      if (chart) { chart.remove(); chart = null; }
-      if (rsiChart) { rsiChart.remove(); rsiChart = null; }
-      container.innerHTML = '';
-      
-      const useRSI = activeInds.has('rsi');
-      const mainH = useRSI ? MHR : MH;
-      container.style.height = mainH + 'px';
-
-      chart = LightweightCharts.createChart(container, {
-        width: container.clientWidth,
-        height: mainH,
-        layout: { background: { type: 'solid', color: '#0c0e14' }, textColor: '#8b949e', fontSize: 11 },
-        grid: { vertLines: { color: '#1a1d29' }, horzLines: { color: '#1a1d29' } },
-        timeScale: { borderColor: '#2a2e3d' },
-        rightPriceScale: { borderColor: '#2a2e3d' }
-      });
-
-      candleSeries = chart.addCandlestickSeries({
-        upColor: '#22c55e', downColor: '#ef4444',
-        borderUpColor: '#22c55e', borderDownColor: '#ef4444',
-        wickUpColor: '#22c55e', wickDownColor: '#ef4444'
-      });
-
-      // REINFORCED STRUCTURAL PARSING ROUTINE FOR DYNAMIC ENTRIES
-      const cleaned = actual.map(d => {
-        let rawTime = d.time || d.Date || d.date;
-        if (typeof rawTime === 'string' && rawTime.includes(' ')) {
-          rawTime = rawTime.split(' ')[0];
-        }
-        return {
-          time: rawTime,
-          open: parseFloat(d.open ?? d.Open ?? 0),
-          high: parseFloat(d.high ?? d.High ?? 0),
-          low: parseFloat(d.low ?? d.Low ?? 0),
-          close: parseFloat(d.close ?? d.Close ?? 0),
-          volume: parseFloat(d.volume ?? d.Volume ?? d.vol ?? 0)
-        };
-      }).filter(d => d.time).sort((a,b) => a.time < b.time ? -1 : 1);
-
-      if (cleaned.length === 0) {
-        container.innerHTML = '<div class="chart-loading">❌ Empty series or time parsing mismatch</div>';
-        return;
-      }
-
-      candleSeries.setData(cleaned);
-      indicatorSeries = {};
-      
-      document.querySelectorAll('.ind-btn').forEach(btn => {
-        btn.classList.toggle('active', activeInds.has(btn.dataset.ind));
-      });
-
-      activeInds.forEach(ind => addInd(ind, cleaned));
-      chart.timeScale().fitContent();
-
-      chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
-        if (rsiChart && range) rsiChart.timeScale().setVisibleLogicalRange(range);
-      });
-
-      chartResizeObserver = new ResizeObserver(() => {
-        if (chart && container.clientWidth > 0) chart.applyOptions({ width: container.clientWidth });
-        if (rsiChart && document.getElementById('rsiContainer').clientWidth > 0) rsiChart.applyOptions({ width: document.getElementById('rsiContainer').clientWidth });
-      });
-      chartResizeObserver.observe(container);
-    }
-
-    function toggleInd(btn) {
-      const ind = btn.dataset.ind;
-      const data = stockHistoricalData[selectedTicker];
-      if (!data) return;
-
-      const cleaned = data.map(d => {
-        let rawTime = d.time || d.Date || d.date;
-        if (typeof rawTime === 'string' && rawTime.includes(' ')) rawTime = rawTime.split(' ')[0];
-        return {
-          time: rawTime,
-          open: parseFloat(d.open ?? d.Open ?? 0),
-          high: parseFloat(d.high ?? d.High ?? 0),
-          low: parseFloat(d.low ?? d.Low ?? 0),
-          close: parseFloat(d.close ?? d.Close ?? 0),
-          volume: parseFloat(d.volume ?? d.Volume ?? d.vol ?? 0)
-        };
-      }).filter(d => d.time).sort((a,b) => a.time < b.time ? -1 : 1);
-
-      if (activeInds.has(ind)) {
-        activeInds.delete(ind);
-        btn.classList.remove('active');
-        remInd(ind);
-      } else {
-        activeInds.add(ind);
-        btn.classList.add('active');
-        addInd(ind, cleaned);
-      }
-    }
-
-    function addInd(ind, cleanedData) {
-      if (!chart) return;
-      
-      if (ind === 'sma9') {
-        const points = calcSMA(cleanedData, 9);
-        if(points.length) {
-          indicatorSeries.sma9 = chart.addLineSeries({ color: '#facc15', lineWidth: 1, title: 'SMA 9' });
-          indicatorSeries.sma9.setData(points);
-        }
-      }
-      if (ind === 'sma22') {
-        const points = calcSMA(cleanedData, 22);
-        if(points.length) {
-          indicatorSeries.sma22 = chart.addLineSeries({ color: '#3b82f6', lineWidth: 1, title: 'SMA 22' });
-          indicatorSeries.sma22.setData(points);
-        }
-      }
-      if (ind === 'sma52') {
-        const points = calcSMA(cleanedData, 52);
-        if(points.length) {
-          indicatorSeries.sma52 = chart.addLineSeries({ color: '#a855f7', lineWidth: 1, title: 'SMA 52' });
-          indicatorSeries.sma52.setData(points);
-        }
-      }
-      if (ind === 'sma200') {
-        const points = calcSMA(cleanedData, 200);
-        if(points.length) {
-          indicatorSeries.sma200 = chart.addLineSeries({ color: '#ef4444', lineWidth: 1, lineStyle: 2, title: 'SMA 200' });
-          indicatorSeries.sma200.setData(points);
-        }
-      }
-      if (ind === 'vwap') {
-        const points = calcVWAP(cleanedData);
-        if(points.length) {
-          indicatorSeries.vwap = chart.addLineSeries({ color: '#14b8a6', lineWidth: 1.5, title: 'VWAP' });
-          indicatorSeries.vwap.setData(points);
-        }
-      }
-      if (ind === 'ich') {
-        const dataIch = calcIchimoku(cleanedData);
-        if(dataIch.spanA.length) {
-          indicatorSeries.icha = chart.addLineSeries({ color: '#22c55e', lineWidth: 1, title: 'Ichimoku Lead' });
-          indicatorSeries.icha.setData(dataIch.spanA);
-        }
-      }
-      if (ind === 'bb') {
-        const bands = calcBB(cleanedData, 20, 2);
-        if(bands.upper.length) {
-          indicatorSeries.bbu = chart.addAreaSeries({ topColor: 'rgba(249,146,60,0.03)', bottomColor: 'rgba(249,146,60,0.00)', lineColor: '#f97316', lineWidth: 1, lineStyle: 2, title: 'BB+' });
-          indicatorSeries.bbu.setData(bands.upper);
-          indicatorSeries.bbl = chart.addAreaSeries({ topColor: 'transparent', bottomColor: 'transparent', lineColor: '#f97316', lineWidth: 1, lineStyle: 2, title: 'BB-' });
-          indicatorSeries.bbl.setData(bands.lower);
-        }
-      }
-      if (ind === 'vol') {
-        indicatorSeries.vol = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
-        chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-        indicatorSeries.vol.setData(cleanedData.map(r => ({
-          time: r.time, value: r.volume,
-          color: r.close >= r.open ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.25)'
-        })));
-      }
-      if (ind === 'rsi') {
-        const rData = calcRSI(cleanedData, 14);
-        if (!rData.length) return;
-        
-        document.getElementById('chartContainer').style.height = MHR + 'px';
-        chart.applyOptions({ height: MHR });
-        
-        const rc = document.getElementById('rsiContainer');
-        rc.style.display = 'block'; rc.innerHTML = '';
-        
-        rsiChart = LightweightCharts.createChart(rc, {
-          width: rc.clientWidth, height: RH,
-          layout: { background: { type: 'solid', color: '#0c0e14' }, textColor: '#8b949e', fontSize: 10 },
-          grid: { vertLines: { color: '#1a1d29' }, horzLines: { color: '#1a1d29' } },
-          timeScale: { borderColor: '#2a2e3d' },
-          rightPriceScale: { borderColor: '#2a2e3d', scaleMargins: { top: 0.1, bottom: 0.1 } }
-        });
-        
-        indicatorSeries.rsi = rsiChart.addLineSeries({ color: '#facc15', lineWidth: 1.5, title: 'RSI (14)' });
-        indicatorSeries.rsi.setData(rData);
-        
-        indicatorSeries.rsi70 = rsiChart.addLineSeries({ color: 'rgba(239,68,68,0.25)', lineWidth: 1, lineStyle: 2 });
-        indicatorSeries.rsi70.setData(rData.map(x => ({ time: x.time, value: 70 })));
-        indicatorSeries.rsi30 = rsiChart.addLineSeries({ color: 'rgba(34,197,94,0.25)', lineWidth: 1, lineStyle: 2 });
-        indicatorSeries.rsi30.setData(rData.map(x => ({ time: x.time, value: 30 })));
-        
-        rsiChart.timeScale().fitContent();
-        const range = chart.timeScale().getVisibleLogicalRange();
-        if (range) rsiChart.timeScale().setVisibleLogicalRange(range);
-        
-        rsiChart.timeScale().subscribeVisibleLogicalRangeChange(rg => {
-          if (chart && rg) chart.timeScale().setVisibleLogicalRange(rg);
-        });
-      }
-    }
-
-    function remInd(ind) {
-      if (ind === 'rsi') {
-        if (rsiChart) { rsiChart.remove(); rsiChart = null; }
-        document.getElementById('rsiContainer').style.display = 'none';
-        document.getElementById('chartContainer').style.height = MH + 'px';
-        if (chart) chart.applyOptions({ height: MH });
-        return;
-      }
-      
-      const mapping = {
-        sma9:['sma9'], sma22:['sma22'], sma52:['sma52'], sma200:['sma200'], 
-        vwap:['vwap'], ich:['icha'], bb:['bbu','bbl'], vol:['vol']
-      };
-      
-      (mapping[ind] || []).forEach(x => {
-        if (indicatorSeries[x]) {
-          chart.removeSeries(indicatorSeries[x]);
-          delete indicatorSeries[x];
-        }
-      });
-    }
-
-    function closeChartModal() {
-      document.getElementById('chartModal').classList.remove('open');
-    }
-
-    init();
-  </script>
+init();
+</script>
 </body>
 </html>
