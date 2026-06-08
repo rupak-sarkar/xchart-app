@@ -19,107 +19,70 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 a{color:var(--accent);text-decoration:none}
-
 .header{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;
   display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.logo{font-size:20px;font-weight:700;color:var(--white);letter-spacing:-0.5px}
-.logo span{color:var(--accent)}
-.version{font-size:10px;background:var(--accent);color:#fff;padding:2px 6px;
-  border-radius:10px;margin-left:6px;vertical-align:middle}
+.logo{font-size:20px;font-weight:700;color:var(--white)}.logo span{color:var(--accent)}
+.version{font-size:10px;background:var(--accent);color:#fff;padding:2px 6px;border-radius:10px;margin-left:6px;vertical-align:middle}
 .global-kpis{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.gkpi{text-align:center}
-.gkpi-val{font-size:14px;font-weight:700;color:var(--white)}
+.gkpi{text-align:center}.gkpi-val{font-size:14px;font-weight:700;color:var(--white)}
 .gkpi-label{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
-
-.ticker-bar{background:var(--card);border-bottom:1px solid var(--border);padding:6px 16px;
-  display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.search-box input{padding:6px 10px;background:var(--card2);border:1px solid var(--border);
-  border-radius:var(--radius);color:var(--white);font-size:12px;outline:none;width:160px}
+.ticker-bar{background:var(--card);border-bottom:1px solid var(--border);padding:6px 16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.search-box input{padding:6px 10px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);color:var(--white);font-size:12px;outline:none;width:160px}
 .search-box input:focus{border-color:var(--accent)}
-.filter-btn{padding:4px 10px;font-size:10px;border:1px solid var(--border);border-radius:4px;
-  background:transparent;color:var(--text2);cursor:pointer;text-transform:uppercase}
+.filter-btn{padding:4px 10px;font-size:10px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--text2);cursor:pointer;text-transform:uppercase}
 .filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .ticker-scroll{display:flex;gap:4px;overflow-x:auto;flex:1;padding:2px 0}
-.ticker-scroll::-webkit-scrollbar{height:4px}
-.ticker-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.ticker-chip{padding:4px 10px;font-size:11px;font-weight:600;border-radius:4px;
-  cursor:pointer;white-space:nowrap;border:1px solid var(--border);transition:all 0.15s;
-  display:flex;align-items:center;gap:4px;background:var(--card2);color:var(--white)}
+.ticker-scroll::-webkit-scrollbar{height:4px}.ticker-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ticker-chip{padding:4px 10px;font-size:11px;font-weight:600;border-radius:4px;cursor:pointer;white-space:nowrap;border:1px solid var(--border);transition:all 0.15s;display:flex;align-items:center;gap:4px;background:var(--card2);color:var(--white)}
 .ticker-chip:hover{border-color:var(--accent);background:var(--card)}
 .ticker-chip.active{border-color:var(--accent);background:rgba(59,130,246,0.15)}
 .chip-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .chip-bull{background:var(--bull)}.chip-bear{background:var(--bear)}.chip-neut{background:var(--neut)}
-
 .main-content{flex:1;overflow-y:auto;padding:16px}
-
 .analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
 .ana-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
-.ana-title{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;
-  margin-bottom:10px;font-weight:600;display:flex;align-items:center;gap:6px}
+.ana-title{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;font-weight:600}
 .ana-row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px}
 .ana-row .label{color:var(--text2)}.ana-row .value{color:var(--white);font-weight:600}
 .ana-big{font-size:28px;font-weight:700;color:var(--white);margin:4px 0}
 .ana-sub{font-size:11px;color:var(--text2)}
-
 .top-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
-.top-table th{color:var(--text2);font-weight:600;text-align:left;padding:4px 6px;
-  border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase}
+.top-table th{color:var(--text2);font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase}
 .top-table td{padding:4px 6px;border-bottom:1px solid rgba(42,46,61,0.5);color:var(--white)}
-.top-table tr:hover{background:var(--card2)}
-.top-table .tk{font-weight:600;cursor:pointer;color:var(--accent)}
-
+.top-table tr:hover{background:var(--card2)}.top-table .tk{font-weight:600;cursor:pointer;color:var(--accent)}
 .prog-bar{height:6px;border-radius:3px;background:var(--border);margin-top:4px;overflow:hidden}
 .prog-fill{height:100%;border-radius:3px;transition:width 0.5s}
-
-/* Chart Modal */
-.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:12px}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;align-items:center;justify-content:center;padding:12px}
 .modal-overlay.show{display:flex}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;
-  width:100%;max-width:1100px;max-height:95vh;display:flex;flex-direction:column;overflow:hidden}
-.modal-header{display:flex;justify-content:space-between;align-items:center;
-  padding:10px 16px;border-bottom:1px solid var(--border)}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:100%;max-width:1100px;max-height:95vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border)}
 .modal-title{font-size:16px;font-weight:700;color:var(--white)}
 .modal-subtitle{font-size:11px;color:var(--text2);margin-left:8px}
-.modal-close{width:32px;height:32px;border-radius:50%;background:var(--card2);
-  border:1px solid var(--border);color:var(--text);font-size:18px;cursor:pointer;
-  display:flex;align-items:center;justify-content:center}
+.modal-close{width:32px;height:32px;border-radius:50%;background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .modal-close:hover{background:var(--bear);color:#fff;border-color:var(--bear)}
-
-/* Indicator tabs */
-.indicator-bar{display:flex;gap:4px;padding:6px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.ind-btn{padding:3px 8px;font-size:10px;border-radius:4px;cursor:pointer;
-  border:1px solid var(--border);background:transparent;color:var(--text2);transition:all 0.15s}
+.indicator-bar{display:flex;gap:3px;padding:6px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.ind-btn{padding:3px 7px;font-size:10px;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all 0.15s}
 .ind-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(59,130,246,0.1)}
 .ind-btn:hover{border-color:var(--text2)}
-.ind-legend{font-size:9px;margin-left:2px}
-
-.modal-chart{height:420px;position:relative}
+.ind-sep{width:1px;background:var(--border);margin:0 4px}
+.modal-chart{flex:1;min-height:350px;position:relative}
 .modal-kpis{display:flex;gap:6px;padding:8px 16px;flex-wrap:wrap;border-top:1px solid var(--border)}
-.mkpi{background:var(--card2);border:1px solid var(--border);border-radius:6px;
-  padding:5px 10px;text-align:center;min-width:65px}
+.mkpi{background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;text-align:center;min-width:65px}
 .mkpi-val{font-size:13px;font-weight:700;color:var(--white)}
 .mkpi-label{font-size:8px;color:var(--text2);text-transform:uppercase}
-
-.footer{background:var(--card);border-top:1px solid var(--border);padding:8px 16px;
-  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
-  gap:6px;font-size:10px;color:var(--text2)}
-
+.footer{background:var(--card);border-top:1px solid var(--border);padding:8px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--text2)}
 @media(max-width:768px){
   .header{padding:8px 12px}.global-kpis{gap:8px}.gkpi-val{font-size:12px}
   .ticker-bar{padding:6px 12px}.search-box input{width:120px}
   .main-content{padding:10px}.analytics-grid{grid-template-columns:1fr}
-  .modal-chart{height:280px}.modal-kpis{gap:4px}
+  .modal-chart{min-height:260px}.modal-kpis{gap:4px}
   .mkpi{min-width:55px;padding:3px 6px}.mkpi-val{font-size:11px}
 }
 </style>
 </head>
 <body>
-
 <div class="header">
-  <div style="display:flex;align-items:center">
-    <div class="logo">x<span>chart</span>.in<span class="version">v6.3</span></div>
-  </div>
+  <div style="display:flex;align-items:center"><div class="logo">x<span>chart</span>.in<span class="version">v6.3</span></div></div>
   <div class="global-kpis" id="globalKpis">
     <div class="gkpi"><div class="gkpi-val" id="g-regime">—</div><div class="gkpi-label">Regime</div></div>
     <div class="gkpi"><div class="gkpi-val" id="g-accuracy">—</div><div class="gkpi-label">Accuracy</div></div>
@@ -130,7 +93,6 @@ a{color:var(--accent);text-decoration:none}
     <div class="gkpi"><div class="gkpi-val" id="g-date">—</div><div class="gkpi-label">Date</div></div>
   </div>
 </div>
-
 <div class="ticker-bar">
   <div class="search-box"><input type="text" id="searchInput" placeholder="Search..."></div>
   <button class="filter-btn active" data-filter="all">All</button>
@@ -139,25 +101,31 @@ a{color:var(--accent);text-decoration:none}
   <button class="filter-btn" data-filter="neut">Neut</button>
   <div class="ticker-scroll" id="tickerScroll"></div>
 </div>
-
 <div class="main-content" id="mainContent"></div>
 
 <!-- CHART MODAL -->
 <div class="modal-overlay" id="chartModal">
   <div class="modal">
     <div class="modal-header">
-      <div><span class="modal-title" id="modalTitle">—</span>
-        <span class="modal-subtitle" id="modalSubtitle"></span></div>
+      <div><span class="modal-title" id="modalTitle">—</span><span class="modal-subtitle" id="modalSubtitle"></span></div>
       <button class="modal-close" id="modalClose">✕</button>
     </div>
     <div class="indicator-bar" id="indicatorBar">
       <button class="ind-btn active" data-ind="signals">🔔 Signals</button>
-      <button class="ind-btn" data-ind="sma9">SMA9 <span class="ind-legend" style="color:#f59e0b">━</span></button>
-      <button class="ind-btn" data-ind="sma22">SMA22 <span class="ind-legend" style="color:#8b5cf6">━</span></button>
-      <button class="ind-btn" data-ind="sma200">SMA200 <span class="ind-legend" style="color:#ec4899">━</span></button>
-      <button class="ind-btn" data-ind="ema9">EMA9 <span class="ind-legend" style="color:#06b6d4">━</span></button>
-      <button class="ind-btn" data-ind="ema21">EMA21 <span class="ind-legend" style="color:#14b8a6">━</span></button>
       <button class="ind-btn active" data-ind="volume">📊 Vol</button>
+      <div class="ind-sep"></div>
+      <button class="ind-btn" data-ind="sma9" data-color="#f59e0b">SMA9</button>
+      <button class="ind-btn" data-ind="sma22" data-color="#8b5cf6">SMA22</button>
+      <button class="ind-btn" data-ind="sma200" data-color="#ec4899">SMA200</button>
+      <button class="ind-btn" data-ind="ema9" data-color="#06b6d4">EMA9</button>
+      <button class="ind-btn" data-ind="ema21" data-color="#14b8a6">EMA21</button>
+      <div class="ind-sep"></div>
+      <button class="ind-btn" data-ind="bb" data-color="#a78bfa">Bollinger</button>
+      <button class="ind-btn" data-ind="supertrend">SuperTrend</button>
+      <div class="ind-sep"></div>
+      <button class="ind-btn" data-ind="rsi" data-color="#f97316">RSI</button>
+      <button class="ind-btn" data-ind="macd">MACD</button>
+      <button class="ind-btn" data-ind="adx" data-color="#06b6d4">ADX</button>
     </div>
     <div class="modal-chart" id="modalChart"></div>
     <div class="modal-kpis" id="modalKpis"></div>
@@ -170,15 +138,12 @@ a{color:var(--accent);text-decoration:none}
 </div>
 
 <script>
-let allData=[],meta={},chart=null,candleSeries=null,selectedTicker=null;
-let chartData=null; // store loaded chart data for indicator toggling
-let indicatorSeries={}; // track active indicator line series
-let volumeSeries=null;
+let allData=[],meta={};
+let mainChart=null, selectedTicker=null;
+let CD=null; // current chart data
+let series={}; // all active series by key
 
-function getDir(row){
-  const d=parseInt(row.Composite_Direction||row.Forecast_Direction||0);
-  return d===1?'bull':d===-1?'bear':'neut';
-}
+function getDir(r){const d=parseInt(r.Composite_Direction||r.Forecast_Direction||0);return d===1?'bull':d===-1?'bear':'neut'}
 function dirLabel(d){return d==='bull'?'BULL':d==='bear'?'BEAR':'NEUT'}
 function pf(v){return parseFloat(v||0)}
 function sc(v,n){return pf(v).toFixed(n||0)}
@@ -200,7 +165,6 @@ function init(){
     else if((m.regime||'').includes('BEAR'))el.style.color='var(--bear)';
     else el.style.color='var(--neut)';
   }).catch(()=>{});
-
   Papa.parse('data.csv',{download:true,header:true,complete:function(r){
     allData=r.data.filter(r=>r.Ticker&&r.Ticker.trim());
     buildTickerBar();showOverallAnalytics();
@@ -208,14 +172,11 @@ function init(){
 }
 
 function buildTickerBar(filter,search){
-  filter=filter||'all'; search=(search||'').toLowerCase();
-  const scroll=document.getElementById('tickerScroll');
-  scroll.innerHTML='';
+  filter=filter||'all';search=(search||'').toLowerCase();
+  const scroll=document.getElementById('tickerScroll');scroll.innerHTML='';
   const sorted=[...allData].sort((a,b)=>{
-    const o={bull:0,bear:1,neut:2};
-    const da=getDir(a),db=getDir(b);
-    if(o[da]!==o[db])return o[da]-o[db];
-    return(a.Ticker||'').localeCompare(b.Ticker||'');
+    const o={bull:0,bear:1,neut:2},da=getDir(a),db=getDir(b);
+    return o[da]!==o[db]?o[da]-o[db]:(a.Ticker||'').localeCompare(b.Ticker||'');
   });
   sorted.forEach(row=>{
     const tk=row.Ticker,d=getDir(row);
@@ -230,8 +191,7 @@ function buildTickerBar(filter,search){
 }
 
 document.getElementById('searchInput').addEventListener('input',function(){
-  const f=document.querySelector('.filter-btn.active')?.dataset.filter||'all';
-  buildTickerBar(f,this.value);
+  buildTickerBar(document.querySelector('.filter-btn.active')?.dataset.filter,this.value);
 });
 document.querySelectorAll('.filter-btn').forEach(btn=>{
   btn.addEventListener('click',function(){
@@ -241,217 +201,118 @@ document.querySelectorAll('.filter-btn').forEach(btn=>{
   });
 });
 
+// ─── OVERALL ANALYTICS ───
 function showOverallAnalytics(){
-  const bulls=allData.filter(r=>getDir(r)==='bull');
-  const bears=allData.filter(r=>getDir(r)==='bear');
-  const neuts=allData.filter(r=>getDir(r)==='neut');
-  const byPF=[...allData].filter(r=>pf(r.TR_total_trades)>=5)
-    .sort((a,b)=>pf(b.TR_profit_factor)-pf(a.TR_profit_factor));
-  const topPF=byPF.slice(0,10), botPF=byPF.slice(-10).reverse();
-  const byAcc=[...allData].filter(r=>pf(r.BT_Total_Preds)>=30)
-    .sort((a,b)=>pf(b.BT_6M)-pf(a.BT_6M)).slice(0,10);
-
+  const bulls=allData.filter(r=>getDir(r)==='bull'),bears=allData.filter(r=>getDir(r)==='bear'),neuts=allData.filter(r=>getDir(r)==='neut');
+  const byPF=[...allData].filter(r=>pf(r.TR_total_trades)>=5).sort((a,b)=>pf(b.TR_profit_factor)-pf(a.TR_profit_factor));
+  const topPF=byPF.slice(0,10),botPF=byPF.slice(-10).reverse();
+  const byAcc=[...allData].filter(r=>pf(r.BT_Total_Preds)>=30).sort((a,b)=>pf(b.BT_6M)-pf(a.BT_6M)).slice(0,10);
   let catRows='';
   ['MEGA','LARGE','MID','SMALL'].forEach(c=>{
-    const items=allData.filter(r=>(r.BT_Category||'')==c&&pf(r.TR_total_trades)>=5);
-    if(!items.length)return;
-    const ap=items.reduce((s,r)=>s+pf(r.TR_profit_factor),0)/items.length;
-    const aw=items.reduce((s,r)=>s+pf(r.TR_win_rate),0)/items.length;
-    const aa=items.reduce((s,r)=>s+pf(r.BT_6M),0)/items.length;
-    catRows+=`<tr><td style="font-weight:600">${c}</td><td>${items.length}</td>
-      <td>${aa.toFixed(1)}%</td><td>${aw.toFixed(1)}%</td>
-      <td style="color:${ap>=1.1?'var(--bull)':ap<0.95?'var(--bear)':'var(--white)'}">${ap.toFixed(2)}</td></tr>`;
+    const it=allData.filter(r=>(r.BT_Category||'')==c&&pf(r.TR_total_trades)>=5);
+    if(!it.length)return;
+    const ap=it.reduce((s,r)=>s+pf(r.TR_profit_factor),0)/it.length;
+    const aw=it.reduce((s,r)=>s+pf(r.TR_win_rate),0)/it.length;
+    const aa=it.reduce((s,r)=>s+pf(r.BT_6M),0)/it.length;
+    catRows+=`<tr><td style="font-weight:600">${c}</td><td>${it.length}</td><td>${aa.toFixed(1)}%</td><td>${aw.toFixed(1)}%</td><td style="color:${ap>=1.1?'var(--bull)':ap<0.95?'var(--bear)':'var(--white)'}">${ap.toFixed(2)}</td></tr>`;
   });
-
-  function mkTable(rows,showRet){
-    return rows.map(r=>`<tr>
-      <td class="tk" onclick="selectTicker('${r.Ticker}')">${r.Ticker}</td>
-      <td>${r.BT_Category||''}</td>
-      <td style="color:${pf(r.TR_profit_factor)>=1.1?'var(--bull)':pf(r.TR_profit_factor)<0.9?'var(--bear)':'var(--white)'}">${sc(r.TR_profit_factor,2)}</td>
-      <td>${sc(r.TR_win_rate,0)}%</td>
-      <td style="color:${pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">${pf(r.TR_total_return_pct)>0?'+':''}${sc(r.TR_total_return_pct,1)}%</td>
-    </tr>`).join('');
-  }
-
+  const mkT=rows=>rows.map(r=>`<tr><td class="tk" onclick="selectTicker('${r.Ticker}')">${r.Ticker}</td><td>${r.BT_Category||''}</td><td style="color:${pf(r.TR_profit_factor)>=1.1?'var(--bull)':pf(r.TR_profit_factor)<0.9?'var(--bear)':'var(--white)'}">${sc(r.TR_profit_factor,2)}</td><td>${sc(r.TR_win_rate,0)}%</td><td style="color:${pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">${pf(r.TR_total_return_pct)>0?'+':''}${sc(r.TR_total_return_pct,1)}%</td></tr>`).join('');
   document.getElementById('mainContent').innerHTML=`<div class="analytics-grid">
-    <div class="ana-card">
-      <div class="ana-title">📊 Signal Summary</div>
-      <div style="display:flex;gap:16px;margin-bottom:10px">
-        <div><div class="ana-big" style="color:var(--bull)">${bulls.length}</div><div class="ana-sub">Bullish</div></div>
-        <div><div class="ana-big" style="color:var(--bear)">${bears.length}</div><div class="ana-sub">Bearish</div></div>
-        <div><div class="ana-big" style="color:var(--neut)">${neuts.length}</div><div class="ana-sub">Neutral</div></div>
-      </div>
-      <div class="prog-bar"><div class="prog-fill" style="width:${bulls.length/allData.length*100}%;background:var(--bull)"></div></div>
-      <div style="font-size:10px;color:var(--text2);margin-top:4px">Bull ${(bulls.length/allData.length*100).toFixed(0)}% · Bear ${(bears.length/allData.length*100).toFixed(0)}% · Neut ${(neuts.length/allData.length*100).toFixed(0)}%</div>
-    </div>
-    <div class="ana-card">
-      <div class="ana-title">🌍 Market Regime</div>
-      <div class="ana-big" style="color:var(--neut)">${meta.regime||'—'}</div>
-      <div class="ana-sub">${meta.regime_detail||''}</div>
-      <div style="margin-top:10px">
-        <div class="ana-row"><span class="label">Accuracy</span><span class="value">${meta.direction_accuracy||0}%</span></div>
-        <div class="ana-row"><span class="label">Avg Trade PF</span><span class="value">${meta.avg_pf||0}</span></div>
-        <div class="ana-row"><span class="label">Engine</span><span class="value">v${meta.version||'6.3'}</span></div>
-      </div>
-    </div>
-    <div class="ana-card" style="grid-column:span 2">
-      <div class="ana-title">📈 Category Performance</div>
-      <table class="top-table"><tr><th>Category</th><th>Tickers</th><th>Dir Acc</th><th>Win Rate</th><th>Trade PF</th></tr>${catRows}</table>
-    </div>
-    <div class="ana-card">
-      <div class="ana-title">🏆 Top 10 Profitable</div>
-      <table class="top-table"><tr><th>Ticker</th><th>Cat</th><th>PF</th><th>WR</th><th>Return</th></tr>${mkTable(topPF)}</table>
-    </div>
-    <div class="ana-card">
-      <div class="ana-title">⚠️ Bottom 10</div>
-      <table class="top-table"><tr><th>Ticker</th><th>Cat</th><th>PF</th><th>WR</th><th>Return</th></tr>${mkTable(botPF)}</table>
-    </div>
-    <div class="ana-card" style="grid-column:span 2">
-      <div class="ana-title">🎯 Top 10 Most Accurate</div>
-      <table class="top-table"><tr><th>Ticker</th><th>Cat</th><th>1M</th><th>3M</th><th>All</th><th>Trades</th><th>PF</th></tr>
-      ${byAcc.map(r=>`<tr>
-        <td class="tk" onclick="selectTicker('${r.Ticker}')">${r.Ticker}</td><td>${r.BT_Category||''}</td>
-        <td>${sc(r.BT_1M,0)}%</td><td>${sc(r.BT_3M,0)}%</td><td style="font-weight:700">${sc(r.BT_6M,0)}%</td>
-        <td>${sc(r.TR_total_trades,0)}</td>
-        <td style="color:${pf(r.TR_profit_factor)>=1.1?'var(--bull)':'var(--white)'}">${sc(r.TR_profit_factor,2)}</td>
-      </tr>`).join('')}</table>
-    </div>
+    <div class="ana-card"><div class="ana-title">📊 Signal Summary</div><div style="display:flex;gap:16px;margin-bottom:10px"><div><div class="ana-big" style="color:var(--bull)">${bulls.length}</div><div class="ana-sub">Bullish</div></div><div><div class="ana-big" style="color:var(--bear)">${bears.length}</div><div class="ana-sub">Bearish</div></div><div><div class="ana-big" style="color:var(--neut)">${neuts.length}</div><div class="ana-sub">Neutral</div></div></div><div class="prog-bar"><div class="prog-fill" style="width:${bulls.length/allData.length*100}%;background:var(--bull)"></div></div></div>
+    <div class="ana-card"><div class="ana-title">🌍 Market Regime</div><div class="ana-big" style="color:var(--neut)">${meta.regime||'—'}</div><div class="ana-sub">${meta.regime_detail||''}</div><div style="margin-top:10px"><div class="ana-row"><span class="label">Accuracy</span><span class="value">${meta.direction_accuracy||0}%</span></div><div class="ana-row"><span class="label">Avg PF</span><span class="value">${meta.avg_pf||0}</span></div></div></div>
+    <div class="ana-card" style="grid-column:span 2"><div class="ana-title">📈 Category Performance</div><table class="top-table"><tr><th>Category</th><th>Tickers</th><th>Dir Acc</th><th>Win Rate</th><th>PF</th></tr>${catRows}</table></div>
+    <div class="ana-card"><div class="ana-title">🏆 Top 10 Profitable</div><table class="top-table"><tr><th>Ticker</th><th>Cat</th><th>PF</th><th>WR</th><th>Return</th></tr>${mkT(topPF)}</table></div>
+    <div class="ana-card"><div class="ana-title">⚠️ Bottom 10</div><table class="top-table"><tr><th>Ticker</th><th>Cat</th><th>PF</th><th>WR</th><th>Return</th></tr>${mkT(botPF)}</table></div>
+    <div class="ana-card" style="grid-column:span 2"><div class="ana-title">🎯 Top 10 Most Accurate</div><table class="top-table"><tr><th>Ticker</th><th>Cat</th><th>1M</th><th>3M</th><th>All</th><th>Trades</th><th>PF</th></tr>${byAcc.map(r=>`<tr><td class="tk" onclick="selectTicker('${r.Ticker}')">${r.Ticker}</td><td>${r.BT_Category||''}</td><td>${sc(r.BT_1M,0)}%</td><td>${sc(r.BT_3M,0)}%</td><td style="font-weight:700">${sc(r.BT_6M,0)}%</td><td>${sc(r.TR_total_trades,0)}</td><td style="color:${pf(r.TR_profit_factor)>=1.1?'var(--bull)':'var(--white)'}">${sc(r.TR_profit_factor,2)}</td></tr>`).join('')}</table></div>
   </div>`;
 }
 
+// ─── TICKER ANALYTICS ───
 function showTickerAnalytics(row){
   const tk=row.Ticker,d=getDir(row),comp=pf(row.Composite_Score);
-  const tech=parseInt(row.Technical_Score||0),macro=parseInt(row.Macro_Score||0);
-  const fund=parseInt(row.Fundamental_Score||0),news=pf(row.Forecast_Score);
-
+  const tech=parseInt(row.Technical_Score||0),macro=parseInt(row.Macro_Score||0),fund=parseInt(row.Fundamental_Score||0),news=pf(row.Forecast_Score);
   document.getElementById('mainContent').innerHTML=`
     <div style="margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span style="font-size:20px;font-weight:700;color:var(--white)">${tk}</span>
-      <span style="font-size:12px;padding:3px 10px;border-radius:4px;font-weight:700;
-        background:${d==='bull'?'rgba(34,197,94,0.15)':d==='bear'?'rgba(239,68,68,0.15)':'rgba(234,179,8,0.1)'};
-        color:var(--${d})">${dirLabel(d)}</span>
+      <span style="font-size:12px;padding:3px 10px;border-radius:4px;font-weight:700;background:${d==='bull'?'rgba(34,197,94,0.15)':d==='bear'?'rgba(239,68,68,0.15)':'rgba(234,179,8,0.1)'};color:var(--${d})">${dirLabel(d)}</span>
       <span style="font-size:13px;color:var(--text2)">${row.BT_Category||''} · ${row.Sector||''}</span>
-      <button onclick="openChart('${tk}')" style="margin-left:auto;padding:6px 16px;border-radius:6px;
-        background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600">📈 Open Chart</button>
-      <button onclick="selectedTicker=null;buildTickerBar();showOverallAnalytics()" style="padding:6px 12px;
-        border-radius:6px;background:var(--card2);color:var(--text);border:1px solid var(--border);
-        cursor:pointer;font-size:12px">← Back</button>
+      <button onclick="openChart('${tk}')" style="margin-left:auto;padding:6px 16px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600">📈 Open Chart</button>
+      <button onclick="selectedTicker=null;buildTickerBar();showOverallAnalytics()" style="padding:6px 12px;border-radius:6px;background:var(--card2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:12px">← Back</button>
     </div>
     <div class="analytics-grid">
-      <div class="ana-card">
-        <div class="ana-title">📊 Score Breakdown</div>
-        <div class="ana-big" style="color:${signColor(comp)}">${comp>0?'+':''}${comp.toFixed(1)}</div>
-        <div class="ana-sub">Composite Score</div>
-        <div style="margin-top:10px">
-          <div class="ana-row"><span class="label">Technical</span><span class="value" style="color:${signColor(tech)}">${sign(tech)}</span></div>
-          <div class="ana-row"><span class="label">Macro / Sector</span><span class="value" style="color:${signColor(macro)}">${sign(macro)}</span></div>
-          <div class="ana-row"><span class="label">Fundamental</span><span class="value" style="color:${signColor(fund)}">${sign(fund)}</span></div>
-          <div class="ana-row"><span class="label">News Sentiment</span><span class="value" style="color:${signColor(news)}">${news>0?'+':''}${news.toFixed(1)}</span></div>
-          <div class="ana-row"><span class="label">Severity</span><span class="value">${row.Composite_Severity||row.Severity||'—'}</span></div>
-          <div class="ana-row"><span class="label">Quality</span><span class="value">${row.Signal_Quality||'—'}</span></div>
-        </div>
-      </div>
-      <div class="ana-card">
-        <div class="ana-title">🎯 Backtest Accuracy</div>
-        <div class="ana-big">${sc(row.BT_6M,0)}%</div>
-        <div class="ana-sub">All-Time Direction Accuracy</div>
-        <div style="margin-top:10px">
-          <div class="ana-row"><span class="label">1 Month</span><span class="value">${sc(row.BT_1M,0)}%</span></div>
-          <div class="ana-row"><span class="label">3 Month</span><span class="value">${sc(row.BT_3M,0)}%</span></div>
-          <div class="ana-row"><span class="label">Horizon</span><span class="value">${row.BT_Forward_Days||'—'} days</span></div>
-          <div class="ana-row"><span class="label">Neutral Band</span><span class="value">±${sc(row.BT_Threshold,2)}%</span></div>
-          <div class="ana-row"><span class="label">ATR</span><span class="value">${sc(row.BT_ATR_Pct,1)}%</span></div>
-          <div class="ana-row"><span class="label">Total Predictions</span><span class="value">${sc(row.BT_Total_Preds,0)}</span></div>
-        </div>
-      </div>
-      <div class="ana-card">
-        <div class="ana-title">💰 Trade Simulation</div>
-        <div class="ana-big" style="color:${pf(row.TR_profit_factor)>=1.1?'var(--bull)':pf(row.TR_profit_factor)<0.9?'var(--bear)':'var(--white)'}">${sc(row.TR_profit_factor,2)}</div>
-        <div class="ana-sub">Profit Factor</div>
-        <div style="margin-top:10px">
-          <div class="ana-row"><span class="label">Total Trades</span><span class="value">${sc(row.TR_total_trades,0)}</span></div>
-          <div class="ana-row"><span class="label">Win Rate</span><span class="value">${sc(row.TR_win_rate,0)}%</span></div>
-          <div class="ana-row"><span class="label">Avg Win</span><span class="value" style="color:var(--bull)">+${sc(row.TR_avg_win_pct,1)}%</span></div>
-          <div class="ana-row"><span class="label">Avg Loss</span><span class="value" style="color:var(--bear)">-${sc(row.TR_avg_loss_pct,1)}%</span></div>
-          <div class="ana-row"><span class="label">Total Return</span><span class="value" style="color:${pf(row.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">${pf(row.TR_total_return_pct)>0?'+':''}${sc(row.TR_total_return_pct,1)}%</span></div>
-          <div class="ana-row"><span class="label">Avg Hold</span><span class="value">${sc(row.TR_avg_holding_days,0)} days</span></div>
-          <div class="ana-row"><span class="label">Stop-Loss</span><span class="value">${sc(row.BT_SL_Level,1)}%</span></div>
-          <div class="ana-row"><span class="label">SL Exits</span><span class="value">${sc(row.TR_stop_loss_exits,0)}</span></div>
-        </div>
-      </div>
-      <div class="ana-card">
-        <div class="ana-title">📈 Context</div>
-        <div style="margin-top:4px">
-          <div class="ana-row"><span class="label">Sector</span><span class="value">${row.Sector||'—'}</span></div>
-          <div class="ana-row"><span class="label">Category</span><span class="value">${row.BT_Category||'—'}</span></div>
-          <div class="ana-row"><span class="label">Streak</span><span class="value">${row.Streak_Days||0} days</span></div>
-          <div class="ana-row"><span class="label">Momentum</span><span class="value">${row.Momentum||'—'}</span></div>
-          <div class="ana-row"><span class="label">Long WR</span><span class="value">${sc(row.TR_long_win_rate,0)}%</span></div>
-          <div class="ana-row"><span class="label">Short WR</span><span class="value">${sc(row.TR_short_win_rate,0)}%</span></div>
-        </div>
-        ${row.Latest_Headline?`<div style="margin-top:10px;padding:8px;background:var(--card2);border-radius:6px;font-size:11px;color:var(--text2);line-height:1.5">📰 ${row.Latest_Headline}</div>`:''}
-      </div>
+      <div class="ana-card"><div class="ana-title">📊 Score Breakdown</div><div class="ana-big" style="color:${signColor(comp)}">${comp>0?'+':''}${comp.toFixed(1)}</div><div class="ana-sub">Composite Score</div><div style="margin-top:10px"><div class="ana-row"><span class="label">Technical</span><span class="value" style="color:${signColor(tech)}">${sign(tech)}</span></div><div class="ana-row"><span class="label">Macro/Sector</span><span class="value" style="color:${signColor(macro)}">${sign(macro)}</span></div><div class="ana-row"><span class="label">Fundamental</span><span class="value" style="color:${signColor(fund)}">${sign(fund)}</span></div><div class="ana-row"><span class="label">News</span><span class="value" style="color:${signColor(news)}">${news>0?'+':''}${news.toFixed(1)}</span></div><div class="ana-row"><span class="label">Severity</span><span class="value">${row.Composite_Severity||row.Severity||'—'}</span></div><div class="ana-row"><span class="label">Quality</span><span class="value">${row.Signal_Quality||'—'}</span></div></div></div>
+      <div class="ana-card"><div class="ana-title">🎯 Backtest Accuracy</div><div class="ana-big">${sc(row.BT_6M,0)}%</div><div class="ana-sub">All-Time Direction</div><div style="margin-top:10px"><div class="ana-row"><span class="label">1 Month</span><span class="value">${sc(row.BT_1M,0)}%</span></div><div class="ana-row"><span class="label">3 Month</span><span class="value">${sc(row.BT_3M,0)}%</span></div><div class="ana-row"><span class="label">Horizon</span><span class="value">${row.BT_Forward_Days||'—'}d</span></div><div class="ana-row"><span class="label">Neutral Band</span><span class="value">±${sc(row.BT_Threshold,2)}%</span></div><div class="ana-row"><span class="label">ATR</span><span class="value">${sc(row.BT_ATR_Pct,1)}%</span></div></div></div>
+      <div class="ana-card"><div class="ana-title">💰 Trade Simulation</div><div class="ana-big" style="color:${pf(row.TR_profit_factor)>=1.1?'var(--bull)':pf(row.TR_profit_factor)<0.9?'var(--bear)':'var(--white)'}">${sc(row.TR_profit_factor,2)}</div><div class="ana-sub">Profit Factor</div><div style="margin-top:10px"><div class="ana-row"><span class="label">Trades</span><span class="value">${sc(row.TR_total_trades,0)}</span></div><div class="ana-row"><span class="label">Win Rate</span><span class="value">${sc(row.TR_win_rate,0)}%</span></div><div class="ana-row"><span class="label">Avg Win</span><span class="value" style="color:var(--bull)">+${sc(row.TR_avg_win_pct,1)}%</span></div><div class="ana-row"><span class="label">Avg Loss</span><span class="value" style="color:var(--bear)">-${sc(row.TR_avg_loss_pct,1)}%</span></div><div class="ana-row"><span class="label">Return</span><span class="value" style="color:${pf(row.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">${pf(row.TR_total_return_pct)>0?'+':''}${sc(row.TR_total_return_pct,1)}%</span></div><div class="ana-row"><span class="label">Hold</span><span class="value">${sc(row.TR_avg_holding_days,0)}d</span></div><div class="ana-row"><span class="label">SL</span><span class="value">${sc(row.BT_SL_Level,1)}%</span></div></div></div>
+      <div class="ana-card"><div class="ana-title">📈 Context</div><div class="ana-row"><span class="label">Sector</span><span class="value">${row.Sector||'—'}</span></div><div class="ana-row"><span class="label">Streak</span><span class="value">${row.Streak_Days||0}d</span></div><div class="ana-row"><span class="label">Momentum</span><span class="value">${row.Momentum||'—'}</span></div><div class="ana-row"><span class="label">Long WR</span><span class="value">${sc(row.TR_long_win_rate,0)}%</span></div><div class="ana-row"><span class="label">Short WR</span><span class="value">${sc(row.TR_short_win_rate,0)}%</span></div>${row.Latest_Headline?`<div style="margin-top:10px;padding:8px;background:var(--card2);border-radius:6px;font-size:11px;color:var(--text2);line-height:1.5">📰 ${row.Latest_Headline}</div>`:''}</div>
     </div>`;
 }
 
 function selectTicker(ticker){
   selectedTicker=ticker;
-  const f=document.querySelector('.filter-btn.active')?.dataset.filter||'all';
-  buildTickerBar(f,document.getElementById('searchInput').value);
+  buildTickerBar(document.querySelector('.filter-btn.active')?.dataset.filter,document.getElementById('searchInput').value);
   const row=allData.find(r=>r.Ticker===ticker);
-  if(row) showTickerAnalytics(row);
+  if(row)showTickerAnalytics(row);
 }
 
-// ─── CHART MODAL WITH INDICATORS ───
-const IND_COLORS={sma9:'#f59e0b',sma22:'#8b5cf6',sma200:'#ec4899',ema9:'#06b6d4',ema21:'#14b8a6'};
+// ═══════════════════════════════════════
+// CHART MODAL + INDICATORS
+// ═══════════════════════════════════════
+
+function destroyChart(){
+  if(mainChart){mainChart.remove();mainChart=null;}
+  series={};CD=null;
+}
+
+function addLine(key,data,color,width,style){
+  if(!mainChart||!data||!data.length)return;
+  const s=mainChart.addLineSeries({color:color,lineWidth:width||1,lineStyle:style||0,
+    priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  s.setData(data);series[key]=s;
+}
+
+function removeSeries(key){
+  if(series[key]&&mainChart){try{mainChart.removeSeries(series[key]);}catch(e){}delete series[key];}
+}
 
 function openChart(ticker){
   const row=allData.find(r=>r.Ticker===ticker)||{};
   const d=getDir(row);
-  const modal=document.getElementById('chartModal');
   document.getElementById('modalTitle').textContent=ticker;
-  document.getElementById('modalSubtitle').textContent=
-    `${row.BT_Category||''} · ${row.Sector||''} · Composite: ${sign(sc(row.Composite_Score,1))}`;
-
+  document.getElementById('modalSubtitle').textContent=`${row.BT_Category||''} · ${row.Sector||''} · Comp: ${sign(sc(row.Composite_Score,1))}`;
   document.getElementById('modalKpis').innerHTML=`
     <div class="mkpi"><div class="mkpi-val" style="color:var(--${d})">${dirLabel(d)}</div><div class="mkpi-label">Signal</div></div>
     <div class="mkpi"><div class="mkpi-val">${sc(row.BT_6M,0)}%</div><div class="mkpi-label">Accuracy</div></div>
     <div class="mkpi"><div class="mkpi-val" style="color:${pf(row.TR_profit_factor)>=1.1?'var(--bull)':'var(--white)'}">${sc(row.TR_profit_factor,2)}</div><div class="mkpi-label">PF</div></div>
-    <div class="mkpi"><div class="mkpi-val">${sc(row.TR_win_rate,0)}%</div><div class="mkpi-label">Win Rate</div></div>
+    <div class="mkpi"><div class="mkpi-val">${sc(row.TR_win_rate,0)}%</div><div class="mkpi-label">WR</div></div>
     <div class="mkpi"><div class="mkpi-val" style="color:${pf(row.TR_total_return_pct)>0?'var(--bull)':'var(--bear)'}">${pf(row.TR_total_return_pct)>0?'+':''}${sc(row.TR_total_return_pct,1)}%</div><div class="mkpi-label">Return</div></div>
     <div class="mkpi"><div class="mkpi-val">${sc(row.BT_ATR_Pct,1)}%</div><div class="mkpi-label">ATR</div></div>
     <div class="mkpi"><div class="mkpi-val">${sc(row.TR_avg_holding_days,0)}d</div><div class="mkpi-label">Hold</div></div>`;
 
-  // Reset indicator buttons
-  document.querySelectorAll('.ind-btn').forEach(b=>{
+  // Reset all indicator buttons
+  document.querySelectorAll('#indicatorBar .ind-btn').forEach(b=>{
     const ind=b.dataset.ind;
-    b.classList.toggle('active',ind==='signals'||ind==='volume');
+    if(ind==='signals'||ind==='volume')b.classList.add('active');
+    else b.classList.remove('active');
   });
 
-  modal.classList.add('show');
+  document.getElementById('chartModal').classList.add('show');
   destroyChart();
 
   fetch(`charts/${ticker}.json`)
-    .then(r=>{if(!r.ok)throw new Error(r.status);return r.json()})
-    .then(data=>{
-      chartData=data;
-      createChart(data);
-    })
+    .then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+    .then(data=>{CD=data;buildChart();})
     .catch(e=>{
-      console.error('Chart load error:',e);
-      document.getElementById('modalChart').innerHTML=
-        `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);flex-direction:column;gap:8px">
-          <div>No chart data for ${ticker}</div>
-          <div style="font-size:10px">Ensure charts/ folder is pushed to GitHub</div>
-        </div>`;
+      document.getElementById('modalChart').innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);flex-direction:column;gap:8px"><div style="font-size:16px">📭</div><div>No chart data for ${ticker}</div><div style="font-size:10px">Run engine & push charts/ folder</div></div>`;
     });
 }
 
-function createChart(data){
+function buildChart(){
+  if(!CD)return;
   const container=document.getElementById('modalChart');
   container.innerHTML='';
+  series={};
 
-  chart=LightweightCharts.createChart(container,{
+  mainChart=LightweightCharts.createChart(container,{
     width:container.clientWidth,height:container.clientHeight,
     layout:{background:{type:'solid',color:'#151823'},textColor:'#8b949e',fontSize:11},
     grid:{vertLines:{color:'#1a1d29'},horzLines:{color:'#1a1d29'}},
@@ -462,97 +323,146 @@ function createChart(data){
     timeScale:{borderColor:'#2a2e3d',timeVisible:false},
   });
 
-  candleSeries=chart.addCandlestickSeries({
-    upColor:'#22c55e',downColor:'#ef4444',
-    borderUpColor:'#22c55e',borderDownColor:'#ef4444',
-    wickUpColor:'#22c55e88',wickDownColor:'#ef444488',
-  });
+  // Candles
+  const cs=mainChart.addCandlestickSeries({
+    upColor:'#22c55e',downColor:'#ef4444',borderUpColor:'#22c55e',borderDownColor:'#ef4444',
+    wickUpColor:'#22c55e88',wickDownColor:'#ef444488'});
+  cs.setData(CD.ohlc||[]);
+  if(CD.markers&&CD.markers.length)cs.setMarkers(CD.markers);
+  series['candles']=cs;
 
-  if(data.ohlc&&data.ohlc.length>0){
-    candleSeries.setData(data.ohlc);
-    if(data.markers&&data.markers.length>0) candleSeries.setMarkers(data.markers);
+  // Volume (default on)
+  if(CD.volume&&CD.volume.length){
+    const vs=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});
+    mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});
+    vs.setData(CD.volume);series['volume']=vs;
   }
 
-  // Default: volume on
-  if(data.volume&&data.volume.length>0){
-    volumeSeries=chart.addHistogramSeries({
-      priceFormat:{type:'volume'},priceScaleId:'vol',
-    });
-    chart.priceScale('vol').applyOptions({scaleMargins:{top:0.8,bottom:0}});
-    volumeSeries.setData(data.volume);
-  }
-
-  chart.timeScale().fitContent();
-
-  const ro=new ResizeObserver(()=>{
-    if(chart) chart.applyOptions({width:container.clientWidth,height:container.clientHeight});
-  });
-  ro.observe(container);
-}
-
-function destroyChart(){
-  if(chart){chart.remove();chart=null;candleSeries=null;volumeSeries=null;indicatorSeries={};chartData=null;}
+  mainChart.timeScale().fitContent();
+  new ResizeObserver(()=>{if(mainChart)mainChart.applyOptions({width:container.clientWidth,height:container.clientHeight});}).observe(container);
 }
 
 function toggleIndicator(ind){
-  if(!chart||!chartData) return;
+  if(!mainChart||!CD)return;
 
+  // ── SIGNALS ──
   if(ind==='signals'){
-    // Toggle markers
-    const btn=document.querySelector(`.ind-btn[data-ind="signals"]`);
-    const active=btn.classList.toggle('active');
-    if(active&&chartData.markers) candleSeries.setMarkers(chartData.markers);
-    else candleSeries.setMarkers([]);
-    return;
-  }
-
-  if(ind==='volume'){
-    const btn=document.querySelector(`.ind-btn[data-ind="volume"]`);
-    const active=btn.classList.toggle('active');
-    if(active&&chartData.volume&&chartData.volume.length>0){
-      volumeSeries=chart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});
-      chart.priceScale('vol').applyOptions({scaleMargins:{top:0.8,bottom:0}});
-      volumeSeries.setData(chartData.volume);
-    } else if(volumeSeries){
-      chart.removeSeries(volumeSeries);volumeSeries=null;
+    const on=document.querySelector('[data-ind="signals"]').classList.toggle('active');
+    if(series['candles']){
+      series['candles'].setMarkers(on&&CD.markers?CD.markers:[]);
     }
     return;
   }
 
-  // Line indicators
-  const btn=document.querySelector(`.ind-btn[data-ind="${ind}"]`);
-  const active=btn.classList.toggle('active');
-  const dataKey=ind; // sma9, sma22, sma200, ema9, ema21
+  // ── VOLUME ──
+  if(ind==='volume'){
+    const on=document.querySelector('[data-ind="volume"]').classList.toggle('active');
+    if(on&&CD.volume&&CD.volume.length){
+      const vs=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});
+      mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});
+      vs.setData(CD.volume);series['volume']=vs;
+    }else{removeSeries('volume');}
+    return;
+  }
 
-  if(active&&chartData[dataKey]&&chartData[dataKey].length>0){
-    const series=chart.addLineSeries({
-      color:IND_COLORS[ind]||'#ffffff',lineWidth:1,
-      priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
-    });
-    series.setData(chartData[dataKey]);
-    indicatorSeries[ind]=series;
-  } else if(indicatorSeries[ind]){
-    chart.removeSeries(indicatorSeries[ind]);
-    delete indicatorSeries[ind];
+  // ── SIMPLE LINE INDICATORS ──
+  const simpleMap={
+    sma9:{key:'sma9',color:'#f59e0b'},
+    sma22:{key:'sma22',color:'#8b5cf6'},
+    sma200:{key:'sma200',color:'#ec4899'},
+    ema9:{key:'ema9',color:'#06b6d4'},
+    ema21:{key:'ema21',color:'#14b8a6'},
+    adx:{key:'adx',color:'#06b6d4',scale:'adx',margins:{top:0.7,bottom:0.05}},
+  };
+  if(simpleMap[ind]){
+    const cfg=simpleMap[ind];
+    const on=document.querySelector(`[data-ind="${ind}"]`).classList.toggle('active');
+    if(on){
+      const opts={color:cfg.color,lineWidth:1,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false};
+      if(cfg.scale){opts.priceScaleId=cfg.scale;}
+      const s=mainChart.addLineSeries(opts);
+      if(cfg.scale&&cfg.margins)mainChart.priceScale(cfg.scale).applyOptions({scaleMargins:cfg.margins});
+      s.setData(CD[cfg.key]||[]);series[ind]=s;
+    }else{removeSeries(ind);}
+    return;
+  }
+
+  // ── BOLLINGER BANDS ──
+  if(ind==='bb'){
+    const on=document.querySelector('[data-ind="bb"]').classList.toggle('active');
+    if(on){
+      addLine('bb_upper',CD.bb_upper,'rgba(167,139,250,0.6)',1,2);
+      addLine('bb_lower',CD.bb_lower,'rgba(167,139,250,0.6)',1,2);
+    }else{removeSeries('bb_upper');removeSeries('bb_lower');}
+    return;
+  }
+
+  // ── SUPERTREND ──
+  if(ind==='supertrend'){
+    const on=document.querySelector('[data-ind="supertrend"]').classList.toggle('active');
+    if(on){
+      addLine('st_bull',CD.st_bull,'#22c55e',2);
+      addLine('st_bear',CD.st_bear,'#ef4444',2);
+    }else{removeSeries('st_bull');removeSeries('st_bear');}
+    return;
+  }
+
+  // ── RSI ──
+  if(ind==='rsi'){
+    const on=document.querySelector('[data-ind="rsi"]').classList.toggle('active');
+    if(on&&CD.rsi&&CD.rsi.length){
+      const s=mainChart.addLineSeries({color:'#f97316',lineWidth:1,priceScaleId:'rsi',
+        priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false});
+      mainChart.priceScale('rsi').applyOptions({scaleMargins:{top:0.75,bottom:0.02}});
+      s.setData(CD.rsi);series['rsi']=s;
+      // 30/70 lines
+      if(CD.rsi.length>=2){
+        const t1=CD.rsi[0].time,t2=CD.rsi[CD.rsi.length-1].time;
+        const s30=mainChart.addLineSeries({color:'rgba(239,68,68,0.3)',lineWidth:1,lineStyle:2,
+          priceScaleId:'rsi',priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+        s30.setData([{time:t1,value:30},{time:t2,value:30}]);series['rsi30']=s30;
+        const s70=mainChart.addLineSeries({color:'rgba(34,197,94,0.3)',lineWidth:1,lineStyle:2,
+          priceScaleId:'rsi',priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+        s70.setData([{time:t1,value:70},{time:t2,value:70}]);series['rsi70']=s70;
+      }
+    }else{removeSeries('rsi');removeSeries('rsi30');removeSeries('rsi70');}
+    return;
+  }
+
+  // ── MACD ──
+  if(ind==='macd'){
+    const on=document.querySelector('[data-ind="macd"]').classList.toggle('active');
+    if(on){
+      if(CD.macd_line&&CD.macd_line.length){
+        const ml=mainChart.addLineSeries({color:'#3b82f6',lineWidth:1,priceScaleId:'macd',
+          priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false});
+        mainChart.priceScale('macd').applyOptions({scaleMargins:{top:0.78,bottom:0.01}});
+        ml.setData(CD.macd_line);series['macd_line']=ml;
+      }
+      if(CD.macd_signal&&CD.macd_signal.length){
+        const ms=mainChart.addLineSeries({color:'#f97316',lineWidth:1,priceScaleId:'macd',
+          priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+        ms.setData(CD.macd_signal);series['macd_signal']=ms;
+      }
+      if(CD.macd_hist&&CD.macd_hist.length){
+        const mh=mainChart.addHistogramSeries({priceScaleId:'macd',priceFormat:{type:'price',precision:4,minMove:0.0001}});
+        mh.setData(CD.macd_hist);series['macd_hist']=mh;
+      }
+    }else{removeSeries('macd_line');removeSeries('macd_signal');removeSeries('macd_hist');}
+    return;
   }
 }
 
-// Indicator button clicks
+// Indicator clicks
 document.getElementById('indicatorBar').addEventListener('click',e=>{
   const btn=e.target.closest('.ind-btn');
-  if(!btn) return;
-  toggleIndicator(btn.dataset.ind);
+  if(btn)toggleIndicator(btn.dataset.ind);
 });
 
 // Close modal
-function closeModal(){
-  document.getElementById('chartModal').classList.remove('show');
-  destroyChart();
-}
+function closeModal(){document.getElementById('chartModal').classList.remove('show');destroyChart();}
 document.getElementById('modalClose').addEventListener('click',closeModal);
-document.getElementById('chartModal').addEventListener('click',e=>{
-  if(e.target===document.getElementById('chartModal'))closeModal();
-});
+document.getElementById('chartModal').addEventListener('click',e=>{if(e.target.id==='chartModal')closeModal();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 init();
