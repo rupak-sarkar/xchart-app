@@ -13,7 +13,7 @@ HISTORY_FILE = "history.csv"
 DATA_FILE = "data.csv"
 STOCK_DATA_FILE = "stock_data.csv"
 
-HISTORY_RETENTION_DAYS = 200  # increased for long-term tracking
+HISTORY_RETENTION_DAYS = 200
 
 WEIGHTS_NEWS = {"technical": 0.65, "sentiment": 0.10, "macro": 0.15, "fundamental": 0.10}
 WEIGHTS_NO_NEWS = {"technical": 0.75, "macro": 0.15, "fundamental": 0.10}
@@ -146,44 +146,118 @@ LONG_TERM_KEYWORDS = [
     "refinancing", "npa", "provisioning", "esg", "sustainability", "carbon", "green energy", "renewable"
 ]
 
+# ═══════════════════════════════════════════════════════════
+# v7.1 — REBALANCED CATALYST / NOISE KEYWORDS
+# ═══════════════════════════════════════════════════════════
+
+# MATERIAL CATALYST — expanded to catch more real signals
 MATERIAL_CATALYST_KEYWORDS = [
+    # Earnings / Financials
     "quarterly results", "annual results", "q1 results", "q2 results", "q3 results", "q4 results",
-    "net profit", "net loss", "revenue growth", "revenue decline", "ebitda",
+    "net profit", "net loss", "revenue growth", "revenue decline", "ebitda", "margin",
     "beat estimates", "missed estimates", "above estimates", "below estimates",
-    "profit after tax", "pat", "topline", "bottomline",
+    "profit after tax", "pat", "topline", "bottomline", "revenue up", "revenue down",
+    "profit up", "profit down", "profit rises", "profit falls", "profit jumps", "profit drops",
+    "revenue rises", "revenue falls", "revenue jumps", "revenue drops",
+    "earnings growth", "earnings decline", "sales growth", "sales decline",
+    "strong results", "weak results", "better than expected", "worse than expected",
+    "record profit", "record revenue", "highest ever", "all-time high",
+
+    # Corporate Actions
     "dividend", "interim dividend", "final dividend", "special dividend",
-    "buyback", "buy back", "share repurchase", "bonus issue", "bonus shares", "stock split", "sub-division",
-    "rights issue", "preferential allotment", "qip", "fpo", "ipo",
-    "order win", "order worth", "received order", "bags order", "wins order",
-    "contract awarded", "contract worth", "secured contract", "deal worth", "deal value", "letter of intent", "work order",
-    "acquisition", "acquires", "acquired", "acquire", "merger", "amalgamation", "takeover", "takeover bid",
-    "joint venture", "stake sale", "stake acquisition", "disinvestment", "divestiture", "demerger",
+    "buyback", "buy back", "share repurchase", "bonus issue", "bonus shares",
+    "stock split", "sub-division",
+    "rights issue", "preferential allotment", "qip", "fpo", "ipo", "ofs",
+    "fundraise", "fund raise", "capital raise", "raise funds",
+
+    # Orders / Contracts / Deals
+    "order win", "order worth", "received order", "bags order", "wins order", "wins contract",
+    "contract awarded", "contract worth", "secured contract", "secured order",
+    "deal worth", "deal value", "letter of intent", "work order",
+    "new order", "order book", "order inflow", "export order",
+    "bags contract", "receives order", "clinches", "bagged",
+
+    # M&A / Strategic
+    "acquisition", "acquires", "acquired", "acquire", "merger", "amalgamation",
+    "takeover", "takeover bid", "open offer",
+    "joint venture", "stake sale", "stake acquisition", "stake buy",
+    "disinvestment", "divestiture", "demerger", "hive off", "spin off",
+    "strategic partnership", "collaboration", "tie-up", "pact",
+
+    # Regulatory / Legal
     "sebi order", "sebi penalty", "sebi ban", "penalty imposed", "fine imposed",
-    "suspension", "debarment", "show cause", "default", "npa", "insolvency", "nclt",
-    "new ceo", "new cfo", "new md", "appoints ceo", "appoints md",
-    "ceo resigns", "md resigns", "cfo resigns", "managing director", "chief executive officer",
-    "rating upgrade", "rating downgrade", "target price raised", "target price cut", "target price reduced",
+    "suspension", "debarment", "show cause", "default", "npa",
+    "insolvency", "nclt", "resolution plan", "fraud",
+
+    # Management
+    "new ceo", "new cfo", "new md", "appoints ceo", "appoints md", "appoints cfo",
+    "ceo resigns", "md resigns", "cfo resigns",
+    "managing director", "chief executive officer", "board approves",
+
+    # Analyst / Rating
+    "rating upgrade", "rating downgrade", "credit upgrade", "credit downgrade",
+    "target price raised", "target price cut", "target price reduced",
+    "target price hiked", "target price lowered",
     "initiates coverage", "maintains buy", "maintains sell",
-    "new plant", "plant commissioning", "capacity expansion", "commercial production", "production commenced",
-    "capex plan", "capex of", "investment of",
-    "crore order", "crore deal", "crore contract", "million order", "million deal", "billion",
-    "usfda approval", "fda approval", "anda approval", "drug approval", "product launch", "patent",
+    "upgrades to buy", "downgrades to sell", "overweight", "underweight",
+    "outperform", "underperform", "buy rating", "sell rating", "hold rating",
+    "price target", "revised target",
+
+    # Expansion / Capex
+    "new plant", "plant commissioning", "capacity expansion", "capacity addition",
+    "commercial production", "production commenced", "greenfield", "brownfield",
+    "capex plan", "capex of", "investment of", "investing",
+    "new facility", "manufacturing unit", "expansion plan",
+
+    # Monetary amounts (common patterns)
+    "crore order", "crore deal", "crore contract", "crore investment",
+    "million order", "million deal", "billion", "lakh crore",
+
+    # Pharma / Tech specific
+    "usfda approval", "fda approval", "anda approval", "drug approval",
+    "product launch", "patent", "new drug", "clinical trial",
+    "new product", "launched", "rollout",
+
+    # Sector / Policy impact
+    "govt order", "government order", "policy change", "regulatory change",
+    "duty hike", "duty cut", "tariff", "anti-dumping", "import ban", "export ban",
+    "pli scheme", "subsidy", "incentive",
+
+    # Promoter / Insider
+    "promoter stake", "promoter buying", "promoter selling", "insider buying",
+    "bulk deal", "block deal", "pledge", "pledge release",
+
+    # Operational events
+    "fire", "accident", "force majeure", "shutdown", "strike", "lockout",
+    "supply disruption", "plant closure", "recall",
 ]
 
+# NOISE — ONLY truly generic market commentary with NO stock-specific value
+# v7.1: Dramatically trimmed — removed overly broad patterns
 NOISE_HEADLINE_PATTERNS = [
-    "markets likely", "market likely", "expected to open", "global cues", "global markets",
-    "asian markets", "european markets", "wall street", "dow jones", "nasdaq", "s&p 500",
-    "fii sold", "fii bought", "fii selling", "fii buying", "dii sold", "dii bought",
-    "dii selling", "dii buying", "foreign institutional", "domestic institutional",
-    "analyst expects", "analysts expect", "may outperform", "could benefit",
-    "likely to", "expected to outperform", "poised to",
-    "looks attractive", "appears overvalued", "sentiment positive", "sentiment negative",
-    "support level", "resistance level", "breakout", "breakdown",
-    "technical analysis", "chart pattern", "moving average",
-    "nifty may", "sensex may", "nifty likely", "sensex likely",
-    "sector outlook", "sector rotation", "sector performance",
-    "growth prospects", "long-term story", "structural growth",
-    "headwinds", "tailwinds", "challenges ahead", "opportunities ahead",
+    # Generic market open/close commentary (not stock-specific)
+    "markets likely to open", "market likely to open",
+    "global cues suggest", "global cues point",
+    "sgx nifty", "gift nifty",
+
+    # Pure index commentary (no stock mention)
+    "nifty may trade", "sensex may trade",
+    "nifty likely to trade", "sensex likely to trade",
+    "nifty prediction", "sensex prediction",
+    "nifty technical", "sensex technical",
+
+    # Pure flow data (no stock mention)
+    "fii sold worth", "fii bought worth", "dii sold worth", "dii bought worth",
+    "fii net sold", "fii net bought", "dii net sold", "dii net bought",
+
+    # Generic global market wrappers
+    "asian markets mixed", "european markets mixed",
+    "wall street overnight", "us markets overnight",
+
+    # Listicles / generic advice (no catalyst)
+    "top 10 stocks to", "5 stocks to buy", "3 stocks to watch",
+    "stocks in focus today", "buzzing stocks",
+    "stocks that hit 52-week", "stocks hitting upper circuit", "stocks hitting lower circuit",
 ]
 
 REPORTING_VERBS = {
@@ -213,7 +287,9 @@ CATALYST_VERBS = {
     "appoints", "appointed", "appoint", "resigns", "resigned", "resign",
     "penalizes", "penalized", "fines", "fined", "suspends", "suspended", "bans", "banned",
     "restructures", "restructured", "defaults", "defaulted", "commissions", "commissioned",
-    "inaugurates", "inaugurated", "divests", "divested", "demerges", "demerged"
+    "inaugurates", "inaugurated", "divests", "divested", "demerges", "demerged",
+    "bags", "bagged", "clinches", "clinched", "inks", "inked",
+    "targets", "targeted", "initiates", "initiated",
 }
 
 SECTOR_IMPACT_WORDS = {
