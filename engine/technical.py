@@ -1,4 +1,4 @@
-"""Technical scoring v7.2 — Dampened LC scoring, better BB range for SC."""
+"""Technical scoring v7.3 — LC: SMA9 reversal trigger | SC: BB-centric."""
 import os
 import pandas as pd
 import numpy as np
@@ -164,10 +164,14 @@ def _detect_knox(window):
 
 
 def compute_tech_score(window, mcap_threshold, debug=False):
-    """v7.2 — Dampened LC scoring, wider BB scoring range for SC.
+    """v7.3 — LC: SMA9 reversal in trend | SC: BB-centric.
 
-    MEGA/LARGE: Trend dampened so max bearish from trend alone = -21 (not -30)
-    MID/SMALL:  Higher BB weights so score can exceed ±20 entry threshold
+    LC PRIMARY: Detect SMA9 turning point within aligned trend.
+      BULL trigger: Price < SMA9 < SMA22 < SMA200 AND SMA9 today >= SMA9 yesterday
+      BEAR trigger: SMA200 < SMA22 < SMA9 < Price AND SMA9 today <= SMA9 yesterday
+    LC SECONDARY: S/R, RSI, SuperTrend, Ichimoku, Volume (small corrections)
+
+    SC: Unchanged BB-centric logic.
     """
     if len(window) < 20:
         return 0, [], {}
@@ -205,102 +209,120 @@ def compute_tech_score(window, mcap_threshold, debug=False):
     knox = _detect_knox(window) if len(window) >= 26 else None
 
     if is_largecap:
-        # ═══════════════════════════════════════
-        # MEGA / LARGE — DAMPENED TREND + S/R
-        # Max from trend alone: ±21 (below ±30 entry threshold)
-        # Needs S/R or confirmations to trigger signal
-        # ═══════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
+        # MEGA / LARGE — SMA9 REVERSAL TRIGGER
+        #
+        # PRIMARY (±25): SMA9 turning point within aligned trend
+        #   BULL: Price < SMA9 < SMA22 < SMA200 + SMA9 turning up
+        #   BEAR: SMA200 < SMA22 < SMA9 < Price + SMA9 turning down
+        #
+        # SECONDARY (max ±15): S/R, RSI, ST, Knox, Volume
+        #   Only adds conviction — cannot trigger alone (15 < 20)
+        # ═══════════════════════════════════════════════════════════
 
-        # Trend: Price vs long-term SMAs (dampened: max ±16)
-        if close > sma200 and sma50 > sma200:
-            score += 10
-            signals.append('Above SMA200+50 uptrend')
-        elif close < sma200 and sma50 < sma200:
-            score -= 10
-            signals.append('Below SMA200+50 downtrend')
+        primary = 0
 
-        if close > sma50:
-            score += 6
-            signals.append('Above SMA50')
-        elif close < sma50:
-            score -= 6
-            signals.append('Below SMA50')
+        # Get yesterday's SMA9 for reversal detection
+        sma9_prev = None
+        if len(window) >= 2:
+            prev = window.iloc[-2]
+            sma9_prev = safe_float(prev.get('SMA_9'), None)
 
-        # EMA cross (max ±5)
-        if ema9 > ema21:
-            score += 5
-            signals.append('EMA9>21 bullish')
-        elif ema9 < ema21:
-            score -= 5
-            signals.append('EMA9<21 bearish')
+        if sma9_prev is not None:
+            sma9_rising = sma9 >= sma9_prev
+            sma9_falling = sma9 <= sma9_prev
 
-        # S/R proximity (3% band)
+            # Full trend alignment checks
+            full_bearish = (close < sma9) and (sma9 < sma22) and (sma22 < sma200)
+            full_bullish = (sma200 < sma22) and (sma22 < sma9) and (sma9 < close)
+
+            # Partial alignment (missing SMA200 condition)
+            partial_bearish = (close < sma9) and (sma9 < sma22)
+            partial_bullish = (close > sma9) and (sma9 > sma22)
+
+            # ── PRIMARY TRIGGERS ──
+            if full_bearish and sma9_rising:
+                primary = +25
+                signals.append(f'🟢 BULL TRIGGER: SMA9 reversing up in full bearish trend')
+            elif full_bullish and sma9_falling:
+                primary = -25
+                signals.append(f'🔴 BEAR TRIGGER: SMA9 reversing down in full bullish trend')
+
+            # Partial trend (weaker signal — not enough alone to cross ±20)
+            elif partial_bearish and sma9_rising and not full_bearish:
+                primary = +15
+                signals.append(f'Partial bull: SMA9 turning up, Price<SMA9<SMA22')
+            elif partial_bullish and sma9_falling and not full_bullish:
+                primary = -15
+                signals.append(f'Partial bear: SMA9 turning down, Price>SMA9>SMA22')
+
+            # Trend continuation (no reversal yet)
+            elif full_bearish and not sma9_rising:
+                primary = -10
+                signals.append(f'Bearish continuation: SMA9 still falling')
+            elif full_bullish and not sma9_falling:
+                primary = +10
+                signals.append(f'Bullish continuation: SMA9 still rising')
+
+        score += primary
+
+        # ── SECONDARY: Small corrections (max ±15 total) ──
+
+        # S/R proximity (±5)
         sr_band = close * 0.03
         highs = window['High'].astype(float)
         lows = window['Low'].astype(float)
-
         support_levels = _find_support_levels(lows, close, sr_band)
         resistance_levels = _find_resistance_levels(highs, close, sr_band)
 
         near_support = any(abs(close - s) < sr_band for s in support_levels) if support_levels else False
         near_resistance = any(abs(close - r) < sr_band for r in resistance_levels) if resistance_levels else False
 
-        if near_support and rsi < 45:
-            score += 10
-            signals.append('Near support + RSI weak')
-        if near_resistance and rsi > 55:
-            score -= 10
-            signals.append('Near resistance + RSI high')
+        if near_support:
+            score += 5
+            signals.append('Near support')
+        if near_resistance:
+            score -= 5
+            signals.append('Near resistance')
 
-        # RSI extremes (new for LC — adds conviction)
+        # RSI extremes (±3)
         if rsi < 30:
-            score += 6
+            score += 3
             signals.append(f'RSI oversold ({rsi:.0f})')
         elif rsi > 70:
-            score -= 6
+            score -= 3
             signals.append(f'RSI overbought ({rsi:.0f})')
 
-        # ADX trend strength
-        if adx > 30:
-            if macd_hist > 0:
-                score += 5
-                signals.append('Strong trend + MACD bull')
-            else:
-                score -= 5
-                signals.append('Strong trend + MACD bear')
-
-        # SuperTrend
+        # SuperTrend (±3)
         if st_dir < 0:
-            score += 4
+            score += 3
             signals.append('SuperTrend bull')
         elif st_dir > 0:
-            score -= 4
+            score -= 3
             signals.append('SuperTrend bear')
 
-        # Ichimoku
+        # Ichimoku (±2)
         if knox == 'Bullish':
-            score += 4
+            score += 2
             signals.append('Ichimoku bull')
         elif knox == 'Bearish':
-            score -= 4
+            score -= 2
             signals.append('Ichimoku bear')
 
-        # Volume
+        # Volume surge (±2)
         if vol_surge:
             if close > sma9:
-                score += 3
+                score += 2
                 signals.append('Volume surge + price up')
             else:
-                score -= 3
+                score -= 2
                 signals.append('Volume surge + price down')
 
         horizon = 28 if mcap > mcap_threshold * 5 else 21
 
     else:
         # ═══════════════════════════════════════
-        # MID / SMALL — BOLLINGER BAND CENTRIC
-        # Higher weights so total can exceed ±20 entry threshold
-        # Max possible: ~±45 (BB:±25 + RSI:±12 + MACD:±8 + trend:±5 + vol:±5)
+        # MID / SMALL — BB-CENTRIC (unchanged)
         # ═══════════════════════════════════════
 
         if bb_upper is not None and bb_lower is not None and bb_upper > bb_lower:
@@ -409,11 +431,13 @@ def compute_tech_score(window, mcap_threshold, debug=False):
 
     if debug:
         cap_label = 'LC' if is_largecap else 'SMC'
+        primary_label = f"Pri={primary}" if is_largecap else ""
         print(
             f"    DEBUG {last.get('Ticker', '?')}({cap_label}): "
-            f"RSI={rsi:.1f}, Close={close}, SMA50={sma50}, SMA200={sma200}, "
-            f"BB={'yes' if bb_upper else 'no'}, Knox={knox}, "
-            f"ADX={adx:.1f}, MCap={mcap:.0f}, Score={score}"
+            f"RSI={rsi:.1f}, Close={close}, SMA9={sma9:.1f}, "
+            f"SMA22={sma22:.1f}, SMA200={sma200:.1f}, "
+            f"SMA9prev={'%.1f'%sma9_prev if is_largecap and sma9_prev else 'N/A'}, "
+            f"{primary_label} Score={score}"
         )
 
     return score, signals, info
