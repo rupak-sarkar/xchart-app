@@ -1,548 +1,605 @@
-"""XChart Predictive Engine v7.0 — σ-band, 5% SL, Cap-Aware Scoring"""
-import os
-import json
-import pandas as pd
-import numpy as np
-import time
+#!/usr/bin/env python3
+"""
+xchart-app v7.3 — Multi-Layer Predictive Trading Engine
+LC: SMA9 reversal trigger | SC: BB-centric | σ-band | 5% SL
+"""
 
-from engine.config import (
-    TODAY_IST,
-    NEWS_START_DATE,
-    NEWS_CUTOFF_TIME,
-    DATA_FILE,
-    WEIGHTS_NEWS,
-    WEIGHTS_NO_NEWS,
-    SOURCE_LABELS,
-)
-from engine.tickers import load_tickers
+import os, sys, json, re, time, traceback
+import numpy as np
+import pandas as pd
+import feedparser
+from datetime import datetime, timedelta, timezone
+
+# ── Engine imports ──
 from engine.data_fetcher import ensure_data_exists
-from engine.news import (
-    build_news_cache,
-    get_all_fresh_news,
-    get_live_price_return,
-    get_source_search_url,
-)
-from engine.sentiment import (
-    _load_finbert,
-    compute_aggregated_score,
-    classify_severity,
-    classify_impact,
-    classify_composite_severity,
-)
 from engine.technical import (
-    load_stock_data,
-    detect_mcap_scale,
-    get_technical_score,
-    get_sector_from_stock_data,
-)
-from engine.fundamentals import score_fundamentals
-from engine.regime import (
-    get_nifty_change,
-    compute_market_regime,
-    get_macro_scores,
-)
-from engine.composite import (
-    compute_composite_news,
-    compute_composite_no_news,
-    apply_regime_adjustment,
+    load_stock_data, compute_tech_score, detect_mcap_scale,
+    get_sector_from_stock_data, get_broad_sector
 )
 from engine.accuracy import (
-    compute_per_ticker_accuracy,
-    print_accuracy_report,
-    is_hit,
-    ENTRY_THRESHOLD,
-    EXIT_THRESHOLD,
-    HORIZONS,
-    HOLD_DAYS,
-    STOP_LOSS_PCT,
+    compute_per_ticker_accuracy, print_accuracy_report,
+    ENTRY_THRESHOLD_LC, ENTRY_THRESHOLD_SC,
+    EXIT_THRESHOLD_LC, EXIT_THRESHOLD_SC,
+    HORIZONS, HOLD_DAYS, STOP_LOSS_PCT, is_hit, _classify_cap
 )
-from engine.history import (
-    load_history,
-    save_to_history,
-    calculate_streaks,
-)
-from engine.charts import generate_chart_data
-from engine.utils import is_bad_str, safe_float
+from engine.utils import safe_float
+from create_stock_data import recompute_indicators
+
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    HAS_FINBERT = True
+except ImportError:
+    HAS_FINBERT = False
+
+# ═══════════════════════════════════════════════════════════════
+# CONSTANTS
+# ═══════════════════════════════════════════════════════════════
+VERSION = "7.3"
+TICKERS_FILE = 'tickers.csv'
+DATA_FILE = 'stock_data.csv'
+OUTPUT_FILE = 'data.csv'
+HISTORY_FILE = 'history.csv'
+CHARTS_DIR = 'charts'
+META_FILE = 'meta.json'
+
+W_TECH = 0.65
+W_NEWS = 0.10
+W_MACRO = 0.16
+W_FUND = 0.11
+FINBERT_BULL = 5
+FINBERT_BEAR = -5
+NEWS_LOOKBACK_HRS = 72
+
+RSS_FEEDS = {
+    'mc_topnews':     'https://www.moneycontrol.com/rss/MCtopnews.xml',
+    'mc_business':    'https://www.moneycontrol.com/rss/business.xml',
+    'mc_markets':     'https://www.moneycontrol.com/rss/marketreports.xml',
+    'mc_stocks':      'https://www.moneycontrol.com/rss/stocksnews.xml',
+    'et_markets':     'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms',
+    'et_stocks':      'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
+    'et_news':        'https://economictimes.indiatimes.com/news/rssfeeds/1715249553.cms',
+    'ndtv_business':  'https://feeds.feedburner.com/ndtvprofit-latest',
+    'mint_market':    'https://www.livemint.com/rss/market',
+    'mint_companies': 'https://www.livemint.com/rss/companies',
+    'nse_announce':   'https://www.nseindia.com/api/corporate-announcements?index=equities',
+    'nse_actions':    'https://www.nseindia.com/api/corporate-actions?index=equities',
+    'fe_markets':     'https://www.financialexpress.com/market/',
+    'fe_companies':   'https://www.financialexpress.com/industry/companies/feed/',
+    'bl_markets':     'https://www.thehindubusinessline.com/markets/feeder/default.rss',
+    'bl_stocks':      'https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss',
+    'bl_companies':   'https://www.thehindubusinessline.com/companies/feeder/default.rss',
+}
+
+REPORTING_KW = [
+    'quarterly result', 'q1 result', 'q2 result', 'q3 result', 'q4 result',
+    'net profit', 'revenue rose', 'revenue fell', 'reports profit', 'reports loss',
+    'earnings', 'fy25', 'fy26', 'annual report', 'agm', 'board approves dividend',
+]
+NSE_NOISE_KW = [
+    'board meeting', 'record date', 'trading window', 'loss of certificate',
+    'duplicate share', 'intimation', 'disclosure under', 'reg 29', 'reg 31',
+    'reg 39', 'reg 74', 'certificate', 'general meeting', 'alteration',
+    'change in director', 'newspaper', 'advertisement', 'book closure',
+]
+PREDICTIVE_KW = [
+    'upgrade', 'downgrade', 'target', 'outlook', 'forecast', 'expansion',
+    'acquisition', 'merger', 'buyback', 'stake', 'deal', 'order win',
+    'contract', 'partnership', 'launch', 'approve', 'fdi', 'fii', 'dii',
+    'bull', 'bear', 'rally', 'crash', 'surge', 'plunge', 'breakout',
+    'invest', 'capex', 'capacity', 'commissioning', 'plant', 'ipo',
+    'restructur', 'divest', 'demerger', 'rights issue', 'preferential',
+    'sector rotat', 'rate cut', 'rate hike', 'tariff', 'sanction',
+    'regulation', 'policy', 'subsidy', 'ban', 'recall', 'penalty',
+]
 
 
-DM = {1: "BULL", -1: "BEAR", 0: "NEUT"}
+# ═══════════════════════════════════════════════════════════════
+# TICKER LOADING
+# ═══════════════════════════════════════════════════════════════
+def load_tickers():
+    if not os.path.exists(TICKERS_FILE):
+        print(f"⚠️ {TICKERS_FILE} not found"); return [], {}
+    df = pd.read_csv(TICKERS_FILE)
+    tickers = df.iloc[:, 0].astype(str).str.strip().tolist()
+    sector_map = {}
+    if 'Sector' in df.columns:
+        for _, r in df.iterrows():
+            t = str(r.iloc[0]).strip()
+            s = str(r.get('Sector', '')).strip()
+            if s and s.lower() not in ('nan', 'none', ''):
+                sector_map[t] = s
+    print(f"Loaded {len(tickers)} tickers from {TICKERS_FILE} (sector map: {len(sector_map)} entries)")
+    return tickers, sector_map
 
 
-def _cleanup_stale_charts():
-    """Remove chart files for tickers no longer in tickers.csv."""
-    if not os.path.exists('charts'):
+# ═══════════════════════════════════════════════════════════════
+# NEWS FETCHING
+# ═══════════════════════════════════════════════════════════════
+def _is_reporting(title):
+    tl = title.lower()
+    return any(kw in tl for kw in REPORTING_KW)
+
+def _is_nse_noise(title):
+    tl = title.lower()
+    return any(kw in tl for kw in NSE_NOISE_KW)
+
+def _is_predictive(title):
+    tl = title.lower()
+    if _is_reporting(title):
+        return False
+    return any(kw in tl for kw in PREDICTIVE_KW)
+
+def _parse_pub_date(entry):
+    for key in ('published_parsed', 'updated_parsed'):
+        pp = entry.get(key)
+        if pp:
+            try:
+                return datetime(*pp[:6], tzinfo=timezone.utc)
+            except Exception:
+                pass
+    for key in ('published', 'updated'):
+        ds = entry.get(key, '')
+        if ds:
+            for fmt in ('%a, %d %b %Y %H:%M:%S %z', '%Y-%m-%dT%H:%M:%S%z',
+                        '%a, %d %b %Y %H:%M:%S GMT'):
+                try:
+                    return datetime.strptime(ds.strip(), fmt).replace(tzinfo=timezone.utc)
+                except Exception:
+                    continue
+    return None
+
+def _match_tickers(title, tickers):
+    matched = []
+    tl = title.upper()
+    for t in tickers:
+        t_clean = t.replace('&', '').replace('-', '')
+        if len(t_clean) < 3:
+            continue
+        pattern = r'\b' + re.escape(t_clean) + r'\b'
+        if re.search(pattern, tl.replace('&', '').replace('-', '')):
+            matched.append(t)
+    return matched
+
+def fetch_predictive_news(tickers, lookback_hrs=72):
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=lookback_hrs)
+    news_cache = {}
+    total_scanned = 0
+    total_reporting = 0
+    total_nse_noise = 0
+    total_kept = 0
+
+    for source, url in RSS_FEEDS.items():
+        print(f"Fetching {source}...")
+        try:
+            if 'nseindia.com/api' in url:
+                import urllib.request
+                req = urllib.request.Request(url, headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json',
+                })
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read())
+                entries = data if isinstance(data, list) else []
+                is_nse_api = True
+            else:
+                feed = feedparser.parse(url)
+                entries = feed.get('entries', [])
+                is_nse_api = False
+        except Exception as e:
+            print(f"   {source}: {e}")
+            print(f"   {source}: No entries")
+            continue
+
+        predictive_count = 0
+        reporting_count = 0
+        nse_noise_count = 0
+        outside_count = 0
+
+        for entry in entries:
+            if is_nse_api:
+                title = entry.get('subject', '') or entry.get('desc', '') or ''
+                symbol = entry.get('symbol', '')
+            else:
+                title = entry.get('title', '')
+                symbol = ''
+
+            if not title:
+                continue
+            total_scanned += 1
+
+            pub_date = _parse_pub_date(entry) if not is_nse_api else None
+            if pub_date and pub_date < cutoff:
+                outside_count += 1
+                continue
+
+            if _is_nse_noise(title):
+                nse_noise_count += 1
+                total_nse_noise += 1
+                continue
+
+            if _is_reporting(title):
+                reporting_count += 1
+                total_reporting += 1
+                continue
+
+            if not _is_predictive(title):
+                continue
+
+            if is_nse_api and symbol:
+                matched = [symbol] if symbol in tickers else []
+            else:
+                matched = _match_tickers(title, tickers)
+
+            if matched:
+                for t in matched:
+                    if t not in news_cache:
+                        news_cache[t] = []
+                    news_cache[t].append({
+                        'title': title,
+                        'source': source,
+                        'date': pub_date.isoformat() if pub_date else '',
+                    })
+                predictive_count += 1
+                total_kept += 1
+            else:
+                predictive_count += 1
+                total_kept += 1
+
+        parts = [f"{predictive_count} predictive from {len(entries)}"]
+        if outside_count:
+            parts.append(f"{outside_count} outside window")
+        if reporting_count:
+            parts.append(f"{reporting_count} reporting")
+        if nse_noise_count:
+            parts.append(f"{nse_noise_count} NSE noise")
+        print(f"   {source}: {', '.join(parts)}")
+
+    print(f"\nCache: {len(news_cache)}/{len(tickers)} predictive | "
+          f"Scanned:{total_scanned} Reporting:{total_reporting} "
+          f"NSEnoise:{total_nse_noise} Kept:{total_kept}")
+    return news_cache
+
+
+# ═══════════════════════════════════════════════════════════════
+# FINBERT SCORING
+# ═══════════════════════════════════════════════════════════════
+class FinBERTScorer:
+    def __init__(self):
+        if not HAS_FINBERT:
+            self.model = None
+            return
+        print("Initializing FinBERT...")
+        model_name = "ProsusAI/finbert"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.model.eval()
+
+    def score(self, text):
+        if not self.model:
+            return 0.0
+        inputs = self.tokenizer(text, return_tensors='pt', truncation=True, max_length=512)
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
+        pos, neg, neu = probs[0].item(), probs[1].item(), probs[2].item()
+        return (pos - neg) * 100
+
+    def score_catalysts(self, headlines):
+        if not headlines:
+            return 0.0, 0, 0
+        total = 0.0
+        n_cat = 0
+        for h in headlines:
+            title = h['title'] if isinstance(h, dict) else h
+            s = self.score(title)
+            total += s
+            n_cat += 1
+        return total, n_cat, len(headlines)
+
+
+# ═══════════════════════════════════════════════════════════════
+# FUNDAMENTAL SCORING
+# ═══════════════════════════════════════════════════════════════
+def compute_fund_score(ticker, stock_df):
+    tk = stock_df[stock_df['Ticker'] == ticker]
+    if tk.empty:
+        return 0
+    last = tk.iloc[-1]
+    mcap = safe_float(last.get('Market_Cap', 0), 0)
+    if mcap <= 0:
+        return 0
+    score = 0
+    pe = safe_float(last.get('PE_Ratio', 0), 0)
+    if pe > 0:
+        if pe < 15:
+            score += 15
+        elif pe < 25:
+            score += 5
+        elif pe > 50:
+            score -= 15
+        elif pe > 35:
+            score -= 10
+    div_yield = safe_float(last.get('Dividend_Yield', 0), 0)
+    if div_yield > 3:
+        score += 10
+    elif div_yield > 1.5:
+        score += 5
+    pb = safe_float(last.get('PB_Ratio', 0), 0)
+    if pb > 0:
+        if pb < 1.5:
+            score += 10
+        elif pb > 5:
+            score -= 10
+    roe = safe_float(last.get('ROE', 0), 0)
+    if roe > 20:
+        score += 10
+    elif roe > 12:
+        score += 5
+    elif roe < 5 and roe > 0:
+        score -= 5
+    if pe == 0 and pb == 0 and roe == 0:
+        score = 5 if mcap > 10000 else 0
+    return score
+
+
+# ═══════════════════════════════════════════════════════════════
+# MARKET REGIME
+# ═══════════════════════════════════════════════════════════════
+def compute_market_regime():
+    import yfinance as yf
+    regime = {'regime': 'UNKNOWN', 'nifty_5d': 0, 'breadth': 50,
+              'avg_rsi': 50, 'lt_breadth': 50}
+    try:
+        nifty = yf.download('^NSEI', period='1mo', progress=False)
+        if not nifty.empty:
+            close = nifty['Close']
+            if hasattr(close, 'iloc') and len(close) >= 6:
+                ret5 = (float(close.iloc[-1]) - float(close.iloc[-6])) / float(close.iloc[-6]) * 100
+                regime['nifty_5d'] = round(ret5, 2)
+    except Exception:
+        pass
+
+    try:
+        broad = yf.download('^NSEI', period='6mo', progress=False)
+        if not broad.empty and len(broad) > 22:
+            close_b = broad['Close'].squeeze()
+            sma22 = close_b.rolling(22).mean()
+            above = (close_b > sma22).sum()
+            total_b = len(close_b.dropna())
+            regime['breadth'] = round(above / max(total_b, 1) * 100)
+    except Exception:
+        pass
+
+    try:
+        all_stocks = yf.download(
+            '^NSEI', period='3mo', progress=False
+        )
+        # Breadth from NSE broad market
+        nse_url = "https://www.nseindia.com/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O"
+        import urllib.request
+        req = urllib.request.Request(nse_url, headers={'User-Agent': 'Mozilla/5.0'})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+            stocks = data.get('data', [])
+            above_sma22 = 0
+            total_stocks = 0
+            rsi_sum = 0
+            above_sma200 = 0
+            for s in stocks:
+                try:
+                    ltp = float(s.get('lastPrice', '0').replace(',', ''))
+                    op = float(s.get('open', '0').replace(',', ''))
+                    if ltp > 0:
+                        total_stocks += 1
+                except Exception:
+                    continue
+            if total_stocks > 0:
+                regime['breadth'] = round(above_sma22 / total_stocks * 100)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    n5 = regime['nifty_5d']
+    br = regime['breadth']
+    rsi_avg = regime.get('avg_rsi', 50)
+    lt = regime.get('lt_breadth', 50)
+
+    if br >= 65 and n5 > 1:
+        regime['regime'] = 'STRONG_BULL'
+    elif br >= 55 and n5 > 0:
+        regime['regime'] = 'MILD_BULL'
+    elif br <= 35 and n5 < -1:
+        regime['regime'] = 'STRONG_BEAR'
+    elif br <= 45 and n5 < 0:
+        regime['regime'] = 'MILD_BEAR'
+    else:
+        regime['regime'] = 'CHOPPY'
+
+    print(f"\nComputing market regime...")
+    print(f"  -> Nifty 5d: {n5}%")
+    print(f"  -> SMA22 breadth: {br}%")
+    print(f"  -> Avg RSI: {rsi_avg}")
+    print(f"  -> SMA200 breadth: {lt}%")
+    print(f"  -> REGIME: {regime['regime']} (breadth={br}% nifty={n5}% rsi={rsi_avg} lt={lt}%)")
+    return regime
+
+
+def compute_sector_strength(stock_df, tickers, mcap_threshold):
+    sectors = {}
+    for t in tickers:
+        sec = get_sector_from_stock_data(t, stock_df)
+        broad = get_broad_sector(sec)
+        if broad not in sectors:
+            sectors[broad] = {'tickers': [], 'scores': []}
+        sectors[broad]['tickers'].append(t)
+        tk = stock_df[stock_df['Ticker'] == t]
+        if not tk.empty:
+            last = tk.iloc[-1]
+            close = safe_float(last.get('Close'), 0)
+            sma22 = safe_float(last.get('SMA_22'), close)
+            sma200 = safe_float(last.get('SMA_200'), close)
+            if close > 0 and sma22 > 0:
+                rel = (close - sma22) / sma22 * 100
+                sectors[broad]['scores'].append(rel)
+
+    sector_scores = {}
+    print(f"\nComputing sector strength...")
+    if sectors:
+        print(f"  -> {len(sectors)} broad sectors")
+    for sec, data in sorted(sectors.items(), key=lambda x: np.mean(x[1]['scores']) if x[1]['scores'] else 0):
+        avg = round(np.mean(data['scores'])) if data['scores'] else 0
+        n = len(data['tickers'])
+        sector_scores[sec] = avg
+        print(f"    {sec} ({n}): {avg:+d} [data-driven]")
+    return sector_scores
+
+
+# ═══════════════════════════════════════════════════════════════
+# CHART DATA GENERATION
+# ═══════════════════════════════════════════════════════════════
+def generate_chart_data(ticker, stock_df, output_dir):
+    tk = stock_df[stock_df['Ticker'] == ticker].sort_values('Date').tail(365)
+    if tk.empty:
         return
-    tl, _ = load_tickers()
-    valid = set(tl)
-    removed = 0
-    for f in os.listdir('charts'):
-        if f.endswith('.json'):
-            tk = f.replace('.json', '')
-            if tk not in valid:
-                os.remove(os.path.join('charts', f))
-                removed += 1
-    if removed:
-        print(f"  Cleaned {removed} stale chart files")
+    cols = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume',
+            'SMA_9', 'SMA_22', 'SMA_50', 'SMA_200',
+            'EMA_9', 'EMA_21', 'RSI_14',
+            'MACD_Line', 'MACD_Signal', 'MACD_Hist',
+            'BB_Upper', 'BB_Lower', 'ADX_14', 'ST_Direction',
+            'Ichi_Tenkan', 'Ichi_Kijun', 'ATR_14']
+    available = [c for c in cols if c in tk.columns]
+    chart_df = tk[available].copy()
+    chart_df.to_csv(os.path.join(output_dir, f"{ticker}.csv"), index=False)
 
 
-def phase0_data():
-    print("Checking historical data...")
+# ═══════════════════════════════════════════════════════════════
+# MAIN ENGINE
+# ═══════════════════════════════════════════════════════════════
+def main():
+    today = datetime.now().strftime('%Y-%m-%d')
+    now_str = datetime.now().strftime('%I:%M %p')
+
+    # ── Step 0: Data sync + recompute ──
     ensure_data_exists()
-    _cleanup_stale_charts()
+    recompute_indicators()
 
+    tickers, sector_map = load_tickers()
+    if not tickers:
+        print("No tickers found!"); return
 
-def phase1_news(tl):
-    print("\nPHASE 1: Fetching predictive news...")
-    print("-" * 110)
-    nc = build_news_cache(tl)
-    print("-" * 110)
-    return nc
+    # ── Init FinBERT ──
+    scorer = FinBERTScorer()
+    tickers, sector_map = load_tickers()
 
+    # ── Load stock data ──
+    stock_df = load_stock_data()
+    if stock_df.empty:
+        print("No stock data!"); return
 
-def phase2_finbert(tl, sm, nc):
-    print("\nPHASE 2: FinBERT scoring (CATALYST-ONLY)...")
-    print("-" * 110)
+    mcap_threshold = detect_mcap_scale(stock_df)
+    print(f"  -> MCap threshold: {mcap_threshold}")
 
-    scored = []
-    filing = []
-    nonews = []
-    hd = 0
-    td2 = 0
-    total_catalyst = 0
-    total_noise_filtered = 0
+    # Header
+    print(f"\nPREDICTIVE Engine v{VERSION} - {len(tickers)} tickers | {today}")
+    cutoff_date = (datetime.now() - timedelta(hours=NEWS_LOOKBACK_HRS)).strftime('%Y-%m-%d')
+    print(f"News: {cutoff_date} to {now_str} | CATALYST-ONLY FinBERT")
+    print(f"Tech: MEGA/LARGE=SMA9-reversal | MID/SMALL=BB-centric")
+    print(f"Horizons: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d "
+          f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d")
+    print(f"MinHold: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
+          f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d")
+    print(f"SL: {STOP_LOSS_PCT}% fixed | Neutral band: σ-based (std×√horizon)")
+    print(f"Entry: ±{ENTRY_THRESHOLD_LC} | Exit: ±{EXIT_THRESHOLD_LC}")
+    print(f"Validation: neutral=HIT | Per-ticker: Swing/1M/3M/ALL")
+    print('=' * 110)
 
-    for tk in tl:
-        ret = get_live_price_return(tk)
-        ad = 1 if ret > 0.25 else (-1 if ret < -0.25 else 0)
-        entries, cls, fe = get_all_fresh_news(tk, nc, ret)
-        base = {
-            "Ticker": tk,
-            "Sector": sm.get(tk, ""),
-            "Actual_Direction": ad,
-            "Actual_Return_Pct": ret,
+    # ══════════════════════════════════════════════
+    # PHASE 1: News
+    # ══════════════════════════════════════════════
+    print(f"\nPHASE 1: Fetching predictive news...")
+    print('-' * 110)
+    news_cache = fetch_predictive_news(tickers, NEWS_LOOKBACK_HRS)
+    print('-' * 110)
+
+    # ══════════════════════════════════════════════
+    # PHASE 2: FinBERT scoring
+    # ══════════════════════════════════════════════
+    print(f"\nPHASE 2: FinBERT scoring (CATALYST-ONLY)...")
+    print('-' * 110)
+
+    scored_tickers = {}
+    idx = 0
+    for t in tickers:
+        headlines = news_cache.get(t, [])
+        if not headlines:
+            continue
+        total_score, n_cat, n_h = scorer.score_catalysts(headlines)
+        mcap = 0
+        tk = stock_df[stock_df['Ticker'] == t]
+        if not tk.empty:
+            mcap = safe_float(tk.iloc[-1].get('Market_Cap', 0), 0)
+            close_now = safe_float(tk.iloc[-1].get('Close', 0), 0)
+            cat = _classify_cap(mcap, mcap_threshold)
+            fwd = HORIZONS[cat]
+            close_prev = None
+            if len(tk) >= fwd + 1:
+                close_prev = safe_float(tk.iloc[-(fwd + 1)].get('Close', 0), 0)
+            actual_ret = ((close_now - close_prev) / close_prev * 100) if close_prev and close_prev > 0 else 0
+        else:
+            actual_ret = 0
+
+        if total_score > FINBERT_BULL:
+            direction = 'BULL'
+        elif total_score < FINBERT_BEAR:
+            direction = 'BEAR'
+        else:
+            direction = 'NEUT'
+
+        hit = 'HIT' if (total_score > 0 and actual_ret > 0) or \
+                       (total_score < 0 and actual_ret < 0) or \
+                       (abs(actual_ret) < 0.25) else 'MISS'
+
+        idx += 1
+        print(f"[{idx:>3}] {t:<14} {direction:>4} Score: {total_score:>+5.1f} "
+              f"Ret: {actual_ret:>+.2f}% {hit} [{n_cat}cat/{n_h}h]")
+
+        scored_tickers[t] = {
+            'news_score': total_score,
+            'news_dir': direction,
+            'news_hit': hit,
+            'n_catalysts': n_cat,
+            'n_headlines': n_h,
         }
 
-        if cls == "no_news":
-            nonews.append({
-                **base, "Latest_Headline": "", "News_Source": "",
-                "News_Time": "", "News_URL": "", "Headline_Count": 0,
-                "Forecast_Score": 0.0, "Forecast_Direction": 0,
-                "Severity": "No News", "Impact": "",
-                "Streak_Days": 0, "Streak_Return": 0.0,
-                "Momentum": "", "Signal_Quality": "Tech-Scored",
-            })
-            continue
+    print(f"\n  Catalysts: {sum(s['n_catalysts'] for s in scored_tickers.values())} scored")
 
-        if cls == "filing_only":
-            p = fe[0] if fe else {}
-            nu = p.get("news_url", "") or get_source_search_url("NSE Official", tk)
-            filing.append({
-                **base, "Latest_Headline": p.get("headline", ""),
-                "News_Source": "NSE Official",
-                "News_Time": p.get("pub_time", "").replace(",", ""),
-                "News_URL": nu, "Headline_Count": len(fe),
-                "Forecast_Score": 0.0, "Forecast_Direction": 0,
-                "Severity": "Filing Only", "Impact": "",
-                "Streak_Days": 0, "Streak_Return": 0.0,
-                "Momentum": "", "Signal_Quality": "Tech-Scored",
-            })
-            continue
-
-        pe = max(entries, key=lambda e: e["weight"])
-        ps = pe["source"]
-        pt = pe["pub_time"]
-        pu = pe.get("news_url", "") or get_source_search_url(
-            SOURCE_LABELS.get(ps, ""), tk
-        )
-        if ps in ("yfinance", "google"):
-            time.sleep(0.3)
-
-        score, direction, cat_count, noise_count = compute_aggregated_score(entries)
-        total_catalyst += cat_count
-        total_noise_filtered += noise_count
-        sev = classify_severity(score)
-        imp = classify_impact(entries)
-        hit = direction == ad
-        if direction != 0:
-            td2 += 1
-            if hit:
-                hd += 1
-
-        ab = abs(score)
-        q = "High" if ab >= 60 else ("Moderate" if ab >= 25 else ("Weak" if ab >= 5 else "Neutral"))
-        usrc = list(dict.fromkeys(
-            SOURCE_LABELS.get(e["source"], e["source"]) for e in entries
-        ))
-        print(
-            f"[{len(scored)+1:3d}] {tk:<14s} {DM.get(direction,'?'):4s} "
-            f"Score:{score:+6.1f} Ret:{ret:+6.2f}% "
-            f"{'HIT' if hit else 'MISS'} [{cat_count}cat/{len(entries)}h]"
-        )
-        scored.append({
-            **base, "Latest_Headline": pe["headline"],
-            "News_Source": " | ".join(usrc),
-            "News_Time": pt.replace(",", "") if pt else "",
-            "News_URL": pu, "Headline_Count": len(entries),
-            "Forecast_Score": score, "Forecast_Direction": direction,
-            "Severity": sev, "Impact": imp, "Signal_Quality": q,
-        })
-
-    print(
-        f"\n  Catalysts: {total_catalyst} scored / "
-        f"{total_noise_filtered} noise filtered"
-    )
-    return scored, filing, nonews, hd, td2
-
-
-def phase3_analysis(all_rows, sm, stock_df, mcap_threshold):
-    print("Computing technical scores (v7.0 cap-aware)...")
-    tech_count = 0
-    lc_count = 0
-    smc_count = 0
-    for i, row in enumerate(all_rows):
-        tech = get_technical_score(
-            row["Ticker"], stock_df, mcap_threshold, debug=(i < 3)
-        )
-        row["Technical_Score"] = tech["score"]
-        row["Tech_Signals"] = " | ".join(tech["signals"]) if tech["signals"] else ""
-        row["Est_Horizon"] = tech.get("horizon", 7)
-        if tech["score"] != 0:
-            tech_count += 1
-        if stock_df is not None and not stock_df.empty:
-            tk_v = stock_df[stock_df["Ticker"] == row["Ticker"]]
-            tk_v = tk_v[tk_v["Close"].notna()]
-            if not tk_v.empty:
-                mc = safe_float(tk_v.iloc[-1].get("Market_Cap", 0), 0)
-                if mc > mcap_threshold:
-                    lc_count += 1
-                else:
-                    smc_count += 1
-            else:
-                smc_count += 1
-        else:
-            smc_count += 1
-    print(f"  -> {tech_count}/{len(all_rows)} scored | LC:{lc_count} SMC:{smc_count}")
-
-    print("Computing fundamentals...")
-    for row in all_rows:
-        fund = score_fundamentals(row["Ticker"], stock_df)
-        row["Fundamental_Score"] = fund["score"]
-        row["Fund_Concern"] = fund.get("concern", "")
-    fund_nz = sum(1 for r in all_rows if r["Fundamental_Score"] != 0)
-    print(f"  -> {fund_nz}/{len(all_rows)} with non-zero fund score")
-
-    all_sectors = set()
-    sc_count = 0
-    for row in all_rows:
-        sector = sm.get(row["Ticker"], "")
-        if not sector or is_bad_str(sector):
-            sector = get_sector_from_stock_data(row["Ticker"], stock_df)
-        if is_bad_str(sector):
-            sector = ""
-        row["_sector"] = sector
-        if sector:
-            all_sectors.add(sector)
-            sc_count += 1
-    print(f"  -> {sc_count}/{len(all_rows)} mapped to {len(all_sectors)} sectors")
-
-    return lc_count, smc_count, all_sectors
-
-
-def phase3b_backtest(stock_df, mcap_threshold, all_rows):
-    print(f"\nPHASE 3b: Backtest (σ-band + 5% SL)...")
-    bt_results = compute_per_ticker_accuracy(stock_df, mcap_threshold)
-    bt_count = len(bt_results)
-    avg_1m = 0.0
-    avg_all = 0.0
-    total_bt_preds = 0
-    if bt_count > 0:
-        avg_1m = sum(r["BT_1M"] for r in bt_results.values()) / bt_count
-        avg_all = sum(r["BT_6M"] for r in bt_results.values()) / bt_count
-        total_bt_preds = sum(r["BT_Total_Preds"] for r in bt_results.values())
-        print(f"  -> {bt_count} tickers | {total_bt_preds:,} predictions")
-        print(f"  -> Avg 1M: {avg_1m:.1f}% | Avg ALL: {avg_all:.1f}%")
-
-    for row in all_rows:
-        bt = bt_results.get(row["Ticker"], {})
-        row["BT_Swing"] = bt.get("BT_Swing", "")
-        row["BT_1M"] = bt.get("BT_1M", 0.0)
-        row["BT_3M"] = bt.get("BT_3M", 0.0)
-        row["BT_6M"] = bt.get("BT_6M", 0.0)
-        row["BT_1M_N"] = bt.get("BT_1M_N", 0)
-        row["BT_Total_Preds"] = bt.get("BT_Total_Preds", 0)
-        row["BT_Forward_Days"] = bt.get("BT_Forward_Days", 7)
-        row["BT_Threshold"] = bt.get("BT_Threshold", 0.5)
-        row["BT_ATR_Pct"] = bt.get("BT_ATR_Pct", 0)
-        row["BT_SL_Level"] = bt.get("BT_SL_Level", 0)
-        row["BT_Category"] = bt.get("BT_Category", "")
-        for k in ["TR_total_trades", "TR_wins", "TR_losses", "TR_win_rate",
-                   "TR_avg_win_pct", "TR_avg_loss_pct", "TR_profit_factor",
-                   "TR_total_return_pct", "TR_avg_holding_days",
-                   "TR_long_trades", "TR_short_trades",
-                   "TR_long_win_rate", "TR_short_win_rate",
-                   "TR_stop_loss_exits", "TR_signal_flip_exits"]:
-            row[k] = bt.get(k, 0)
-
-    return bt_results, bt_count, avg_1m, avg_all, total_bt_preds
-
-
-def phase_composite(scored, filing, nonews, regime):
-    print(f"\nComputing composite + regime adjustment...")
-    if "BEAR" in regime["regime"]:
-        rdesc = "BULL dampened 60%" if regime["regime"] == "BEAR" else "BULL dampened 80%"
-    elif "BULL" in regime["regime"]:
-        rdesc = "BEAR dampened 60%" if regime["regime"] == "BULL" else "BEAR dampened 80%"
-    else:
-        rdesc = "no adjustment"
-    print(f"  Regime: {regime['regime']} -> {rdesc}")
-    print("-" * 110)
-
-    chd = 0
-    ctd = 0
-    regime_flips = 0
-
-    for row in scored:
-        comp = compute_composite_news(
-            row["Forecast_Score"], row["Technical_Score"],
-            row["Macro_Score"], row["Fundamental_Score"],
-        )
-        raw_dir = comp["direction"]
-        adj_score, adj_dir = apply_regime_adjustment(comp["score"], regime)
-        row["Composite_Score"] = adj_score
-        row["Composite_Direction"] = adj_dir
-        row["Composite_Severity"] = classify_composite_severity(adj_score)
-        if raw_dir != adj_dir:
-            regime_flips += 1
-        c_hit = is_hit(adj_dir, row["Actual_Direction"]) if adj_dir != 0 else False
-        if adj_dir != 0:
-            ctd += 1
-            if c_hit:
-                chd += 1
-
-        corrected = " <- CORRECTED" if row["Forecast_Direction"] != adj_dir else ""
-        bt_tag = ""
-        if row.get("BT_1M", 0) > 0:
-            bt_tag = (
-                f" BT:{row['BT_1M']:.0f}%/{row.get('BT_Category','')} "
-                f"{row.get('BT_Forward_Days',7):.0f}d"
-            )
-        est_h = row.get("Est_Horizon", 7)
-        idx = scored.index(row) + 1
-        print(
-            f"  [{idx:3d}] {row['Ticker']:<14s} "
-            f"Tech:{row['Technical_Score']:+4d} "
-            f"Macro:{row['Macro_Score']:+4d} "
-            f"Fund:{row['Fundamental_Score']:+4d} "
-            f"-> Comp:{adj_score:+6.1f} {DM[adj_dir]} "
-            f"{'HIT' if c_hit else 'MISS' if adj_dir != 0 else 'NEUT'}"
-            f"{corrected}{bt_tag} H:{est_h}d"
-        )
-
-    t_bull = 0
-    t_bear = 0
-    t_neut = 0
-    t_hit = 0
-
-    for row in filing + nonews:
-        comp = compute_composite_no_news(
-            row["Technical_Score"], row["Macro_Score"],
-            row["Fundamental_Score"],
-        )
-        adj_score, adj_dir = apply_regime_adjustment(comp["score"], regime)
-        row["Composite_Score"] = adj_score
-        row["Composite_Direction"] = adj_dir
-        row["Composite_Severity"] = classify_composite_severity(adj_score) if adj_score != 0 else ""
-        row["Forecast_Direction"] = 0
-        if adj_dir == 1:
-            t_bull += 1
-        elif adj_dir == -1:
-            t_bear += 1
-        else:
-            t_neut += 1
-        if adj_dir != 0 and is_hit(adj_dir, row["Actual_Direction"]):
-            t_hit += 1
-
-    t_dir_total = t_bull + t_bear
-    if t_dir_total > 0:
-        pct = t_hit / t_dir_total * 100
-        print(
-            f"\n  Tech-only: Bull:{t_bull} Bear:{t_bear} Neut:{t_neut} "
-            f"| Hit:{t_hit}/{t_dir_total} = {pct:.1f}%"
-        )
-    print(f"  Regime flips: {regime_flips}")
-
-    return chd, ctd, regime_flips
-
-
-def phase4_save(scored, filing, nonews, all_rows):
-    print(f"\nPHASE 4: Streaks + save...")
-    print("-" * 110)
-    hdf = load_history()
-    streaks = calculate_streaks(hdf, scored)
-    for row in scored:
-        s = streaks.get(row["Ticker"], {})
-        row["Streak_Days"] = s.get("Streak_Days", 0)
-        row["Streak_Return"] = s.get("Streak_Return", 0.0)
-        row["Momentum"] = s.get("Momentum", "Neutral")
-
-    for row in filing + nonews:
-        if "Streak_Days" not in row:
-            row["Streak_Days"] = 0
-        if "Streak_Return" not in row:
-            row["Streak_Return"] = 0.0
-        if "Momentum" not in row:
-            row["Momentum"] = ""
-
-    pd.DataFrame(all_rows).to_csv(DATA_FILE, index=False)
-    save_to_history(scored)
-    return hdf
-
-
-def phase5_charts(stock_df, mcap_threshold, bt_results, regime,
-                  avg_all, bt_count, comp_bull, comp_bear, total,
-                  sc, fc, nc2):
-    print(f"\nPHASE 5: Generating chart data + meta...")
-    print("-" * 110)
-
-    generate_chart_data(stock_df, mcap_threshold)
-
-    pfs = [
-        r.get("TR_profit_factor", 0) for r in bt_results.values()
-        if r.get("TR_total_trades", 0) >= 5
-    ]
-    avg_pf = round(sum(pfs) / len(pfs), 2) if pfs else 0
-
-    meta = {
-        "date": TODAY_IST,
-        "version": "7.0",
-        "regime": regime["regime"],
-        "regime_detail": regime["detail"],
-        "total_tickers": total,
-        "news_scored": sc,
-        "filing_only": fc,
-        "no_news": nc2,
-        "direction_accuracy": round(avg_all, 1) if bt_count > 0 else 0,
-        "avg_pf": avg_pf,
-        "bull_count": comp_bull,
-        "bear_count": comp_bear,
-        "neutral_count": total - comp_bull - comp_bear,
-    }
-    with open("meta.json", "w") as f:
-        json.dump(meta, f)
-    print(f"  -> meta.json saved (PF:{avg_pf} Acc:{meta['direction_accuracy']}%)")
-
-
-def run():
-    phase0_data()
-    _load_finbert()
-
-    tl, sm = load_tickers()
-    total = len(tl)
-
-    print(f"\nPREDICTIVE Engine v7.0 - {total} tickers | {TODAY_IST}")
-    print(
-        f"News: {NEWS_START_DATE} to "
-        f"{NEWS_CUTOFF_TIME.strftime('%I:%M %p')} | CATALYST-ONLY FinBERT"
-    )
-    print(f"Tech: MEGA/LARGE=S/R-centric | MID/SMALL=BB-centric")
-    print(
-        f"Horizons: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d "
-        f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d"
-    )
-    print(
-        f"MinHold: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
-        f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d"
-    )
-    print(f"SL: {STOP_LOSS_PCT}% fixed | Neutral band: σ-based (std×√horizon)")
-    print(f"Entry: ±{ENTRY_THRESHOLD} | Exit: ±{EXIT_THRESHOLD}")
-    print(f"Validation: neutral=HIT | Per-ticker: Swing/1M/3M/ALL")
-    print("=" * 110)
-
-    nc = phase1_news(tl)
-    scored, filing, nonews, hd, td2 = phase2_finbert(tl, sm, nc)
-
-    all_rows = scored + filing + nonews
-    print(f"\nPHASE 3: Multi-layer analysis ({len(all_rows)} tickers)...")
-    print("-" * 110)
+    # ══════════════════════════════════════════════
+    # PHASE 3: Multi-layer analysis
+    # ══════════════════════════════════════════════
+    print(f"\nPHASE 3: Multi-layer analysis ({len(tickers)} tickers)...")
+    print('-' * 110)
 
     print("Loading stock data...")
     stock_df = load_stock_data()
-    mcap_threshold = detect_mcap_scale(stock_df)
-    print(f"  -> MCap threshold: {mcap_threshold:.0f}")
+    n_tickers = stock_df['Ticker'].nunique()
+    print(f"  -> MCap threshold: {mcap_threshold}")
 
-    lc_count, smc_count, all_sectors = phase3_analysis(
-        all_rows, sm, stock_df, mcap_threshold
-    )
-
-    print("\nComputing market regime...")
-    nifty_chg = get_nifty_change()
-    print(f"  -> Nifty 5d: {nifty_chg:+.2f}%")
-    regime = compute_market_regime(stock_df, nifty_chg)
-    print(f"  -> REGIME: {regime['regime']} ({regime['detail']})")
-
-    print(f"\nComputing sector strength...")
-    macro_scores = get_macro_scores(all_sectors, stock_df, regime)
-    for row in all_rows:
-        macro = macro_scores.get(
-            row.get("_sector", ""), {"score": 0, "context": ""}
-        )
-        row["Macro_Score"] = macro["score"]
-        row["Macro_Context"] = macro.get("context", "")
-
-    bt_results, bt_count, avg_1m, avg_all, total_bt_preds = phase3b_backtest(
-        stock_df, mcap_threshold, all_rows
-    )
-
-    chd, ctd, regime_flips = phase_composite(scored, filing, nonews, regime)
-
-    for row in all_rows:
-        row.pop("_sector", None)
-
-    hdf = phase4_save(scored, filing, nonews, all_rows)
-
-    sc = len(scored)
-    fc = len(filing)
-    nc2 = len(nonews)
-    chrd = (chd / ctd) * 100 if ctd > 0 else 0
-    comp_bull = sum(1 for r in all_rows if r.get("Composite_Direction", 0) == 1)
-    comp_bear = sum(1 for r in all_rows if r.get("Composite_Direction", 0) == -1)
-
-    phase5_charts(
-        stock_df, mcap_threshold, bt_results, regime,
-        avg_all, bt_count, comp_bull, comp_bear, total,
-        sc, fc, nc2
-    )
-
-    print("\n" + "=" * 110)
-    print(f"data.csv | {TODAY_IST} | ENGINE v7.0 σ-band + 5% SL")
-    print(f"TICKERS: {sc} news | {fc} filing | {nc2} no-news")
-    print(f"REGIME: {regime['regime']} ({regime['detail']})")
-    print(
-        f"STRATEGY: LC({lc_count}) SMC({smc_count}) | "
-        f"MEGA/LARGE=S/R | MID/SMALL=BB | σ-neutral | 5% SL"
-    )
-    print(
-        f"HORIZONS: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d "
-        f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d"
-    )
-    print(
-        f"HOLD: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
-        f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d"
-    )
-    if bt_count > 0:
-        print(
-            f"BACKTEST: {bt_count} tickers | "
-            f"{total_bt_preds:,} preds | "
-            f"1M:{avg_1m:.1f}% ALL:{avg_all:.1f}%"
-        )
-    print(
-        f"\nSAME-DAY: Composite {chd}/{ctd} = {chrd:.1f}% "
-        f"| Bull:{comp_bull} Bear:{comp_bear} | Flips:{regime_flips}"
-    )
-    print("=" * 110)
-
-    print_accuracy_report(bt_results, scored, hdf, all_rows)
-
-
-if __name__ == "__main__":
-    run()
+    # Tech scores
+    print(f"Computing technical scores (v{VERSION} cap-aware)...")
+    tech_scores = {}
+    lc_count = 0
+    smc_count = 0
+    scored_count = 0
+    for i, t in enumerate(tickers):
+        tk = stock_df[stock_df['Ticker'] == t].sort_values('Date')
+        tk = tk[tk['Close'].notna()]
+        if len(tk) < 20:
+            continue
+        window = tk.tail(200).reset_index(drop=True)
+        debug = i < 3
+        score, signals, info = compute_tech_score(window, mcap_threshold, debug=debug)
+        tech_scores[t] = {'score': score, 'signals': signals, 'info': info
