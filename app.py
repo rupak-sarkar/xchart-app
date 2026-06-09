@@ -1,942 +1,538 @@
-#!/usr/bin/env python3
-"""
-xchart-app v7.3 — Multi-Layer Predictive Trading Engine
-LC: SMA9 reversal trigger | SC: BB-centric | σ-band | 5% SL
-"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>xchart.in | AI-Powered Trading Intelligence</title>
+<meta name="description" content="Multi-Layer AI Trading Engine for NSE/BSE">
+<link rel="canonical" href="https://xchart.in/">
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0c0e14;--card:#151823;--card2:#1c2030;--border:#2a2e3d;--text:#c9d1d9;--text2:#8b949e;--white:#e6edf3;--bull:#22c55e;--bear:#ef4444;--neut:#eab308;--accent:#3b82f6;--radius:8px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--accent);text-decoration:none}
+.hdr{background:var(--card);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;height:40px;flex-shrink:0}
+.logo{font-size:18px;font-weight:700;color:var(--white)}.logo span{color:var(--accent)}
+.ver{font-size:9px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:8px;margin-left:5px;vertical-align:middle}
+.hdr-right{display:flex;align-items:center;gap:10px;font-size:12px}
+.hdr-date{color:var(--text2)}
+.ham{display:none;width:28px;height:28px;border:1px solid var(--border);border-radius:4px;background:var(--card2);color:var(--white);font-size:16px;cursor:pointer;align-items:center;justify-content:center}
+.wrap{display:flex;flex:1;overflow:hidden;height:calc(100vh - 40px)}
+.sb{width:220px;background:var(--card);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;height:calc(100vh - 40px);position:sticky;top:0;overflow:hidden}
+.sb-search{padding:6px 8px;border-bottom:1px solid var(--border)}
+.sb-search input{width:100%;padding:5px 8px;background:var(--card2);border:1px solid var(--border);border-radius:4px;color:var(--white);font-size:12px;outline:none}
+.sb-search input:focus{border-color:var(--accent)}
+.sb-filters{padding:4px 8px;display:flex;flex-wrap:wrap;gap:3px;border-bottom:1px solid var(--border)}
+.fb{padding:2px 6px;font-size:10px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--text2);cursor:pointer;text-transform:uppercase}
+.fb.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.fb-bull.active{background:var(--bull);border-color:var(--bull)}
+.fb-bear.active{background:var(--bear);border-color:var(--bear)}
+.sb-sort{padding:4px 8px;border-bottom:1px solid var(--border)}
+.sb-sort select{width:100%;padding:3px 4px;background:var(--card2);border:1px solid var(--border);border-radius:3px;color:var(--white);font-size:11px;outline:none}
+.sb-list{flex:1;overflow-y:auto;min-height:0}
+.sb-list::-webkit-scrollbar{width:4px}
+.sb-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ti{padding:5px 8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:12px;border-left:3px solid transparent;transition:all 0.1s}
+.ti:hover{background:var(--card2)}.ti.active{background:var(--card2);border-left-color:var(--accent)}
+.ti-name{font-weight:600;color:var(--white);font-size:12px}
+.ti-score{font-size:10px;font-weight:700;min-width:40px;text-align:right}
+.badge{font-size:8px;font-weight:700;padding:1px 4px;border-radius:2px;margin-left:4px}
+.b-bull{background:rgba(34,197,94,0.15);color:var(--bull)}
+.b-bear{background:rgba(239,68,68,0.15);color:var(--bear)}
+.b-neut{background:rgba(234,179,8,0.1);color:var(--neut)}
+.main{flex:1;overflow-y:auto;padding:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.card-t{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600}
+.row{display:flex;justify-content:space-between;padding:2px 0;font-size:12px}
+.row .l{color:var(--text2)}.row .v{color:var(--white);font-weight:600}
+.big{font-size:24px;font-weight:700;color:var(--white);margin:2px 0}
+.sub{font-size:10px;color:var(--text2)}
+.tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+.tbl th{color:var(--text2);font-weight:600;text-align:left;padding:3px 4px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase}
+.tbl td{padding:3px 4px;border-bottom:1px solid rgba(42,46,61,0.4);color:var(--white)}
+.tbl tr:hover{background:var(--card2)}
+.tbl .tk{font-weight:600;cursor:pointer;color:var(--accent)}
+.prog{height:5px;border-radius:3px;background:var(--border);margin-top:3px;overflow:hidden}
+.prog-f{height:100%;border-radius:3px}
+.mo{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.88);z-index:1000;align-items:center;justify-content:center;padding:10px}
+.mo.show{display:flex}
+.md{background:var(--card);border:1px solid var(--border);border-radius:10px;width:100%;max-width:1100px;max-height:95vh;display:flex;flex-direction:column;overflow:hidden}
+.md-hdr{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.md-title{font-size:15px;font-weight:700;color:var(--white)}
+.md-sub{font-size:10px;color:var(--text2);margin-left:6px}
+.md-x{width:28px;height:28px;border-radius:50%;background:var(--card2);border:1px solid var(--border);color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.md-x:hover{background:var(--bear);color:#fff}
+.ind-bar{display:flex;gap:2px;padding:5px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0}
+.ib{padding:2px 6px;font-size:9px;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2)}
+.ib.active{border-color:var(--accent);color:var(--accent);background:rgba(59,130,246,0.1)}
+.ib:hover{border-color:var(--text2)}
+.i-sep{width:1px;background:var(--border);margin:0 3px}
+.md-body{flex:1;display:flex;flex-direction:column;overflow-y:auto;min-height:0}
+.md-chart{min-height:320px;position:relative;flex-shrink:0}
+.md-rsi{height:100px;position:relative;border-top:1px solid var(--border);flex-shrink:0}
+.md-macd{height:100px;position:relative;border-top:1px solid var(--border);flex-shrink:0}
+.md-adx{height:100px;position:relative;border-top:1px solid var(--border);flex-shrink:0}
+.md-kpis{display:flex;gap:4px;padding:6px 14px;flex-wrap:wrap;border-top:1px solid var(--border);flex-shrink:0}
+.mk{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;text-align:center;min-width:55px}
+.mk-v{font-size:12px;font-weight:700;color:var(--white)}
+.mk-l{font-size:7px;color:var(--text2);text-transform:uppercase}
+.ftr{background:var(--card);border-top:1px solid var(--border);padding:6px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;font-size:9px;color:var(--text2);flex-shrink:0}
+@media(max-width:768px){
+  .ham{display:flex}
+  .sb{position:fixed;top:0;left:-240px;width:240px;height:100vh;z-index:500;transition:left 0.3s;box-shadow:4px 0 20px rgba(0,0,0,0.5)}
+  .sb.open{left:0}
+  .sb-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:499}
+  .sb-overlay.show{display:block}
+  .wrap{height:calc(100vh - 40px)}
+  .main{padding:8px}
+  .grid{grid-template-columns:1fr}
+  .md-chart{min-height:250px}
+  .md-rsi,.md-macd,.md-adx{height:80px}
+}
+</style>
+</head>
+<body>
 
-import os, sys, json, re, time, traceback
-import numpy as np
-import pandas as pd
-import feedparser
-from datetime import datetime, timedelta, timezone
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="ham" id="hamBtn">☰</button>
+    <div class="logo">x<span>chart</span>.in<span class="ver">v7.4</span></div>
+  </div>
+  <div class="hdr-right">
+    <span class="hdr-date" id="hDate">—</span>
+  </div>
+</div>
 
-# ── Engine imports ──
-from engine.data_fetcher import ensure_data_exists
-from engine.technical import (
-    load_stock_data, compute_tech_score, detect_mcap_scale,
-    get_sector_from_stock_data, get_broad_sector
-)
-from engine.accuracy import (
-    compute_per_ticker_accuracy, print_accuracy_report,
-    ENTRY_THRESHOLD_LC, ENTRY_THRESHOLD_SC,
-    EXIT_THRESHOLD_LC, EXIT_THRESHOLD_SC,
-    HORIZONS, HOLD_DAYS, STOP_LOSS_PCT, is_hit, _classify_cap
-)
-from engine.utils import safe_float
-from create_stock_data import recompute_indicators
+<div class="sb-overlay" id="sbOverlay"></div>
 
-try:
-    import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    HAS_FINBERT = True
-except ImportError:
-    HAS_FINBERT = False
+<div class="wrap">
+  <div class="sb" id="sidebar">
+    <div class="sb-search"><input type="text" id="sInput" placeholder="Search ticker..."></div>
+    <div class="sb-filters" id="filterBar">
+      <button class="fb active" data-f="all">All</button>
+      <button class="fb fb-bull" data-f="bull">Bull</button>
+      <button class="fb fb-bear" data-f="bear">Bear</button>
+      <button class="fb" data-f="neut">Neut</button>
+      <button class="fb" data-f="mega">Mega</button>
+      <button class="fb" data-f="large">Large</button>
+      <button class="fb" data-f="mid">Mid</button>
+      <button class="fb" data-f="small">Small</button>
+      <button class="fb" data-f="bbh">BBH</button>
+      <button class="fb" data-f="bbl">BBL</button>
+      <button class="fb" data-f="news">📰 News</button>
+    </div>
+    <div class="sb-sort">
+      <select id="sortBy">
+        <option value="signal">Sort: Signal</option>
+        <option value="comp">Composite Score</option>
+        <option value="accuracy">Accuracy</option>
+        <option value="pf">Profit Factor</option>
+        <option value="winrate">Win Rate</option>
+        <option value="return">Total Return</option>
+        <option value="alpha">Alphabetical</option>
+      </select>
+    </div>
+    <div class="sb-list" id="sList"></div>
+  </div>
 
-# ═══════════════════════════════════════════════════════════════
-# CONSTANTS
-# ═══════════════════════════════════════════════════════════════
-VERSION = "7.3"
-TICKERS_FILE = 'tickers.csv'
-DATA_FILE = 'stock_data.csv'
-OUTPUT_FILE = 'data.csv'
-HISTORY_FILE = 'history.csv'
-CHARTS_DIR = 'charts'
-META_FILE = 'meta.json'
+  <div class="main" id="mainContent"></div>
+</div>
 
-W_TECH = 0.65
-W_NEWS = 0.10
-W_MACRO = 0.16
-W_FUND = 0.11
-FINBERT_BULL = 5
-FINBERT_BEAR = -5
-NEWS_LOOKBACK_HRS = 72
+<div class="mo" id="chartModal">
+  <div class="md">
+    <div class="md-hdr">
+      <div><span class="md-title" id="mTitle">—</span><span class="md-sub" id="mSub"></span></div>
+      <button class="md-x" id="mClose">✕</button>
+    </div>
+    <div class="ind-bar" id="indBar">
+      <button class="ib active" data-i="signals">Signals</button>
+      <button class="ib active" data-i="volume">Vol</button>
+      <div class="i-sep"></div>
+      <button class="ib" data-i="sma9">SMA9</button>
+      <button class="ib" data-i="sma22">SMA22</button>
+      <button class="ib" data-i="sma200">SMA200</button>
+      <button class="ib" data-i="ema9">EMA9</button>
+      <button class="ib" data-i="ema21">EMA21</button>
+      <div class="i-sep"></div>
+      <button class="ib" data-i="bb">Bollinger</button>
+      <button class="ib" data-i="supertrend">SuperTrend</button>
+      <button class="ib" data-i="ichimoku">Ichimoku</button>
+      <button class="ib" data-i="vwap">VWAP</button>
+      <div class="i-sep"></div>
+      <button class="ib" data-i="rsi">RSI</button>
+      <button class="ib" data-i="macd">MACD</button>
+      <button class="ib" data-i="adx">ADX</button>
+    </div>
+    <div class="md-body">
+      <div class="md-chart" id="mChart"></div>
+      <div class="md-rsi" id="mRsi" style="display:none"></div>
+      <div class="md-macd" id="mMacd" style="display:none"></div>
+      <div class="md-adx" id="mAdx" style="display:none"></div>
+    </div>
+    <div class="md-kpis" id="mKpis"></div>
+  </div>
+</div>
 
-RSS_FEEDS = {
-    'mc_topnews':     'https://www.moneycontrol.com/rss/MCtopnews.xml',
-    'mc_business':    'https://www.moneycontrol.com/rss/business.xml',
-    'mc_markets':     'https://www.moneycontrol.com/rss/marketreports.xml',
-    'mc_stocks':      'https://www.moneycontrol.com/rss/stocksnews.xml',
-    'et_markets':     'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms',
-    'et_stocks':      'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
-    'et_news':        'https://economictimes.indiatimes.com/news/rssfeeds/1715249553.cms',
-    'ndtv_business':  'https://feeds.feedburner.com/ndtvprofit-latest',
-    'mint_market':    'https://www.livemint.com/rss/market',
-    'mint_companies': 'https://www.livemint.com/rss/companies',
-    'nse_announce':   'https://www.nseindia.com/api/corporate-announcements?index=equities',
-    'nse_actions':    'https://www.nseindia.com/api/corporate-actions?index=equities',
-    'fe_markets':     'https://www.financialexpress.com/market/',
-    'fe_companies':   'https://www.financialexpress.com/industry/companies/feed/',
-    'bl_markets':     'https://www.thehindubusinessline.com/markets/feeder/default.rss',
-    'bl_stocks':      'https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss',
-    'bl_companies':   'https://www.thehindubusinessline.com/companies/feeder/default.rss',
+<div class="ftr">
+  <div>⚠️ Not financial advice. Past performance ≠ future results.</div>
+  <div>© 2026 xchart.in · Charts by <a href="https://www.tradingview.com/" target="_blank">TradingView</a></div>
+</div>
+
+<script>
+
+let D=[],M={},H=[],mainChart=null,CS=null,CD=null,S={},selTk=null;
+let rsiChart=null,macdChart=null,adxChart=null;
+let rsiSeries={},macdSeries={},adxSeries={};
+const pf=v=>parseFloat(v||0),sc=(v,n)=>pf(v).toFixed(n||0);
+const sC=v=>v>0?'var(--bull)':v<0?'var(--bear)':'var(--text2)';
+const sn=v=>{v=parseFloat(v);return v>0?'+'+v:v};
+const gCat=r=>(r.Category||r.BT_Category||'MID');
+const gd=r=>{const d=parseInt(r.Composite_Direction||r.Forecast_Direction||0);return d===1?'bull':d===-1?'bear':'neut'};
+const dl=d=>d==='bull'?'BULL':d==='bear'?'BEAR':'NEUT';
+const cleanSector=s=>(s&&s!=='Other'&&s!=='0'&&s!=='nan'&&String(s)!=='0'&&s!=='')?s:'—';
+
+function computeStreak(tk){
+  if(!H.length)return '0d';
+  var rows=H.filter(r=>r.Ticker===tk).sort((a,b)=>(b.Date||'').localeCompare(a.Date||''));
+  if(!rows.length)return '0d';
+  var cd=parseInt(rows[0].Composite_Direction||0),cnt=0;
+  for(var i=0;i<rows.length;i++){if(parseInt(rows[i].Composite_Direction||0)===cd)cnt++;else break}
+  return (cd===1?'🟢 ':cd===-1?'🔴 ':'')+cnt+'d';
 }
 
-REPORTING_KW = [
-    'quarterly result', 'q1 result', 'q2 result', 'q3 result', 'q4 result',
-    'net profit', 'revenue rose', 'revenue fell', 'reports profit', 'reports loss',
-    'earnings', 'fy25', 'fy26', 'annual report', 'agm', 'board approves dividend',
-]
-NSE_NOISE_KW = [
-    'board meeting', 'record date', 'trading window', 'loss of certificate',
-    'duplicate share', 'intimation', 'disclosure under', 'reg 29', 'reg 31',
-    'reg 39', 'reg 74', 'certificate', 'general meeting', 'alteration',
-    'change in director', 'newspaper', 'advertisement', 'book closure',
-]
-PREDICTIVE_KW = [
-    'upgrade', 'downgrade', 'target', 'outlook', 'forecast', 'expansion',
-    'acquisition', 'merger', 'buyback', 'stake', 'deal', 'order win',
-    'contract', 'partnership', 'launch', 'approve', 'fdi', 'fii', 'dii',
-    'bull', 'bear', 'rally', 'crash', 'surge', 'plunge', 'breakout',
-    'invest', 'capex', 'capacity', 'commissioning', 'plant', 'ipo',
-    'restructur', 'divest', 'demerger', 'rights issue', 'preferential',
-    'sector rotat', 'rate cut', 'rate hike', 'tariff', 'sanction',
-    'regulation', 'policy', 'subsidy', 'ban', 'recall', 'penalty',
-]
-
-
-# ═══════════════════════════════════════════════════════════════
-# TICKER LOADING
-# ═══════════════════════════════════════════════════════════════
-def load_tickers():
-    if not os.path.exists(TICKERS_FILE):
-        print(f"⚠️ {TICKERS_FILE} not found"); return [], {}
-    df = pd.read_csv(TICKERS_FILE)
-    tickers = df.iloc[:, 0].astype(str).str.strip().tolist()
-    sector_map = {}
-    if 'Sector' in df.columns:
-        for _, r in df.iterrows():
-            t = str(r.iloc[0]).strip()
-            s = str(r.get('Sector', '')).strip()
-            if s and s.lower() not in ('nan', 'none', ''):
-                sector_map[t] = s
-    print(f"Loaded {len(tickers)} tickers from {TICKERS_FILE} (sector map: {len(sector_map)} entries)")
-    return tickers, sector_map
-
-
-# ═══════════════════════════════════════════════════════════════
-# NEWS FETCHING
-# ═══════════════════════════════════════════════════════════════
-def _is_reporting(title):
-    tl = title.lower()
-    return any(kw in tl for kw in REPORTING_KW)
-
-def _is_nse_noise(title):
-    tl = title.lower()
-    return any(kw in tl for kw in NSE_NOISE_KW)
-
-def _is_predictive(title):
-    tl = title.lower()
-    if _is_reporting(title):
-        return False
-    return any(kw in tl for kw in PREDICTIVE_KW)
-
-def _parse_pub_date(entry):
-    for key in ('published_parsed', 'updated_parsed'):
-        pp = entry.get(key)
-        if pp:
-            try:
-                return datetime(*pp[:6], tzinfo=timezone.utc)
-            except Exception:
-                pass
-    for key in ('published', 'updated'):
-        ds = entry.get(key, '')
-        if ds:
-            for fmt in ('%a, %d %b %Y %H:%M:%S %z', '%Y-%m-%dT%H:%M:%S%z',
-                        '%a, %d %b %Y %H:%M:%S GMT'):
-                try:
-                    return datetime.strptime(ds.strip(), fmt).replace(tzinfo=timezone.utc)
-                except Exception:
-                    continue
-    return None
-
-def _match_tickers(title, tickers):
-    matched = []
-    tl = title.upper()
-    for t in tickers:
-        t_clean = t.replace('&', '').replace('-', '')
-        if len(t_clean) < 3:
-            continue
-        pattern = r'\b' + re.escape(t_clean) + r'\b'
-        if re.search(pattern, tl.replace('&', '').replace('-', '')):
-            matched.append(t)
-    return matched
-
-def fetch_predictive_news(tickers, lookback_hrs=72):
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(hours=lookback_hrs)
-    news_cache = {}
-    total_scanned = 0
-    total_reporting = 0
-    total_nse_noise = 0
-    total_kept = 0
-
-    for source, url in RSS_FEEDS.items():
-        print(f"Fetching {source}...")
-        try:
-            if 'nseindia.com/api' in url:
-                import urllib.request
-                req = urllib.request.Request(url, headers={
-                    'User-Agent': 'Mozilla/5.0',
-                    'Accept': 'application/json',
-                })
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = json.loads(resp.read())
-                entries = data if isinstance(data, list) else []
-                is_nse_api = True
-            else:
-                feed = feedparser.parse(url)
-                entries = feed.get('entries', [])
-                is_nse_api = False
-        except Exception as e:
-            print(f"   {source}: {e}")
-            print(f"   {source}: No entries")
-            continue
-
-        predictive_count = 0
-        reporting_count = 0
-        nse_noise_count = 0
-        outside_count = 0
-
-        for entry in entries:
-            if is_nse_api:
-                title = entry.get('subject', '') or entry.get('desc', '') or ''
-                symbol = entry.get('symbol', '')
-            else:
-                title = entry.get('title', '')
-                symbol = ''
-
-            if not title:
-                continue
-            total_scanned += 1
-
-            pub_date = _parse_pub_date(entry) if not is_nse_api else None
-            if pub_date and pub_date < cutoff:
-                outside_count += 1
-                continue
-
-            if _is_nse_noise(title):
-                nse_noise_count += 1
-                total_nse_noise += 1
-                continue
-
-            if _is_reporting(title):
-                reporting_count += 1
-                total_reporting += 1
-                continue
-
-            if not _is_predictive(title):
-                continue
-
-            if is_nse_api and symbol:
-                matched = [symbol] if symbol in tickers else []
-            else:
-                matched = _match_tickers(title, tickers)
-
-            if matched:
-                for t in matched:
-                    if t not in news_cache:
-                        news_cache[t] = []
-                    news_cache[t].append({
-                        'title': title,
-                        'source': source,
-                        'date': pub_date.isoformat() if pub_date else '',
-                    })
-                predictive_count += 1
-                total_kept += 1
-            else:
-                predictive_count += 1
-                total_kept += 1
-
-        parts = [f"{predictive_count} predictive from {len(entries)}"]
-        if outside_count:
-            parts.append(f"{outside_count} outside window")
-        if reporting_count:
-            parts.append(f"{reporting_count} reporting")
-        if nse_noise_count:
-            parts.append(f"{nse_noise_count} NSE noise")
-        print(f"   {source}: {', '.join(parts)}")
-
-    print(f"\nCache: {len(news_cache)}/{len(tickers)} predictive | "
-          f"Scanned:{total_scanned} Reporting:{total_reporting} "
-          f"NSEnoise:{total_nse_noise} Kept:{total_kept}")
-    return news_cache
-
-
-# ═══════════════════════════════════════════════════════════════
-# FINBERT SCORING
-# ═══════════════════════════════════════════════════════════════
-class FinBERTScorer:
-    def __init__(self):
-        if not HAS_FINBERT:
-            self.model = None
-            return
-        print("Initializing FinBERT...")
-        model_name = "ProsusAI/finbert"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-        self.model.eval()
-
-    def score(self, text):
-        if not self.model:
-            return 0.0
-        inputs = self.tokenizer(text, return_tensors='pt', truncation=True, max_length=512)
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-        probs = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
-        pos, neg, neu = probs[0].item(), probs[1].item(), probs[2].item()
-        return (pos - neg) * 100
-
-    def score_catalysts(self, headlines):
-        if not headlines:
-            return 0.0, 0, 0
-        total = 0.0
-        n_cat = 0
-        for h in headlines:
-            title = h['title'] if isinstance(h, dict) else h
-            s = self.score(title)
-            total += s
-            n_cat += 1
-        return total, n_cat, len(headlines)
-
-
-# ═══════════════════════════════════════════════════════════════
-# FUNDAMENTAL SCORING
-# ═══════════════════════════════════════════════════════════════
-def compute_fund_score(ticker, stock_df):
-    tk = stock_df[stock_df['Ticker'] == ticker]
-    if tk.empty:
-        return 0
-    last = tk.iloc[-1]
-    mcap = safe_float(last.get('Market_Cap', 0), 0)
-    if mcap <= 0:
-        return 0
-    score = 0
-    pe = safe_float(last.get('PE_Ratio', 0), 0)
-    if pe > 0:
-        if pe < 15:
-            score += 15
-        elif pe < 25:
-            score += 5
-        elif pe > 50:
-            score -= 15
-        elif pe > 35:
-            score -= 10
-    div_yield = safe_float(last.get('Dividend_Yield', 0), 0)
-    if div_yield > 3:
-        score += 10
-    elif div_yield > 1.5:
-        score += 5
-    pb = safe_float(last.get('PB_Ratio', 0), 0)
-    if pb > 0:
-        if pb < 1.5:
-            score += 10
-        elif pb > 5:
-            score -= 10
-    roe = safe_float(last.get('ROE', 0), 0)
-    if roe > 20:
-        score += 10
-    elif roe > 12:
-        score += 5
-    elif roe < 5 and roe > 0:
-        score -= 5
-    if pe == 0 and pb == 0 and roe == 0:
-        score = 5 if mcap > 10000 else 0
-    return score
-
-
-# ═══════════════════════════════════════════════════════════════
-# MARKET REGIME
-# ═══════════════════════════════════════════════════════════════
-def compute_market_regime():
-    import yfinance as yf
-    regime = {'regime': 'UNKNOWN', 'nifty_5d': 0, 'breadth': 50,
-              'avg_rsi': 50, 'lt_breadth': 50}
-    try:
-        nifty = yf.download('^NSEI', period='1mo', progress=False)
-        if not nifty.empty:
-            close = nifty['Close']
-            if hasattr(close, 'iloc') and len(close) >= 6:
-                ret5 = (float(close.iloc[-1]) - float(close.iloc[-6])) / float(close.iloc[-6]) * 100
-                regime['nifty_5d'] = round(ret5, 2)
-    except Exception:
-        pass
-
-    try:
-        nse_url = "https://www.nseindia.com/api/equity-stockIndices?index=SECURITIES%20IN%20F%26O"
-        import urllib.request
-        req = urllib.request.Request(nse_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
-        stocks = data.get('data', [])
-        above_sma22 = 0
-        total_stocks = 0
-        rsi_sum = 0
-        above_sma200 = 0
-        for s in stocks:
-            try:
-                ltp = float(s.get('lastPrice', '0').replace(',', ''))
-                high52 = float(s.get('yearHigh', '0').replace(',', ''))
-                low52 = float(s.get('yearLow', '0').replace(',', ''))
-                prev = float(s.get('previousClose', '0').replace(',', ''))
-                if ltp <= 0 or prev <= 0:
-                    continue
-                total_stocks += 1
-                pct_from_high = (ltp - high52) / high52 * 100 if high52 > 0 else 0
-                pct_from_low = (ltp - low52) / low52 * 100 if low52 > 0 else 0
-                mid_range = (high52 + low52) / 2
-                if ltp > mid_range:
-                    above_sma22 += 1
-                est_rsi = 30 + (ltp - low52) / max(high52 - low52, 1) * 40
-                rsi_sum += est_rsi
-                if pct_from_low > 20:
-                    above_sma200 += 1
-            except (ValueError, TypeError):
-                continue
-        if total_stocks > 0:
-            regime['breadth'] = round(above_sma22 / total_stocks * 100)
-            regime['avg_rsi'] = round(rsi_sum / total_stocks, 1)
-            regime['lt_breadth'] = round(above_sma200 / total_stocks * 100)
-            regime['total_stocks'] = total_stocks
-    except Exception:
-        pass
-
-    n5 = regime['nifty_5d']
-    br = regime['breadth']
-    rsi_avg = regime.get('avg_rsi', 50)
-    lt = regime.get('lt_breadth', 50)
-
-    if br >= 65 and n5 > 1:
-        regime['regime'] = 'STRONG_BULL'
-    elif br >= 55 and n5 > 0:
-        regime['regime'] = 'MILD_BULL'
-    elif br <= 35 and n5 < -1:
-        regime['regime'] = 'STRONG_BEAR'
-    elif br <= 45 and n5 < 0:
-        regime['regime'] = 'MILD_BEAR'
-    else:
-        regime['regime'] = 'CHOPPY'
-
-    print(f"\nComputing market regime...")
-    ts = regime.get('total_stocks', 0)
-    if ts > 0:
-        print(f"  -> SMA22 breadth: {above_sma22}/{ts} = {br}%")
-        print(f"  -> Avg RSI: {rsi_avg} ({ts} tickers)")
-        print(f"  -> SMA200 breadth: {lt}%")
-    print(f"  -> Nifty 5d: {n5}%")
-    print(f"  -> REGIME: {regime['regime']} (breadth={br}% nifty={n5}% "
-          f"rsi={rsi_avg} lt={lt}%)")
-    return regime
-
-
-def compute_sector_strength(stock_df, tickers, mcap_threshold):
-    sectors = {}
-    for t in tickers:
-        sec = get_sector_from_stock_data(t, stock_df)
-        broad = get_broad_sector(sec)
-        if broad not in sectors:
-            sectors[broad] = {'tickers': [], 'scores': []}
-        sectors[broad]['tickers'].append(t)
-        tk = stock_df[stock_df['Ticker'] == t]
-        if not tk.empty:
-            last = tk.iloc[-1]
-            close = safe_float(last.get('Close'), 0)
-            sma22 = safe_float(last.get('SMA_22'), close)
-            if close > 0 and sma22 > 0:
-                rel = (close - sma22) / sma22 * 100
-                sectors[broad]['scores'].append(rel)
-
-    sector_scores = {}
-    print(f"\nComputing sector strength...")
-    if sectors:
-        n_sectors = sum(1 for s in sectors if s != 'Other')
-        print(f"  -> {len(sectors)} broad sectors")
-        breadth = 50
-        try:
-            all_scores = []
-            for data in sectors.values():
-                all_scores.extend(data['scores'])
-            if all_scores:
-                breadth = round(sum(1 for s in all_scores if s > 0) / len(all_scores) * 100)
-                print(f"  -> Market breadth: {breadth}%")
-        except Exception:
-            pass
-
-    for sec, data in sorted(sectors.items(),
-                            key=lambda x: np.mean(x[1]['scores']) if x[1]['scores'] else 0):
-        avg = round(np.mean(data['scores'])) if data['scores'] else 0
-        n = len(data['tickers'])
-        sector_scores[sec] = avg
-        print(f"    {sec} ({n}): {avg:+d} [data-driven]")
-    return sector_scores
-
-
-# ═══════════════════════════════════════════════════════════════
-# CHART DATA GENERATION
-# ═══════════════════════════════════════════════════════════════
-def generate_chart_data(ticker, stock_df, output_dir):
-    tk = stock_df[stock_df['Ticker'] == ticker].sort_values('Date').tail(365)
-    if tk.empty:
-        return
-    cols = ['Date', 'Open', 'High', 'Low', 'Close', 'Volume',
-            'SMA_9', 'SMA_22', 'SMA_50', 'SMA_200',
-            'EMA_9', 'EMA_21', 'RSI_14',
-            'MACD_Line', 'MACD_Signal', 'MACD_Hist',
-            'BB_Upper', 'BB_Lower', 'ADX_14', 'ST_Direction',
-            'Ichi_Tenkan', 'Ichi_Kijun', 'ATR_14']
-    available = [c for c in cols if c in tk.columns]
-    chart_df = tk[available].copy()
-    chart_df.to_csv(os.path.join(output_dir, f"{ticker}.csv"), index=False)
-
-
-# ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE
-# ═══════════════════════════════════════════════════════════════
-def main():
-    today = datetime.now().strftime('%Y-%m-%d')
-    now_str = datetime.now().strftime('%I:%M %p')
-
-    # ── Step 0: Data sync + recompute indicators ──
-    ensure_data_exists()
-    recompute_indicators()
-
-    tickers, sector_map = load_tickers()
-    if not tickers:
-        print("No tickers found!"); return
-
-    # ── Init FinBERT ──
-    scorer = FinBERTScorer()
-    tickers, sector_map = load_tickers()
-
-    # ── Load stock data ──
-    stock_df = load_stock_data()
-    if stock_df.empty:
-        print("No stock data!"); return
-
-    mcap_threshold = detect_mcap_scale(stock_df)
-    print(f"  -> MCap threshold: {mcap_threshold}")
-
-    # Header
-    print(f"\nPREDICTIVE Engine v{VERSION} - {len(tickers)} tickers | {today}")
-    cutoff_date = (datetime.now() - timedelta(hours=NEWS_LOOKBACK_HRS)).strftime('%Y-%m-%d')
-    print(f"News: {cutoff_date} to {now_str} | CATALYST-ONLY FinBERT")
-    print(f"Tech: MEGA/LARGE=SMA9-reversal | MID/SMALL=BB-centric")
-    print(f"Horizons: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d "
-          f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d")
-    print(f"MinHold: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
-          f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d")
-    print(f"SL: {STOP_LOSS_PCT}% fixed | Neutral band: σ-based (std×√horizon)")
-    print(f"Entry: ±{ENTRY_THRESHOLD_LC} | Exit: ±{EXIT_THRESHOLD_LC}")
-    print(f"Validation: neutral=HIT | Per-ticker: Swing/1M/3M/ALL")
-    print('=' * 110)
-
-    # ══════════════════════════════════════════════
-    # PHASE 1: News
-    # ══════════════════════════════════════════════
-    print(f"\nPHASE 1: Fetching predictive news...")
-    print('-' * 110)
-    news_cache = fetch_predictive_news(tickers, NEWS_LOOKBACK_HRS)
-    print('-' * 110)
-
-    # ══════════════════════════════════════════════
-    # PHASE 2: FinBERT scoring
-    # ══════════════════════════════════════════════
-    print(f"\nPHASE 2: FinBERT scoring (CATALYST-ONLY)...")
-    print('-' * 110)
-
-    scored_tickers = {}
-    idx = 0
-    for t in tickers:
-        headlines = news_cache.get(t, [])
-        if not headlines:
-            continue
-        total_score, n_cat, n_h = scorer.score_catalysts(headlines)
-        mcap = 0
-        tk = stock_df[stock_df['Ticker'] == t]
-        actual_ret = 0
-        if not tk.empty:
-            mcap = safe_float(tk.iloc[-1].get('Market_Cap', 0), 0)
-            close_now = safe_float(tk.iloc[-1].get('Close', 0), 0)
-            cat = _classify_cap(mcap, mcap_threshold)
-            fwd = HORIZONS[cat]
-            close_prev = None
-            if len(tk) >= fwd + 1:
-                close_prev = safe_float(tk.iloc[-(fwd + 1)].get('Close', 0), 0)
-            actual_ret = ((close_now - close_prev) / close_prev * 100) if close_prev and close_prev > 0 else 0
-
-        if total_score > FINBERT_BULL:
-            direction = 'BULL'
-        elif total_score < FINBERT_BEAR:
-            direction = 'BEAR'
-        else:
-            direction = 'NEUT'
-
-        hit = 'HIT' if (total_score > 0 and actual_ret > 0) or \
-                       (total_score < 0 and actual_ret < 0) or \
-                       (abs(actual_ret) < 0.25) else 'MISS'
-
-        idx += 1
-        print(f"[{idx:>3}] {t:<14} {direction:>4} Score: {total_score:>+5.1f} "
-              f"Ret: {actual_ret:>+.2f}% {hit} [{n_cat}cat/{n_h}h]")
-
-        scored_tickers[t] = {
-            'news_score': total_score,
-            'news_dir': direction,
-            'news_hit': hit,
-            'n_catalysts': n_cat,
-            'n_headlines': n_h,
-        }
-
-    print(f"\n  Catalysts: {sum(s['n_catalysts'] for s in scored_tickers.values())} scored")
-
-    # ══════════════════════════════════════════════
-    # PHASE 3: Multi-layer analysis
-    # ══════════════════════════════════════════════
-    print(f"\nPHASE 3: Multi-layer analysis ({len(tickers)} tickers)...")
-    print('-' * 110)
-
-    print("Loading stock data...")
-    stock_df = load_stock_data()
-    print(f"  -> MCap threshold: {mcap_threshold}")
-
-    # Tech scores
-    print(f"Computing technical scores (v{VERSION} cap-aware)...")
-    tech_scores = {}
-    lc_count = 0
-    smc_count = 0
-    scored_count = 0
-    for i, t in enumerate(tickers):
-        tk = stock_df[stock_df['Ticker'] == t].sort_values('Date')
-        tk = tk[tk['Close'].notna()]
-        if len(tk) < 20:
-            continue
-        window = tk.tail(200).reset_index(drop=True)
-        debug = i < 3
-        score, signals, info = compute_tech_score(window, mcap_threshold, debug=debug)
-        tech_scores[t] = {'score': score, 'signals': signals, 'info': info}
-        if info.get('is_largecap'):
-            lc_count += 1
-        else:
-            smc_count += 1
-        scored_count += 1
-
-    print(f"  -> {scored_count}/{len(tickers)} scored | LC:{lc_count} SMC:{smc_count}")
-
-    # Fundamentals
-    print(f"Computing fundamentals...")
-    fund_scores = {}
-    fund_nonzero = 0
-    for t in tickers:
-        fs = compute_fund_score(t, stock_df)
-        fund_scores[t] = fs
-        if fs != 0:
-            fund_nonzero += 1
-    print(f"  -> {fund_nonzero}/{len(tickers)} with non-zero fund score")
-
-    # Sectors
-    sector_scores_map = {}
-    mapped = 0
-    unique_sectors = set()
-    for t in tickers:
-        sec = get_sector_from_stock_data(t, stock_df)
-        broad = get_broad_sector(sec)
-        if broad and broad != 'Other':
-            mapped += 1
-            unique_sectors.add(broad)
-        sector_scores_map[t] = broad
-    print(f"  -> {mapped}/{len(tickers)} mapped to {len(unique_sectors)} sectors")
-
-    # Market regime
-    regime = compute_market_regime()
-
-    # Sector strength
-    sector_strength = compute_sector_strength(stock_df, tickers, mcap_threshold)
-
-    # ══════════════════════════════════════════════
-    # PHASE 3b: Backtest
-    # ══════════════════════════════════════════════
-    print(f"\nPHASE 3b: Backtest (σ-band + {abs(STOP_LOSS_PCT)}% SL)...")
-    bt_results = compute_per_ticker_accuracy(stock_df, mcap_threshold)
-
-    # ══════════════════════════════════════════════
-    # Composite scoring
-    # ══════════════════════════════════════════════
-    print(f"\nComputing composite + regime adjustment...")
-    reg = regime['regime']
-    if reg == 'STRONG_BEAR':
-        bull_damp, bear_damp = 0.5, 1.2
-        print(f"  Regime: {reg} -> BULL dampened 50%, BEAR boosted 20%")
-    elif reg == 'MILD_BEAR':
-        bull_damp, bear_damp = 0.8, 1.0
-        print(f"  Regime: {reg} -> BULL dampened 80%")
-    elif reg == 'STRONG_BULL':
-        bull_damp, bear_damp = 1.2, 0.5
-        print(f"  Regime: {reg} -> BEAR dampened 50%, BULL boosted 20%")
-    elif reg == 'MILD_BULL':
-        bull_damp, bear_damp = 1.0, 0.8
-        print(f"  Regime: {reg} -> BEAR dampened 80%")
-    else:
-        bull_damp, bear_damp = 1.0, 1.0
-        print(f"  Regime: {reg} -> no adjustment")
-    print('-' * 110)
-
-    all_rows = []
-    regime_flips = 0
-    tech_bull = 0
-    tech_bear = 0
-    tech_neut = 0
-    tech_hits = 0
-    tech_total_dir = 0
-
-    for i, t in enumerate(tickers):
-        if t not in tech_scores:
-            continue
-
-        ts = tech_scores[t]
-        tech = ts['score']
-        info = ts['info']
-
-        # News
-        ns = scored_tickers.get(t, {})
-        news = ns.get('news_score', 0)
-
-        # Macro (sector)
-        broad = sector_scores_map.get(t, 'Other')
-        sector_sc = sector_strength.get(broad, 0)
-        macro = sector_sc
-
-        # Fund
-        fund = fund_scores.get(t, 0)
-
-        # Composite
-        composite = (tech * W_TECH + news * W_NEWS + macro * W_MACRO + fund * W_FUND)
-
-        # Regime dampening
-        if composite > 0:
-            composite *= bull_damp
-        elif composite < 0:
-            composite *= bear_damp
-
-        # News override for strong catalysts
-        if news > 40 and composite < news * 0.3:
-            composite = news * 0.3
-        elif news < -40 and composite > news * 0.3:
-            composite = news * 0.3
-
-        # MCap & category
-        mcap = 0
-        tk = stock_df[stock_df['Ticker'] == t]
-        if not tk.empty:
-            mcap = safe_float(tk.iloc[-1].get('Market_Cap', 0), 0)
-        cat = _classify_cap(mcap, mcap_threshold)
-        horizon = HORIZONS[cat]
-
-        if cat in ('MEGA', 'LARGE'):
-            entry_thresh = ENTRY_THRESHOLD_LC
-        else:
-            entry_thresh = ENTRY_THRESHOLD_SC
-
-        # Direction
-        if composite > entry_thresh:
-            direction = 1
-            dir_label = 'BULL'
-            tech_bull += 1
-        elif composite < -entry_thresh:
-            direction = -1
-            dir_label = 'BEAR'
-            tech_bear += 1
-        else:
-            direction = 0
-            dir_label = 'NEUT'
-            tech_neut += 1
-
-        # News correction
-        corrected = False
-        if ns and ns.get('news_dir') == 'BULL' and direction == -1:
-            if abs(news) > abs(composite) * 0.5:
-                direction = 0
-                dir_label = 'NEUT'
-                corrected = True
-        elif ns and ns.get('news_dir') == 'BEAR' and direction == 1:
-            if abs(news) > abs(composite) * 0.5:
-                direction = 0
-                dir_label = 'NEUT'
-                corrected = True
-
-        # Actual return
-        actual_ret = 0
-        if not tk.empty and len(tk) > horizon:
-            close_now = safe_float(tk.iloc[-1].get('Close', 0), 0)
-            close_prev = safe_float(tk.iloc[-(horizon + 1)].get('Close', 0), 0)
-            if close_prev > 0:
-                actual_ret = (close_now - close_prev) / close_prev * 100
-
-        # Hit check
-        if direction != 0:
-            actual_dir = 1 if actual_ret > 0.25 else (-1 if actual_ret < -0.25 else 0)
-            hit_result = is_hit(direction, actual_dir)
-            if hit_result is not None:
-                tech_total_dir += 1
-                if hit_result:
-                    tech_hits += 1
-                hit_label = 'HIT' if hit_result else 'MISS'
-            else:
-                hit_label = 'NEUT'
-        else:
-            hit_label = 'NEUT'
-
-        # BT info
-        bt = bt_results.get(t, {})
-        bt_acc = bt.get('BT_6M', 0)
-        bt_cat = bt.get('BT_Category', cat)
-        bt_fwd = bt.get('BT_Forward_Days', horizon)
-
-        # Print
-        bt_str = f"BT:{bt_acc:.0f}%/{bt_cat} {bt_fwd}d" if bt_acc > 0 else ""
-        corr_str = "<- CORRECTED" if corrected else ""
-        idx_str = f"[{i + 1:>3}]"
-
-        if t in scored_tickers or direction != 0 or corrected:
-            print(f"  {idx_str} {t:<14} Tech: {tech:>+3.0f} Macro: {macro:>+3.0f} "
-                  f"Fund: {fund:>+3.0f} -> Comp: {composite:>+5.1f} {dir_label} {hit_label} "
-                  f"{corr_str} {bt_str} H:{horizon}d")
-
-        row = {
-            'Ticker': t,
-            'Date': today,
-            'Tech_Score': round(tech, 1),
-            'News_Score': round(news, 1),
-            'Macro_Score': round(macro, 1),
-            'Fund_Score': round(fund, 1),
-            'Composite_Score': round(composite, 1),
-            'Composite_Direction': direction,
-            'Direction_Label': dir_label,
-            'Horizon': horizon,
-            'Category': cat,
-            'Sector': broad,
-            'Actual_Return_Pct': round(actual_ret, 2),
-            'Hit': hit_label,
-            'BT_Accuracy': bt_acc,
-            'BT_PF': bt.get('TR_profit_factor', 0),
-            'BT_Trades': bt.get('TR_total_trades', 0),
-            'BT_Signal_Rate': bt.get('BT_Signal_Rate', 0),
-            'N_Catalysts': ns.get('n_catalysts', 0) if ns else 0,
-            'News_Direction': ns.get('news_dir', '') if ns else '',
-            'Corrected': corrected,
-        }
-        all_rows.append(row)
-
-    # Tech summary
-    if tech_total_dir > 0:
-        print(f"\n  Tech-only: Bull:{tech_bull} Bear:{tech_bear} Neut:{tech_neut} | "
-              f"Hit:{tech_hits}/{tech_total_dir} = {tech_hits / tech_total_dir * 100:.1f}%")
-    print(f"  Regime flips: {regime_flips}")
-
-    # ══════════════════════════════════════════════
-    # PHASE 4: Save
-    # ══════════════════════════════════════════════
-    print(f"\nPHASE 4: Streaks + save...")
-    print('-' * 110)
-
-    result_df = pd.DataFrame(all_rows)
-    result_df.to_csv(OUTPUT_FILE, index=False)
-
-    # History
-    if os.path.exists(HISTORY_FILE):
-        hdf = pd.read_csv(HISTORY_FILE)
-        hdf = pd.concat([hdf, result_df], ignore_index=True)
-        hdf = hdf.drop_duplicates(subset=['Ticker', 'Date'], keep='last')
-    else:
-        hdf = result_df.copy()
-    hdf.to_csv(HISTORY_FILE, index=False)
-    n_dates = hdf['Date'].nunique()
-    print(f"History: {len(hdf)} rows / {n_dates} days")
-
-    # ══════════════════════════════════════════════
-    # PHASE 5: Charts + meta
-    # ══════════════════════════════════════════════
-    print(f"\nPHASE 5: Generating chart data + meta...")
-    print('-' * 110)
-
-    os.makedirs(CHARTS_DIR, exist_ok=True)
-    for t in tickers:
-        generate_chart_data(t, stock_df, CHARTS_DIR)
-    print(f"  -> Chart data: {len(tickers)} tickers in {CHARTS_DIR}/")
-
-    # Meta
-    avg_pf = 0
-    avg_acc = 0
-    if bt_results:
-        pf_vals = [r['TR_profit_factor'] for r in bt_results.values()
-                   if r.get('TR_total_trades', 0) >= 5]
-        acc_vals = [r['BT_6M'] for r in bt_results.values()
-                    if r.get('BT_Dir_Preds', 0) > 0]
-        avg_pf = round(np.mean(pf_vals), 2) if pf_vals else 0
-        avg_acc = round(np.mean(acc_vals), 1) if acc_vals else 0
-
-    meta = {
-        'date': today,
-        'version': VERSION,
-        'tickers': len(tickers),
-        'regime': regime['regime'],
-        'nifty_5d': regime['nifty_5d'],
-        'breadth': regime['breadth'],
-        'avg_accuracy': avg_acc,
-        'avg_profit_factor': avg_pf,
-        'entry_threshold_lc': ENTRY_THRESHOLD_LC,
-        'entry_threshold_sc': ENTRY_THRESHOLD_SC,
-        'horizons': HORIZONS,
-        'hold_days': HOLD_DAYS,
-        'stop_loss': STOP_LOSS_PCT,
-        'bull_count': tech_bull,
-        'bear_count': tech_bear,
-        'neut_count': tech_neut,
+function init(){
+  var mp=fetch('meta.json').then(r=>r.json()).then(m=>{M=m}).catch(()=>{M={}});
+  var dp=new Promise(resolve=>{
+    Papa.parse('data.csv',{download:true,header:true,dynamicTyping:true,complete:r=>{
+      D=r.data.filter(r=>r.Ticker&&r.Ticker.trim());resolve();
+    }});
+  });
+  var hp=new Promise(resolve=>{
+    Papa.parse('history.csv',{download:true,header:true,dynamicTyping:true,complete:r=>{
+      H=r.data.filter(r=>r.Ticker);resolve();
+    },error:()=>{H=[];resolve()}});
+  });
+  Promise.all([mp,dp,hp]).then(()=>{
+    var dt=document.getElementById('hDate');
+    dt.textContent=(M.date||'—')+' · '+(M.regime||'');
+    if((M.regime||'').includes('BULL'))dt.style.color='var(--bull)';
+    else if((M.regime||'').includes('BEAR'))dt.style.color='var(--bear)';
+    else dt.style.color='var(--neut)';
+    buildList();showDashboard();
+  });
+}
+
+function buildList(){
+  var f=document.querySelector('.fb.active')?.dataset.f||'all';
+  var s=(document.getElementById('sInput').value||'').toLowerCase();
+  var sort=document.getElementById('sortBy').value;
+  var items=[...D];
+  if(f==='bull')items=items.filter(r=>gd(r)==='bull');
+  else if(f==='bear')items=items.filter(r=>gd(r)==='bear');
+  else if(f==='neut')items=items.filter(r=>gd(r)==='neut');
+  else if(f==='mega')items=items.filter(r=>gCat(r)==='MEGA');
+  else if(f==='large')items=items.filter(r=>gCat(r)==='LARGE');
+  else if(f==='mid')items=items.filter(r=>gCat(r)==='MID');
+  else if(f==='small')items=items.filter(r=>gCat(r)==='SMALL');
+  else if(f==='bbh')items=items.filter(r=>pf(r.Tech_Score||r.Technical_Score)>35);
+  else if(f==='bbl')items=items.filter(r=>pf(r.Tech_Score||r.Technical_Score)<-35);
+  else if(f==='news')items=items.filter(r=>pf(r.N_Catalysts)>0);
+  if(s)items=items.filter(r=>r.Ticker.toLowerCase().includes(s));
+  if(sort==='comp')items.sort((a,b)=>pf(b.Composite_Score)-pf(a.Composite_Score));
+  else if(sort==='accuracy')items.sort((a,b)=>pf(b.BT_6M||b.BT_Accuracy)-pf(a.BT_6M||a.BT_Accuracy));
+  else if(sort==='pf')items.sort((a,b)=>pf(b.TR_profit_factor||b.BT_PF)-pf(a.TR_profit_factor||a.BT_PF));
+  else if(sort==='winrate')items.sort((a,b)=>pf(b.TR_win_rate)-pf(a.TR_win_rate));
+  else if(sort==='return')items.sort((a,b)=>pf(b.TR_total_return_pct)-pf(a.TR_total_return_pct));
+  else if(sort==='alpha')items.sort((a,b)=>(a.Ticker||'').localeCompare(b.Ticker||''));
+  else items.sort((a,b)=>{var o={bull:0,bear:1,neut:2};return(o[gd(a)]||2)-(o[gd(b)]||2)||(a.Ticker||'').localeCompare(b.Ticker||'')});
+  var list=document.getElementById('sList');list.innerHTML='';
+  items.forEach(r=>{
+    var tk=r.Ticker,d=gd(r),cs=pf(r.Composite_Score);
+    var el=document.createElement('div');
+    el.className='ti'+(tk===selTk?' active':'');
+    el.innerHTML='<span class="ti-name">'+tk+'</span><span class="ti-score" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(0)+'<span class="badge b-'+d+'">'+dl(d)+'</span></span>';
+    el.onclick=()=>{selTk=tk;buildList();showTicker(r);closeSb()};
+    list.appendChild(el);
+  });
+}
+
+document.getElementById('sInput').addEventListener('input',buildList);
+document.getElementById('sortBy').addEventListener('change',buildList);
+document.querySelectorAll('.fb').forEach(b=>b.addEventListener('click',function(){
+  document.querySelectorAll('.fb').forEach(x=>x.classList.remove('active'));
+  this.classList.add('active');buildList();
+}));
+document.getElementById('hamBtn').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sbOverlay').classList.add('show');
+});
+function closeSb(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sbOverlay').classList.remove('show');
+}
+document.getElementById('sbOverlay').addEventListener('click',closeSb);
+
+function showDashboard(){
+  selTk=null;buildList();
+  var bulls=D.filter(r=>gd(r)==='bull');
+  var bears=D.filter(r=>gd(r)==='bear');
+  var neuts=D.filter(r=>gd(r)==='neut');
+  var byPF=[...D].filter(r=>pf(r.TR_total_trades||r.BT_Trades)>=5).sort((a,b)=>pf(b.TR_profit_factor||b.BT_PF)-pf(a.TR_profit_factor||a.BT_PF));
+  var topBull=[...D].filter(r=>gd(r)==='bull').sort((a,b)=>pf(b.Composite_Score)-pf(a.Composite_Score)).slice(0,10);
+  var topBear=[...D].filter(r=>gd(r)==='bear').sort((a,b)=>pf(a.Composite_Score)-pf(b.Composite_Score)).slice(0,10);
+  var catRows='';
+  ['MEGA','LARGE','MID','SMALL'].forEach(c=>{
+    var it=D.filter(r=>gCat(r)==c&&pf(r.TR_total_trades||r.BT_Trades)>=5);
+    if(!it.length)return;
+    var ap=it.reduce((s,r)=>s+pf(r.TR_profit_factor||r.BT_PF),0)/it.length;
+    var aw=it.reduce((s,r)=>s+pf(r.TR_win_rate),0)/it.length;
+    var aa=it.reduce((s,r)=>s+pf(r.BT_6M||r.BT_Accuracy),0)/it.length;
+    catRows+='<tr><td style="font-weight:600">'+c+'</td><td>'+it.length+'</td><td>'+aa.toFixed(1)+'%</td><td>'+aw.toFixed(1)+'%</td><td style="color:'+(ap>=1.1?'var(--bull)':ap<0.95?'var(--bear)':'var(--white)')+'">'+ap.toFixed(2)+'</td></tr>';
+  });
+  var mkRow=r=>'<tr><td class="tk" onclick="selTk=\''+r.Ticker+'\';buildList();showTicker(D.find(x=>x.Ticker===\''+r.Ticker+'\'))">'+r.Ticker+'</td><td>'+gCat(r)+'</td><td style="color:'+sC(pf(r.Composite_Score))+'">'+(pf(r.Composite_Score)>0?'+':'')+sc(r.Composite_Score,1)+'</td><td>'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</td><td style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':pf(r.TR_profit_factor||r.BT_PF)<0.9?'var(--bear)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</td></tr>';
+  var regimeColor=(M.regime||'').includes('BULL')?'var(--bull)':(M.regime||'').includes('BEAR')?'var(--bear)':'var(--neut)';
+  document.getElementById('mainContent').innerHTML='<div class="grid">'+
+    '<div class="card"><div class="card-t">📊 Signal Summary</div><div style="display:flex;gap:14px;margin-bottom:8px"><div><div class="big" style="color:var(--bull)">'+bulls.length+'</div><div class="sub">Bullish</div></div><div><div class="big" style="color:var(--bear)">'+bears.length+'</div><div class="sub">Bearish</div></div><div><div class="big" style="color:var(--neut)">'+neuts.length+'</div><div class="sub">Neutral</div></div></div><div class="prog"><div class="prog-f" style="width:'+(D.length?bulls.length/D.length*100:0)+'%;background:var(--bull)"></div></div><div style="font-size:9px;color:var(--text2);margin-top:3px">Bull '+(D.length?(bulls.length/D.length*100).toFixed(0):0)+'% · Bear '+(D.length?(bears.length/D.length*100).toFixed(0):0)+'% · Neut '+(D.length?(neuts.length/D.length*100).toFixed(0):0)+'%</div></div>'+
+    '<div class="card"><div class="card-t">🌍 Market Regime</div><div class="big" style="color:'+regimeColor+'">'+(M.regime||'—')+'</div><div class="sub">breadth='+(M.breadth||50)+'% nifty='+(M.nifty_5d||0)+'%</div><div style="margin-top:8px"><div class="row"><span class="l">Dir Accuracy</span><span class="v">'+(M.avg_accuracy||M.direction_accuracy||0)+'%</span></div><div class="row"><span class="l">Avg Trade PF</span><span class="v">'+(M.avg_profit_factor||M.avg_pf||0)+'</span></div><div class="row"><span class="l">Tickers</span><span class="v">'+(M.tickers||M.total_tickers||D.length)+'</span></div></div></div>'+
+    '<div class="card" style="grid-column:span 2"><div class="card-t">📈 Category Performance</div><table class="tbl"><tr><th>Cat</th><th>N</th><th>Acc</th><th>WR</th><th>PF</th></tr>'+catRows+'</table></div>'+
+    '<div class="card"><div class="card-t">🟢 Top Bullish Stocks</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+topBull.map(mkRow).join('')+'</table></div>'+
+    '<div class="card"><div class="card-t">🔴 Top Bearish Stocks</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+topBear.map(mkRow).join('')+'</table></div>'+
+    '<div class="card"><div class="card-t">🏆 Top 10 by Profit Factor</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+byPF.slice(0,10).map(mkRow).join('')+'</table></div>'+
+    '<div class="card"><div class="card-t">⚠️ Bottom 10 by Profit Factor</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+byPF.slice(-10).reverse().map(mkRow).join('')+'</table></div>'+
+  '</div>';
+}
+
+function showTicker(r){
+  if(!r)return;
+  var tk=r.Ticker,d=gd(r),cs=pf(r.Composite_Score);
+  var tech=pf(r.Tech_Score||r.Technical_Score);
+  var macro=pf(r.Macro_Score);
+  var fund=pf(r.Fund_Score||r.Fundamental_Score);
+  var news=pf(r.News_Score||r.Forecast_Score);
+  var nCat=pf(r.N_Catalysts);
+  var newsDir=r.News_Direction||'';
+  var newsStr=nCat>0?news.toFixed(1)+' ('+nCat+'📰 '+newsDir+')':news.toFixed(1);
+  var severity=r.Direction_Label||r.Composite_Severity||r.Severity||'—';
+  var sector=cleanSector(r.Sector);
+  var streak=computeStreak(tk);
+  var mom=pf(r.Actual_Return_Pct);
+  var momStr=mom!==0?(mom>0?'+':'')+mom.toFixed(2)+'%':'—';
+  var catStr=nCat>0?nCat+' catalyst'+(nCat>1?'s':'')+' ('+newsDir+')':'None';
+  var btAcc=pf(r.BT_6M||r.BT_Accuracy);
+  var trPF=pf(r.TR_profit_factor||r.BT_PF);
+  var trTrades=pf(r.TR_total_trades||r.BT_Trades);
+
+  document.getElementById('mainContent').innerHTML=
+    '<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+      '<span style="font-size:18px;font-weight:700;color:var(--white)">'+tk+'</span>'+
+      '<span class="badge b-'+d+'" style="font-size:11px;padding:2px 8px">'+dl(d)+'</span>'+
+      '<span style="font-size:12px;color:var(--text2)">'+gCat(r)+' · '+sector+'</span>'+
+      '<button onclick="openChart(\''+tk+'\')" style="margin-left:auto;padding:5px 14px;border-radius:5px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:11px;font-weight:600">📈 Chart</button>'+
+      '<button onclick="showDashboard()" style="padding:5px 10px;border-radius:5px;background:var(--card2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:11px">← Back</button>'+
+    '</div>'+
+    '<div class="grid">'+
+      '<div class="card"><div class="card-t">📊 Score Breakdown</div><div class="big" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(1)+'</div><div class="sub">Composite</div><div style="margin-top:8px"><div class="row"><span class="l">Technical</span><span class="v" style="color:'+sC(tech)+'">'+sn(tech.toFixed(0))+'</span></div><div class="row"><span class="l">Macro/Sector</span><span class="v" style="color:'+sC(macro)+'">'+sn(macro.toFixed(0))+'</span></div><div class="row"><span class="l">Fundamental</span><span class="v" style="color:'+sC(fund)+'">'+sn(fund.toFixed(0))+'</span></div><div class="row"><span class="l">News</span><span class="v" style="color:'+sC(news)+'">'+newsStr+'</span></div><div class="row"><span class="l">Severity</span><span class="v">'+severity+'</span></div></div></div>'+
+      '<div class="card"><div class="card-t">🎯 Backtest</div><div class="big">'+btAcc.toFixed(0)+'%</div><div class="sub">All-Time Accuracy</div><div style="margin-top:8px"><div class="row"><span class="l">1M</span><span class="v">'+sc(r.BT_1M,0)+'%</span></div><div class="row"><span class="l">3M</span><span class="v">'+sc(r.BT_3M,0)+'%</span></div><div class="row"><span class="l">Horizon</span><span class="v">'+(r.BT_Forward_Days||r.Horizon||'—')+'d</span></div><div class="row"><span class="l">Band</span><span class="v">±'+sc(r.BT_Threshold,2)+'%</span></div><div class="row"><span class="l">ATR</span><span class="v">'+sc(r.BT_ATR_Pct,1)+'%</span></div></div></div>'+
+      '<div class="card"><div class="card-t">💰 Trade Sim</div><div class="big" style="color:'+(trPF>=1.1?'var(--bull)':trPF<0.9?'var(--bear)':'var(--white)')+'">'+trPF.toFixed(2)+'</div><div class="sub">Profit Factor</div><div style="margin-top:8px"><div class="row"><span class="l">Trades</span><span class="v">'+trTrades.toFixed(0)+'</span></div><div class="row"><span class="l">Win Rate</span><span class="v">'+sc(r.TR_win_rate,0)+'%</span></div><div class="row"><span class="l">Avg Win</span><span class="v" style="color:var(--bull)">+'+sc(r.TR_avg_win_pct,1)+'%</span></div><div class="row"><span class="l">Avg Loss</span><span class="v" style="color:var(--bear)">-'+sc(r.TR_avg_loss_pct,1)+'%</span></div><div class="row"><span class="l">Return</span><span class="v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</span></div><div class="row"><span class="l">Hold</span><span class="v">'+sc(r.TR_avg_holding_days,0)+'d</span></div><div class="row"><span class="l">SL</span><span class="v">'+sc(r.BT_SL_Level,1)+'%</span></div></div></div>'+
+      '<div class="card"><div class="card-t">📈 Context</div><div class="row"><span class="l">Sector</span><span class="v">'+sector+'</span></div><div class="row"><span class="l">Streak</span><span class="v">'+streak+'</span></div><div class="row"><span class="l">Momentum</span><span class="v" style="color:'+sC(mom)+'">'+momStr+'</span></div><div class="row"><span class="l">Long WR</span><span class="v">'+sc(r.TR_long_win_rate,0)+'%</span></div><div class="row"><span class="l">Short WR</span><span class="v">'+sc(r.TR_short_win_rate,0)+'%</span></div><div class="row"><span class="l">Catalysts</span><span class="v">'+catStr+'</span></div></div>'+
+    '</div>';
+}
+
+/* ═══════════════════════════════════════════
+   CHART ENGINE (unchanged structure)
+   ═══════════════════════════════════════════ */
+var mkChartOpts=function(container,h){return{
+  width:container.clientWidth,height:h||container.clientHeight,
+  layout:{background:{type:'solid',color:'#151823'},textColor:'#8b949e',fontSize:10},
+  grid:{vertLines:{color:'#1a1d29'},horzLines:{color:'#1a1d29'}},
+  crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+  rightPriceScale:{borderColor:'#2a2e3d'},
+  timeScale:{borderColor:'#2a2e3d',timeVisible:false}
+}};
+
+function destroyAllCharts(){
+  [mainChart,rsiChart,macdChart,adxChart].forEach(function(c){if(c)try{c.remove()}catch(e){}});
+  mainChart=rsiChart=macdChart=adxChart=null;
+  CS=null;CD=null;S={};rsiSeries={};macdSeries={};adxSeries={};
+  ['mRsi','mMacd','mAdx'].forEach(function(id){
+    var el=document.getElementById(id);el.style.display='none';el.innerHTML='';
+  });
+}
+function remS(k){if(S[k]&&mainChart){try{mainChart.removeSeries(S[k])}catch(e){}delete S[k]}}
+function addL(k,data,color,w,st){
+  if(!mainChart||!data||!data.length)return;
+  var s=mainChart.addLineSeries({color:color,lineWidth:w||1,lineStyle:st||0,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+  s.setData(data);S[k]=s;
+}
+function syncTimeScales(){
+  if(!mainChart)return;
+  var subs=[rsiChart,macdChart,adxChart].filter(Boolean);
+  mainChart.timeScale().subscribeVisibleLogicalRangeChange(function(range){
+    if(range)subs.forEach(function(c){try{c.timeScale().setVisibleLogicalRange(range)}catch(e){}});
+  });
+  subs.forEach(function(c){
+    c.timeScale().subscribeVisibleLogicalRangeChange(function(range){
+      if(range)try{mainChart.timeScale().setVisibleLogicalRange(range)}catch(e){}
+    });
+  });
+}
+
+function openChart(tk){
+  var r=D.find(function(x){return x.Ticker===tk})||{};
+  var d=gd(r);
+  document.getElementById('mTitle').textContent=tk;
+  document.getElementById('mSub').textContent=gCat(r)+' · '+cleanSector(r.Sector)+' · Comp: '+sn(sc(r.Composite_Score,1));
+  document.getElementById('mKpis').innerHTML=
+    '<div class="mk"><div class="mk-v" style="color:var(--'+d+')">'+dl(d)+'</div><div class="mk-l">Signal</div></div>'+
+    '<div class="mk"><div class="mk-v">'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</div><div class="mk-l">Acc</div></div>'+
+    '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</div><div class="mk-l">PF</div></div>'+
+    '<div class="mk"><div class="mk-v">'+sc(r.TR_win_rate,0)+'%</div><div class="mk-l">WR</div></div>'+
+    '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</div><div class="mk-l">Ret</div></div>'+
+    '<div class="mk"><div class="mk-v">'+sc(r.BT_ATR_Pct,1)+'%</div><div class="mk-l">ATR</div></div>';
+  document.querySelectorAll('#indBar .ib').forEach(function(b){
+    var i=b.dataset.i;b.classList.toggle('active',i==='signals'||i==='volume');
+  });
+  document.getElementById('chartModal').classList.add('show');
+  destroyAllCharts();
+
+  // Try JSON first, then CSV fallback
+  fetch('charts/'+tk+'.json')
+    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})
+    .then(function(data){CD=data;buildMainChart()})
+    .catch(function(){
+      // CSV fallback
+      fetch('charts/'+tk+'.csv')
+        .then(function(r){if(!r.ok)throw new Error(r.status);return r.text()})
+        .then(function(text){
+          var rows=Papa.parse(text,{header:true,dynamicTyping:true}).data.filter(function(r){return r.Close&&r.Date});
+          CD=csvToChartData(tk,rows);
+          buildMainChart();
+        })
+        .catch(function(){
+          document.getElementById('mChart').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2)">No chart data · Run engine & push charts/</div>';
+        });
+    });
+}
+
+function csvToChartData(ticker,rows){
+  var data={ohlc:[],volume:[],markers:[],sma9:[],sma22:[],sma200:[],ema9:[],ema21:[],
+    bb_upper:[],bb_lower:[],rsi:[],adx:[],macd_line:[],macd_signal:[],macd_hist:[],
+    ichi_tenkan:[],ichi_kijun:[],ichi_spanA:[],ichi_spanB:[],st_bull:[],st_bear:[],vwap:[]};
+  var dateSet=new Set();
+  rows.forEach(function(r){
+    var d=String(r.Date).substring(0,10);
+    dateSet.add(d);
+    data.ohlc.push({time:d,open:r.Open,high:r.High,low:r.Low,close:r.Close});
+    if(r.Volume)data.volume.push({time:d,value:r.Volume,color:r.Close>=r.Open?'rgba(34,197,94,0.3)':'rgba(239,68,68,0.3)'});
+    var map=[['SMA_9','sma9'],['SMA_22','sma22'],['SMA_200','sma200'],['EMA_9','ema9'],['EMA_21','ema21'],
+      ['BB_Upper','bb_upper'],['BB_Lower','bb_lower'],['RSI_14','rsi'],['ADX_14','adx'],
+      ['MACD_Line','macd_line'],['MACD_Signal','macd_signal'],['Ichi_Tenkan','ichi_tenkan'],['Ichi_Kijun','ichi_kijun']];
+    map.forEach(function(m){if(r[m[0]]!=null&&!isNaN(r[m[0]]))data[m[1]].push({time:d,value:r[m[0]]})});
+    if(r.MACD_Hist!=null&&!isNaN(r.MACD_Hist)){
+      data.macd_hist.push({time:d,value:r.MACD_Hist,color:r.MACD_Hist>=0?'rgba(34,197,94,0.5)':'rgba(239,68,68,0.5)'});
     }
-    with open(META_FILE, 'w') as f:
-        json.dump(meta, f, indent=2)
-    print(f"  -> meta.json saved (PF:{avg_pf} Acc:{avg_acc}%)")
+    if(r.ST_Direction!=null&&!isNaN(r.ST_Direction)){
+      if(r.ST_Direction<0)data.st_bull.push({time:d,value:r.Low});
+      else data.st_bear.push({time:d,value:r.High});
+    }
+  });
+  // Add markers from history
+  H.filter(function(hr){return hr.Ticker===ticker}).forEach(function(hr){
+    var hd=String(hr.Date||'').substring(0,10);
+    if(!dateSet.has(hd))return;
+    var hdir=parseInt(hr.Composite_Direction||0);
+    if(hdir===1)data.markers.push({time:hd,position:'belowBar',color:'#22c55e',shape:'arrowUp',text:'BULL'});
+    else if(hdir===-1)data.markers.push({time:hd,position:'aboveBar',color:'#ef4444',shape:'arrowDown',text:'BEAR'});
+  });
+  data.markers.sort(function(a,b){return a.time.localeCompare(b.time)});
+  return data;
+}
 
-    # ══════════════════════════════════════════════
-    # Summary
-    # ══════════════════════════════════════════════
-    news_count = len(scored_tickers)
-    filing_count = sum(1 for r in all_rows
-                       if r.get('N_Catalysts', 0) > 0 and r['Ticker'] not in scored_tickers)
-    no_news = len(all_rows) - news_count - filing_count
+function buildMainChart(){
+  if(!CD)return;
+  var c=document.getElementById('mChart');c.innerHTML='';S={};
+  mainChart=LightweightCharts.createChart(c,mkChartOpts(c));
+  CS=mainChart.addCandlestickSeries({upColor:'#22c55e',downColor:'#ef4444',borderUpColor:'#22c55e',borderDownColor:'#ef4444',wickUpColor:'#22c55e88',wickDownColor:'#ef444488'});
+  CS.setData(CD.ohlc||[]);
+  if(CD.markers&&CD.markers.length)CS.setMarkers(CD.markers);
+  if(CD.volume&&CD.volume.length){
+    var v=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});
+    mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});
+    v.setData(CD.volume);S['volume']=v;
+  }
+  mainChart.timeScale().fitContent();
+  new ResizeObserver(function(){if(mainChart)mainChart.applyOptions({width:c.clientWidth,height:c.clientHeight})}).observe(c);
+}
 
-    total_preds = sum(r.get('BT_Total_Preds', 0) for r in bt_results.values()) if bt_results else 0
-    avg_1m = 0
-    if bt_results:
-        m1_vals = [r['BT_1M'] for r in bt_results.values() if r.get('BT_Dir_Preds', 0) > 0]
-        avg_1m = np.mean(m1_vals) if m1_vals else 0
+function showRsi(){
+  var el=document.getElementById('mRsi');el.style.display='block';el.innerHTML='';
+  rsiChart=LightweightCharts.createChart(el,Object.assign({},mkChartOpts(el,100),{rightPriceScale:{borderColor:'#2a2e3d',scaleMargins:{top:0.05,bottom:0.05}}}));
+  rsiChart.timeScale().applyOptions({visible:false});
+  var rs=rsiChart.addLineSeries({color:'#f97316',lineWidth:1,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false});
+  rs.setData(CD.rsi);rsiSeries['rsi']=rs;
+  if(CD.rsi.length>=2){
+    var t1=CD.rsi[0].time,t2=CD.rsi[CD.rsi.length-1].time;
+    rsiChart.addLineSeries({color:'rgba(239,68,68,0.4)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}).setData([{time:t1,value:30},{time:t2,value:30}]);
+    rsiChart.addLineSeries({color:'rgba(34,197,94,0.4)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}).setData([{time:t1,value:70},{time:t2,value:70}]);
+  }
+  syncTimeScales();
+  try{rsiChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
+  new ResizeObserver(function(){if(rsiChart)rsiChart.applyOptions({width:el.clientWidth})}).observe(el);
+}
+function hideRsi(){if(rsiChart)try{rsiChart.remove()}catch(e){}rsiChart=null;rsiSeries={};var el=document.getElementById('mRsi');el.style.display='none';el.innerHTML=''}
 
-    print(f"\n{'=' * 110}")
-    print(f"{OUTPUT_FILE} | {today} | ENGINE v{VERSION} σ-band + {abs(STOP_LOSS_PCT)}% SL")
-    print(f"TICKERS: {news_count} news | {filing_count} filing | {no_news} no-news")
-    print(f"REGIME: {regime['regime']} (breadth={regime['breadth']}% "
-          f"nifty={regime['nifty_5d']}% rsi={regime.get('avg_rsi', 50)} "
-          f"lt={regime.get('lt_breadth', 50)}%)")
-    print(f"STRATEGY: LC({lc_count}) SMC({smc_count}) | MEGA/LARGE=SMA9-rev | "
-          f"MID/SMALL=BB | σ-neutral | {abs(STOP_LOSS_PCT)}% SL")
-    print(f"HORIZONS: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d "
-          f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d")
-    print(f"HOLD: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
-          f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d")
-    print(f"BACKTEST: {len(bt_results)} tickers | {total_preds:,} preds | "
-          f"1M:{avg_1m:.1f}% ALL:{avg_acc}%")
+function showMacd(){
+  var el=document.getElementById('mMacd');el.style.display='block';el.innerHTML='';
+  macdChart=LightweightCharts.createChart(el,mkChartOpts(el,100));
+  macdChart.timeScale().applyOptions({visible:false});
+  if(CD.macd_line&&CD.macd_line.length){var ml=macdChart.addLineSeries({color:'#3b82f6',lineWidth:1,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false});ml.setData(CD.macd_line);macdSeries['ml']=ml}
+  if(CD.macd_signal&&CD.macd_signal.length){var ms=macdChart.addLineSeries({color:'#f97316',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});ms.setData(CD.macd_signal);macdSeries['ms']=ms}
+  if(CD.macd_hist&&CD.macd_hist.length){var mh=macdChart.addHistogramSeries({priceFormat:{type:'price',precision:4,minMove:0.0001}});mh.setData(CD.macd_hist);macdSeries['mh']=mh}
+  syncTimeScales();
+  try{macdChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
+  new ResizeObserver(function(){if(macdChart)macdChart.applyOptions({width:el.clientWidth})}).observe(el);
+}
+function hideMacd(){if(macdChart)try{macdChart.remove()}catch(e){}macdChart=null;macdSeries={};var el=document.getElementById('mMacd');el.style.display='none';el.innerHTML=''}
 
-    # Same-day
-    dir_rows = [r for r in all_rows if r['Composite_Direction'] != 0]
-    same_hits = sum(1 for r in dir_rows if r['Hit'] == 'HIT')
-    same_total = len(dir_rows)
-    same_pct = same_hits / same_total * 100 if same_total > 0 else 0
-    flips = sum(1 for r in all_rows if r.get('Corrected', False))
-    print(f"\nSAME-DAY: Composite {same_hits}/{same_total} = {same_pct:.1f}% | "
-          f"Bull:{tech_bull} Bear:{tech_bear} | Flips:{flips}")
-    print('=' * 110)
+function showAdx(){
+  var el=document.getElementById('mAdx');el.style.display='block';el.innerHTML='';
+  adxChart=LightweightCharts.createChart(el,mkChartOpts(el,100));
+  adxChart.timeScale().applyOptions({visible:false});
+  var as2=adxChart.addLineSeries({color:'#06b6d4',lineWidth:1,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false});
+  as2.setData(CD.adx);adxSeries['adx']=as2;
+  syncTimeScales();
+  try{adxChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
+  new ResizeObserver(function(){if(adxChart)adxChart.applyOptions({width:el.clientWidth})}).observe(el);
+}
+function hideAdx(){if(adxChart)try{adxChart.remove()}catch(e){}adxChart=null;adxSeries={};var el=document.getElementById('mAdx');el.style.display='none';el.innerHTML=''}
 
-    # Full report
-    print_accuracy_report(bt_results, scored_tickers, hdf, all_rows)
+function toggleInd(ind){
+  if(!mainChart||!CD)return;
+  if(ind==='signals'){var on=document.querySelector('[data-i="signals"]').classList.toggle('active');CS&&CS.setMarkers(on&&CD.markers?CD.markers:[]);return}
+  if(ind==='volume'){var on2=document.querySelector('[data-i="volume"]').classList.toggle('active');if(on2&&CD.volume&&CD.volume.length){var v=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});v.setData(CD.volume);S['volume']=v}else{remS('volume')}return}
+  var lines={sma9:{k:'sma9',c:'#f59e0b'},sma22:{k:'sma22',c:'#8b5cf6'},sma200:{k:'sma200',c:'#ec4899'},ema9:{k:'ema9',c:'#06b6d4'},ema21:{k:'ema21',c:'#14b8a6'},vwap:{k:'vwap',c:'#fbbf24'}};
+  if(lines[ind]){var cfg=lines[ind];var on3=document.querySelector('[data-i="'+ind+'"]').classList.toggle('active');on3?addL(ind,CD[cfg.k],cfg.c,1):remS(ind);return}
+  if(ind==='bb'){var on4=document.querySelector('[data-i="bb"]').classList.toggle('active');if(on4){addL('bb_u',CD.bb_upper,'rgba(167,139,250,0.6)',1,2);addL('bb_l',CD.bb_lower,'rgba(167,139,250,0.6)',1,2)}else{remS('bb_u');remS('bb_l')}return}
+  if(ind==='supertrend'){var on5=document.querySelector('[data-i="supertrend"]').classList.toggle('active');if(on5){addL('st_b',CD.st_bull,'#22c55e',2);addL('st_r',CD.st_bear,'#ef4444',2)}else{remS('st_b');remS('st_r')}return}
+  if(ind==='ichimoku'){var on6=document.querySelector('[data-i="ichimoku"]').classList.toggle('active');if(on6){addL('i_t',CD.ichi_tenkan,'#2563eb',1);addL('i_k',CD.ichi_kijun,'#dc2626',1);addL('i_a',CD.ichi_spanA,'rgba(34,197,94,0.4)',1);addL('i_b',CD.ichi_spanB,'rgba(239,68,68,0.4)',1)}else{remS('i_t');remS('i_k');remS('i_a');remS('i_b')}return}
+  if(ind==='rsi'){var on7=document.querySelector('[data-i="rsi"]').classList.toggle('active');on7&&CD.rsi&&CD.rsi.length?showRsi():hideRsi();return}
+  if(ind==='macd'){var on8=document.querySelector('[data-i="macd"]').classList.toggle('active');on8?showMacd():hideMacd();return}
+  if(ind==='adx'){var on9=document.querySelector('[data-i="adx"]').classList.toggle('active');on9&&CD.adx&&CD.adx.length?showAdx():hideAdx();return}
+}
 
+document.getElementById('indBar').addEventListener('click',function(e){
+  var b=e.target.closest('.ib');if(b)toggleInd(b.dataset.i);
+});
+function closeModal(){document.getElementById('chartModal').classList.remove('show');destroyAllCharts()}
+document.getElementById('mClose').addEventListener('click',closeModal);
+document.getElementById('chartModal').addEventListener('click',function(e){if(e.target.id==='chartModal')closeModal()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal()});
 
-if __name__ == '__main__':
-    main()
+init();
+
+</script>
+</body>
+</html>
