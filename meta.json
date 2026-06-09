@@ -5,8 +5,8 @@
   "regime": "CHOPPY",
   "nifty_5d": 0,
   "breadth": 50,
-  "avg_accuracy": 74.3,
-  "avg_profit_factor": 1.22,
+  "avg_accuracy": 74.1,
+  "avg_profit_factor": 1.17,
   "entry_threshold_lc": 20,
   "entry_threshold_sc": 20,
   "horizons": {
