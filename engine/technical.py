@@ -1,4 +1,4 @@
-"""Technical scoring v7.3 — LC: SMA9 reversal trigger | SC: BB-centric."""
+"""Technical scoring v7.4 — LC: Strict SMA9 reversal | SC: BB-centric | ATR-based SL for LC."""
 import os
 import pandas as pd
 import numpy as np
@@ -11,7 +11,7 @@ def load_stock_data():
     if not os.path.exists(DATA_FILE):
         print(f"  ⚠️ {DATA_FILE} not found")
         return pd.DataFrame()
-    df = pd.read_csv(DATA_FILE)
+    df = pd.read_csv(DATA_FILE, low_memory=False)
     n_tickers = df['Ticker'].nunique()
     n_rows = len(df)
     avg_days = n_rows // max(n_tickers, 1)
@@ -35,6 +35,7 @@ def detect_mcap_scale(stock_df):
         return 10000
     latest = stock_df.groupby('Ticker').last()
     mcaps = latest['Market_Cap'].dropna()
+    mcaps = pd.to_numeric(mcaps, errors='coerce')
     mcaps = mcaps[mcaps > 0]
     if mcaps.empty:
         return 10000
@@ -163,12 +164,33 @@ def _detect_knox(window):
     return None
 
 
-def compute_tech_score(window, mcap_threshold, debug=False):
-    """v7.3 — LC: SMA9 reversal in trend | SC: BB-centric.
+def compute_atr_pct(window, period=14):
+    """Compute ATR as percentage of close price."""
+    if len(window) < period + 1:
+        return 3.0  # Default fallback
+    close = window['Close'].astype(float)
+    high = window['High'].astype(float)
+    low = window['Low'].astype(float)
+    tr = pd.concat([
+        high - low,
+        (high - close.shift()).abs(),
+        (low - close.shift()).abs(),
+    ], axis=1).max(axis=1)
+    atr = tr.rolling(period).mean().iloc[-1]
+    current_close = close.iloc[-1]
+    if pd.isna(atr) or current_close <= 0:
+        return 3.0
+    return (atr / current_close) * 100
 
-    LC PRIMARY: Detect SMA9 turning point within aligned trend.
-      BULL trigger: Price < SMA9 < SMA22 < SMA200 AND SMA9 today >= SMA9 yesterday
-      BEAR trigger: SMA200 < SMA22 < SMA9 < Price AND SMA9 today <= SMA9 yesterday
+
+def compute_tech_score(window, mcap_threshold, debug=False):
+    """v7.4 — LC: STRICT SMA9 reversal (full alignment only) | SC: BB-centric.
+
+    LC PRIMARY: ONLY full trend alignment + SMA9 turning point.
+      BULL: SMA200 > SMA22 > SMA9 > Price AND SMA9 today >= SMA9 yesterday
+      BEAR: Price > SMA9 > SMA22 > SMA200 AND SMA9 today <= SMA9 yesterday
+      NO partial, NO continuation. No trade without full alignment.
+
     LC SECONDARY: S/R, RSI, SuperTrend, Ichimoku, Volume (small corrections)
 
     SC: Unchanged BB-centric logic.
@@ -208,16 +230,19 @@ def compute_tech_score(window, mcap_threshold, debug=False):
 
     knox = _detect_knox(window) if len(window) >= 26 else None
 
+    # ATR for LC stop-loss
+    atr_pct = compute_atr_pct(window)
+
     if is_largecap:
         # ═══════════════════════════════════════════════════════════
-        # MEGA / LARGE — SMA9 REVERSAL TRIGGER
+        # MEGA / LARGE — STRICT SMA9 REVERSAL TRIGGER
         #
-        # PRIMARY (±25): SMA9 turning point within aligned trend
-        #   BULL: Price < SMA9 < SMA22 < SMA200 + SMA9 turning up
-        #   BEAR: SMA200 < SMA22 < SMA9 < Price + SMA9 turning down
+        # ONLY full trend alignment triggers primary score.
+        #   BULL: SMA200 > SMA22 > SMA9 > Price + SMA9 turning up
+        #   BEAR: Price > SMA9 > SMA22 > SMA200 + SMA9 turning down
         #
-        # SECONDARY (max ±15): S/R, RSI, ST, Knox, Volume
-        #   Only adds conviction — cannot trigger alone (15 < 20)
+        # No partial. No continuation. No trade without alignment.
+        # Secondary (max ±15): Cannot trigger alone (15 < 20)
         # ═══════════════════════════════════════════════════════════
 
         primary = 0
@@ -232,41 +257,25 @@ def compute_tech_score(window, mcap_threshold, debug=False):
             sma9_rising = sma9 >= sma9_prev
             sma9_falling = sma9 <= sma9_prev
 
-            # Full trend alignment checks
+            # STRICT full trend alignment
+            # Bearish structure: price below everything, SMAs stacked down
             full_bearish = (close < sma9) and (sma9 < sma22) and (sma22 < sma200)
-            full_bullish = (sma200 < sma22) and (sma22 < sma9) and (sma9 < close)
+            # Bullish structure: price above everything, SMAs stacked up
+            full_bullish = (close > sma9) and (sma9 > sma22) and (sma22 > sma200)
 
-            # Partial alignment (missing SMA200 condition)
-            partial_bearish = (close < sma9) and (sma9 < sma22)
-            partial_bullish = (close > sma9) and (sma9 > sma22)
-
-            # ── PRIMARY TRIGGERS ──
+            # ── ONLY FULL ALIGNMENT + REVERSAL ──
             if full_bearish and sma9_rising:
                 primary = +25
-                signals.append(f'🟢 BULL TRIGGER: SMA9 reversing up in full bearish trend')
+                signals.append(f'🟢 BULL TRIGGER: SMA9↑ in SMA200>SMA22>SMA9>Price')
             elif full_bullish and sma9_falling:
                 primary = -25
-                signals.append(f'🔴 BEAR TRIGGER: SMA9 reversing down in full bullish trend')
-
-            # Partial trend (weaker signal — not enough alone to cross ±20)
-            elif partial_bearish and sma9_rising and not full_bearish:
-                primary = +15
-                signals.append(f'Partial bull: SMA9 turning up, Price<SMA9<SMA22')
-            elif partial_bullish and sma9_falling and not full_bullish:
-                primary = -15
-                signals.append(f'Partial bear: SMA9 turning down, Price>SMA9>SMA22')
-
-            # Trend continuation (no reversal yet)
-            elif full_bearish and not sma9_rising:
-                primary = -10
-                signals.append(f'Bearish continuation: SMA9 still falling')
-            elif full_bullish and not sma9_falling:
-                primary = +10
-                signals.append(f'Bullish continuation: SMA9 still rising')
+                signals.append(f'🔴 BEAR TRIGGER: SMA9↓ in Price>SMA9>SMA22>SMA200')
+            # else: primary = 0 — NO TRADE without full alignment
 
         score += primary
 
         # ── SECONDARY: Small corrections (max ±15 total) ──
+        # Cannot trigger alone (15 < 20 entry threshold)
 
         # S/R proximity (±5)
         sr_band = close * 0.03
@@ -321,9 +330,9 @@ def compute_tech_score(window, mcap_threshold, debug=False):
         horizon = 28 if mcap > mcap_threshold * 5 else 21
 
     else:
-        # ═══════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
         # MID / SMALL — BB-CENTRIC (unchanged)
-        # ═══════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════
 
         if bb_upper is not None and bb_lower is not None and bb_upper > bb_lower:
             bb_mid = (bb_upper + bb_lower) / 2
@@ -333,7 +342,6 @@ def compute_tech_score(window, mcap_threshold, debug=False):
             bb_width_pct = bb_width / bb_mid * 100 if bb_mid > 0 else 5
             is_squeeze = bb_width_pct < 4
 
-            # Primary BB scoring (max ±25)
             if bb_pct < 10:
                 score += 18
                 signals.append(f'Near BB lower ({bb_pct:.0f}%)')
@@ -427,17 +435,23 @@ def compute_tech_score(window, mcap_threshold, debug=False):
         'signals': signals,
         'horizon': horizon,
         'is_largecap': is_largecap,
+        'atr_pct': round(atr_pct, 2),
     }
 
     if debug:
         cap_label = 'LC' if is_largecap else 'SMC'
-        primary_label = f"Pri={primary}" if is_largecap else ""
+        pri_str = f"Pri={primary}" if is_largecap else ""
+        align_str = ""
+        if is_largecap and sma9_prev is not None:
+            fb = (close < sma9) and (sma9 < sma22) and (sma22 < sma200)
+            fbu = (close > sma9) and (sma9 > sma22) and (sma22 > sma200)
+            align_str = f" Align={'Bear' if fb else 'Bull' if fbu else 'None'}"
         print(
             f"    DEBUG {last.get('Ticker', '?')}({cap_label}): "
             f"RSI={rsi:.1f}, Close={close}, SMA9={sma9:.1f}, "
             f"SMA22={sma22:.1f}, SMA200={sma200:.1f}, "
             f"SMA9prev={'%.1f'%sma9_prev if is_largecap and sma9_prev else 'N/A'}, "
-            f"{primary_label} Score={score}"
+            f"ATR={atr_pct:.1f}%{align_str} {pri_str} Score={score}"
         )
 
     return score, signals, info
@@ -456,4 +470,5 @@ def get_technical_score(ticker, stock_df, mcap_threshold, debug=False):
         'score': score,
         'signals': signals,
         'horizon': info.get('horizon', 7),
+        'atr_pct': info.get('atr_pct', 3.0),
     }
