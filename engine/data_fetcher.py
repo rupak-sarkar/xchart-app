@@ -73,7 +73,7 @@ def smart_sync():
         for bi in range(0,len(new_tk),BATCH_SIZE):
             b=new_tk[bi:bi+BATCH_SIZE]; pv=", ".join(b[:5])+("..." if len(b)>5 else "")
             print(f"  [NEW] Batch {bi//BATCH_SIZE+1}/{math.ceil(len(new_tk)/BATCH_SIZE)}: {pv}")
-            df_b=_batch_download(b,sd,end_str); 
+            df_b=_batch_download(b,sd,end_str)
             if not df_b.empty: nf.append(df_b)
             time.sleep(1)
         if nf:
@@ -86,7 +86,14 @@ def smart_sync():
         stock_df["Date"]=stock_df["Date"].astype(str).str[:10]
         gl=stock_df["Date"].max()
         su=(datetime.strptime(gl,"%Y-%m-%d")+timedelta(days=1)).strftime("%Y-%m-%d")
-        if su<=end_str:
+        # ╔══════════════════════════════════════════════════════════════╗
+        # ║  FIX: changed  su <= end_str  →  su < end_str             ║
+        # ║  When data is already fresh (last_date == today),          ║
+        # ║  su == end_str == tomorrow, so the old <= allowed a        ║
+        # ║  zero-range download (tomorrow→tomorrow) causing 158       ║
+        # ║  false "possibly delisted" errors.                         ║
+        # ╚══════════════════════════════════════════════════════════════╝
+        if su < end_str:
             print(f"\n  Updating {len(utk)}/{len(wanted)} existing tickers ({gl} -> {ts})...")
             uf=[]
             for bi in range(0,len(utk),BATCH_SIZE):
@@ -100,7 +107,7 @@ def smart_sync():
                 print(f"    -> {len(ud)} new rows fetched")
                 stock_df=pd.concat([stock_df,ud],ignore_index=True)
                 stock_df=stock_df.drop_duplicates(subset=["Ticker","Date"],keep="last")
-        else: print(f"\n  Data already up to date ({gl})")
+        else: print(f"\n  ⏭️  Data already up to date ({gl}). Skipping download.")
     if not stock_df.empty:
         stock_df=stock_df.sort_values(["Ticker","Date"]).reset_index(drop=True)
         nt=stock_df["Ticker"].nunique(); ad=len(stock_df)//nt if nt else 0
