@@ -43,6 +43,8 @@ a{color:var(--accent);text-decoration:none}
 .b-bull{background:rgba(34,197,94,0.15);color:var(--bull)}
 .b-bear{background:rgba(239,68,68,0.15);color:var(--bear)}
 .b-neut{background:rgba(234,179,8,0.1);color:var(--neut)}
+.b-hbull{background:rgba(34,197,94,0.08);color:var(--bull);border:1px dashed var(--bull)}
+.b-hbear{background:rgba(239,68,68,0.08);color:var(--bear);border:1px dashed var(--bear)}
 .main{flex:1;overflow-y:auto;padding:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
@@ -102,13 +104,9 @@ a{color:var(--accent);text-decoration:none}
     <button class="ham" id="hamBtn">&#9776;</button>
     <div class="logo">x<span>chart</span>.in<span class="ver">v7.4</span></div>
   </div>
-  <div class="hdr-right">
-    <span class="hdr-date" id="hDate">&mdash;</span>
-  </div>
+  <div class="hdr-right"><span class="hdr-date" id="hDate">&mdash;</span></div>
 </div>
-
 <div class="sb-overlay" id="sbOverlay"></div>
-
 <div class="wrap">
   <div class="sb" id="sidebar">
     <div class="sb-search"><input type="text" id="sInput" placeholder="Search ticker..."></div>
@@ -117,6 +115,7 @@ a{color:var(--accent);text-decoration:none}
       <button class="fb fb-bull" data-f="bull">Bull</button>
       <button class="fb fb-bear" data-f="bear">Bear</button>
       <button class="fb" data-f="neut">Neut</button>
+      <button class="fb" data-f="hold">Hold</button>
       <button class="fb" data-f="mega">Mega</button>
       <button class="fb" data-f="large">Large</button>
       <button class="fb" data-f="mid">Mid</button>
@@ -138,7 +137,6 @@ a{color:var(--accent);text-decoration:none}
     </div>
     <div class="sb-list" id="sList"></div>
   </div>
-
   <div class="main" id="mainContent"></div>
 </div>
 
@@ -181,20 +179,65 @@ a{color:var(--accent);text-decoration:none}
   <div>&#9888;&#65039; Not financial advice. Past performance &#8800; future results.</div>
   <div>&copy; 2026 xchart.in &middot; Charts by <a href="https://www.tradingview.com/" target="_blank">TradingView</a></div>
 </div>
-
 <script>
 
 var D=[],M={},H=[],mainChart=null,CS=null,CD=null,S={},selTk=null;
 var rsiChart=null,macdChart=null,adxChart=null;
 var rsiSeries={},macdSeries={},adxSeries={};
+var HORIZONS_MAP={MEGA:28,LARGE:21,MID:14,SMALL:7};
 var pf=function(v){return parseFloat(v)||0};
 var sc=function(v,n){return pf(v).toFixed(n||0)};
 var sC=function(v){return v>0?'var(--bull)':v<0?'var(--bear)':'var(--text2)'};
 var sn=function(v){v=parseFloat(v);return v>0?'+'+v:v};
 var gCat=function(r){return r.Category||r.BT_Category||'MID'};
 var gd=function(r){var d=parseInt(r.Composite_Direction||r.Forecast_Direction||0);return d===1?'bull':d===-1?'bear':'neut'};
-var dl=function(d){return d==='bull'?'BULL':d==='bear'?'BEAR':'NEUT'};
+var dl=function(d){return d==='bull'?'BULL':d==='bear'?'BEAR':d==='hold_bull'?'H-BULL':d==='hold_bear'?'H-BEAR':'NEUT'};
 var cleanSector=function(s){return(s&&s!=='Other'&&s!=='0'&&s!=='nan'&&String(s)!=='0'&&s!=='')?s:'\u2014'};
+
+// Effective direction: considers active holds
+function gde(r){
+  var d=gd(r);
+  if(d!=='neut')return d;
+  if(r._holdDir)return r._holdDir;
+  return 'neut';
+}
+
+function enrichActiveSignals(){
+  // For each NEUT ticker, check history for recent BULL/BEAR within horizon
+  if(!H.length)return;
+  var today=M.date||'';
+  if(!today)return;
+  var todayMs=new Date(today).getTime();
+  if(isNaN(todayMs))return;
+
+  D.forEach(function(r){
+    if(gd(r)!=='neut')return; // already has active signal
+    var tk=String(r.Ticker).trim();
+    var cat=gCat(r);
+    var horizon=HORIZONS_MAP[cat]||14;
+
+    // Find most recent directional signal in history
+    var rows=H.filter(function(h){return String(h.Ticker).trim()===tk&&parseInt(h.Composite_Direction||0)!==0});
+    if(!rows.length)return;
+    rows.sort(function(a,b){return(b.Date||'').localeCompare(a.Date||'')});
+
+    var last=rows[0];
+    var lastDate=new Date(String(last.Date).substring(0,10));
+    var daysDiff=Math.round((todayMs-lastDate.getTime())/(1000*60*60*24));
+
+    if(daysDiff>=0&&daysDiff<=horizon){
+      var dir=parseInt(last.Composite_Direction);
+      r._holdDir=dir===1?'hold_bull':'hold_bear';
+      r._holdDays=daysDiff;
+      r._holdScore=pf(last.Composite_Score);
+      r._holdDate=String(last.Date).substring(0,10);
+    }
+  });
+
+  var hb=D.filter(function(r){return r._holdDir==='hold_bull'}).length;
+  var hbe=D.filter(function(r){return r._holdDir==='hold_bear'}).length;
+  if(hb||hbe)console.log('Active holds: '+hb+' bull, '+hbe+' bear');
+}
 
 function computeStreak(tk){
   if(!H.length)return '0d';
@@ -230,6 +273,7 @@ function init(){
     if((M.regime||'').indexOf('BULL')>=0)dt.style.color='var(--bull)';
     else if((M.regime||'').indexOf('BEAR')>=0)dt.style.color='var(--bear)';
     else dt.style.color='var(--neut)';
+    enrichActiveSignals();
     buildList();showDashboard();
   });
 }
@@ -240,9 +284,11 @@ function buildList(){
   var s=(document.getElementById('sInput').value||'').toLowerCase();
   var sort=document.getElementById('sortBy').value;
   var items=D.slice();
-  if(fv==='bull')items=items.filter(function(r){return gd(r)==='bull'});
-  else if(fv==='bear')items=items.filter(function(r){return gd(r)==='bear'});
-  else if(fv==='neut')items=items.filter(function(r){return gd(r)==='neut'});
+
+  if(fv==='bull')items=items.filter(function(r){var e=gde(r);return e==='bull'||e==='hold_bull'});
+  else if(fv==='bear')items=items.filter(function(r){var e=gde(r);return e==='bear'||e==='hold_bear'});
+  else if(fv==='neut')items=items.filter(function(r){return gde(r)==='neut'});
+  else if(fv==='hold')items=items.filter(function(r){return r._holdDir});
   else if(fv==='mega')items=items.filter(function(r){return gCat(r)==='MEGA'});
   else if(fv==='large')items=items.filter(function(r){return gCat(r)==='LARGE'});
   else if(fv==='mid')items=items.filter(function(r){return gCat(r)==='MID'});
@@ -251,19 +297,39 @@ function buildList(){
   else if(fv==='bbl')items=items.filter(function(r){return pf(r.Tech_Score||r.Technical_Score)<-35});
   else if(fv==='news')items=items.filter(function(r){return pf(r.N_Catalysts)>0});
   if(s)items=items.filter(function(r){return String(r.Ticker).toLowerCase().indexOf(s)>=0});
+
   if(sort==='comp')items.sort(function(a,b){return pf(b.Composite_Score)-pf(a.Composite_Score)});
   else if(sort==='accuracy')items.sort(function(a,b){return pf(b.BT_6M||b.BT_Accuracy)-pf(a.BT_6M||a.BT_Accuracy)});
   else if(sort==='pf')items.sort(function(a,b){return pf(b.TR_profit_factor||b.BT_PF)-pf(a.TR_profit_factor||a.BT_PF)});
   else if(sort==='winrate')items.sort(function(a,b){return pf(b.TR_win_rate)-pf(a.TR_win_rate)});
   else if(sort==='return')items.sort(function(a,b){return pf(b.TR_total_return_pct)-pf(a.TR_total_return_pct)});
   else if(sort==='alpha')items.sort(function(a,b){return String(a.Ticker).localeCompare(String(b.Ticker))});
-  else items.sort(function(a,b){var o={bull:0,bear:1,neut:2};return(o[gd(a)]||2)-(o[gd(b)]||2)||String(a.Ticker).localeCompare(String(b.Ticker))});
+  else items.sort(function(a,b){
+    // signal > hold > neut
+    var oa={bull:0,bear:0,hold_bull:1,hold_bear:1,neut:2};
+    var va=oa[gde(a)]!==undefined?oa[gde(a)]:2;
+    var vb=oa[gde(b)]!==undefined?oa[gde(b)]:2;
+    if(va!==vb)return va-vb;
+    return Math.abs(pf(b.Composite_Score))-Math.abs(pf(a.Composite_Score));
+  });
+
   var list=document.getElementById('sList');list.innerHTML='';
   items.forEach(function(r){
-    var tk=String(r.Ticker).trim(),d=gd(r),cs=pf(r.Composite_Score);
+    var tk=String(r.Ticker).trim(),ed=gde(r),cs=pf(r.Composite_Score);
     var el=document.createElement('div');
     el.className='ti'+(tk===selTk?' active':'');
-    el.innerHTML='<span class="ti-name">'+tk+'</span><span class="ti-score" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(0)+'<span class="badge b-'+d+'">'+dl(d)+'</span></span>';
+
+    var badgeClass,badgeText;
+    if(ed==='bull'){badgeClass='b-bull';badgeText='BULL'}
+    else if(ed==='bear'){badgeClass='b-bear';badgeText='BEAR'}
+    else if(ed==='hold_bull'){badgeClass='b-hbull';badgeText='H-BULL'}
+    else if(ed==='hold_bear'){badgeClass='b-hbear';badgeText='H-BEAR'}
+    else{badgeClass='b-neut';badgeText='NEUT'}
+
+    var holdInfo='';
+    if(r._holdDir&&r._holdDays!==undefined)holdInfo=' <span style="font-size:8px;color:var(--text2)">'+r._holdDays+'d</span>';
+
+    el.innerHTML='<span class="ti-name">'+tk+'</span><span class="ti-score" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(0)+'<span class="badge '+badgeClass+'">'+badgeText+'</span>'+holdInfo+'</span>';
     el.onclick=function(){selTk=tk;buildList();showTicker(r);closeSb()};
     list.appendChild(el);
   });
@@ -290,6 +356,8 @@ function showDashboard(){
   var bulls=D.filter(function(r){return gd(r)==='bull'});
   var bears=D.filter(function(r){return gd(r)==='bear'});
   var neuts=D.filter(function(r){return gd(r)==='neut'});
+  var hBulls=D.filter(function(r){return r._holdDir==='hold_bull'});
+  var hBears=D.filter(function(r){return r._holdDir==='hold_bear'});
   var byPF=D.slice().filter(function(r){return pf(r.TR_total_trades||r.BT_Trades)>=5}).sort(function(a,b){return pf(b.TR_profit_factor||b.BT_PF)-pf(a.TR_profit_factor||a.BT_PF)});
   var topBull=D.slice().filter(function(r){return gd(r)==='bull'}).sort(function(a,b){return pf(b.Composite_Score)-pf(a.Composite_Score)}).slice(0,10);
   var topBear=D.slice().filter(function(r){return gd(r)==='bear'}).sort(function(a,b){return pf(a.Composite_Score)-pf(b.Composite_Score)}).slice(0,10);
@@ -302,10 +370,12 @@ function showDashboard(){
     var aa=it.reduce(function(s,r){return s+pf(r.BT_6M||r.BT_Accuracy)},0)/it.length;
     catRows+='<tr><td style="font-weight:600">'+c+'</td><td>'+it.length+'</td><td>'+aa.toFixed(1)+'%</td><td>'+aw.toFixed(1)+'%</td><td style="color:'+(ap>=1.1?'var(--bull)':ap<0.95?'var(--bear)':'var(--white)')+'">'+ap.toFixed(2)+'</td></tr>';
   });
-  var mkRow=function(r){var tk=String(r.Ticker).trim();return '<tr><td class="tk" onclick="selTk=\''+tk+'\';buildList();showTicker(D.find(function(x){return String(x.Ticker).trim()===\''+tk+'\'}))">' +tk+'</td><td>'+gCat(r)+'</td><td style="color:'+sC(pf(r.Composite_Score))+'">'+(pf(r.Composite_Score)>0?'+':'')+sc(r.Composite_Score,1)+'</td><td>'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</td><td style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':pf(r.TR_profit_factor||r.BT_PF)<0.9?'var(--bear)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</td></tr>'};
+  var mkRow=function(r){var tk=String(r.Ticker).trim();return'<tr><td class="tk" onclick="selTk=\''+tk+'\';buildList();showTicker(D.find(function(x){return String(x.Ticker).trim()===\''+tk+'\'}))">'+tk+'</td><td>'+gCat(r)+'</td><td style="color:'+sC(pf(r.Composite_Score))+'">'+(pf(r.Composite_Score)>0?'+':'')+sc(r.Composite_Score,1)+'</td><td>'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</td><td style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':pf(r.TR_profit_factor||r.BT_PF)<0.9?'var(--bear)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</td></tr>'};
   var regimeColor=(M.regime||'').indexOf('BULL')>=0?'var(--bull)':(M.regime||'').indexOf('BEAR')>=0?'var(--bear)':'var(--neut)';
+  var holdStr='';
+  if(hBulls.length||hBears.length)holdStr=' \u00b7 Hold: <span style="color:var(--bull)">'+hBulls.length+'\u25B2</span> <span style="color:var(--bear)">'+hBears.length+'\u25BC</span>';
   document.getElementById('mainContent').innerHTML='<div class="grid">'+
-    '<div class="card"><div class="card-t">\uD83D\uDCCA Signal Summary</div><div style="display:flex;gap:14px;margin-bottom:8px"><div><div class="big" style="color:var(--bull)">'+bulls.length+'</div><div class="sub">Bullish</div></div><div><div class="big" style="color:var(--bear)">'+bears.length+'</div><div class="sub">Bearish</div></div><div><div class="big" style="color:var(--neut)">'+neuts.length+'</div><div class="sub">Neutral</div></div></div><div class="prog"><div class="prog-f" style="width:'+(D.length?bulls.length/D.length*100:0)+'%;background:var(--bull)"></div></div><div style="font-size:9px;color:var(--text2);margin-top:3px">Bull '+(D.length?(bulls.length/D.length*100).toFixed(0):0)+'% \u00b7 Bear '+(D.length?(bears.length/D.length*100).toFixed(0):0)+'% \u00b7 Neut '+(D.length?(neuts.length/D.length*100).toFixed(0):0)+'%</div></div>'+
+    '<div class="card"><div class="card-t">\uD83D\uDCCA Signal Summary</div><div style="display:flex;gap:14px;margin-bottom:8px"><div><div class="big" style="color:var(--bull)">'+bulls.length+'</div><div class="sub">Bullish</div></div><div><div class="big" style="color:var(--bear)">'+bears.length+'</div><div class="sub">Bearish</div></div><div><div class="big" style="color:var(--neut)">'+neuts.length+'</div><div class="sub">Neutral</div></div></div><div class="prog"><div class="prog-f" style="width:'+(D.length?bulls.length/D.length*100:0)+'%;background:var(--bull)"></div></div><div style="font-size:9px;color:var(--text2);margin-top:3px">Bull '+(D.length?(bulls.length/D.length*100).toFixed(0):0)+'% \u00b7 Bear '+(D.length?(bears.length/D.length*100).toFixed(0):0)+'% \u00b7 Neut '+(D.length?(neuts.length/D.length*100).toFixed(0):0)+'%'+holdStr+'</div></div>'+
     '<div class="card"><div class="card-t">\uD83C\uDF0D Market Regime</div><div class="big" style="color:'+regimeColor+'">'+(M.regime||'\u2014')+'</div><div class="sub">breadth='+(M.breadth||50)+'% nifty='+(M.nifty_5d||0)+'%</div><div style="margin-top:8px"><div class="row"><span class="l">Dir Accuracy</span><span class="v">'+(M.avg_accuracy||M.direction_accuracy||0)+'%</span></div><div class="row"><span class="l">Avg Trade PF</span><span class="v">'+(M.avg_profit_factor||M.avg_pf||0)+'</span></div><div class="row"><span class="l">Tickers</span><span class="v">'+(M.tickers||M.total_tickers||D.length)+'</span></div></div></div>'+
     '<div class="card" style="grid-column:span 2"><div class="card-t">\uD83D\uDCC8 Category Performance</div><table class="tbl"><tr><th>Cat</th><th>N</th><th>Acc</th><th>WR</th><th>PF</th></tr>'+catRows+'</table></div>'+
     '<div class="card"><div class="card-t">\uD83D\uDFE2 Top Bullish Stocks</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+topBull.map(mkRow).join('')+'</table></div>'+
@@ -317,7 +387,7 @@ function showDashboard(){
 
 function showTicker(r){
   if(!r)return;
-  var tk=String(r.Ticker).trim(),d=gd(r),cs=pf(r.Composite_Score);
+  var tk=String(r.Ticker).trim(),d=gd(r),ed=gde(r),cs=pf(r.Composite_Score);
   var tech=pf(r.Tech_Score||r.Technical_Score);
   var macro=pf(r.Macro_Score);
   var fund=pf(r.Fund_Score||r.Fundamental_Score);
@@ -333,10 +403,21 @@ function showTicker(r){
   var catStr=nCat>0?parseInt(nCat)+' catalyst'+(nCat>1?'s':'')+' ('+newsDir+')':'None';
   var btAcc=pf(r.BT_6M||r.BT_Accuracy);
   var trPF=pf(r.TR_profit_factor||r.BT_PF);
+
+  // Position info
+  var posInfo='';
+  if(r._holdDir){
+    var posLabel=r._holdDir==='hold_bull'?'\uD83D\uDFE2 H-BULL':'\uD83D\uDD34 H-BEAR';
+    posInfo='<div class="row"><span class="l">Position</span><span class="v" style="color:'+(r._holdDir==='hold_bull'?'var(--bull)':'var(--bear)')+'">'+posLabel+' ('+r._holdDays+'d ago, score: '+(r._holdScore>0?'+':'')+r._holdScore.toFixed(1)+')</span></div>';
+  }
+
+  var badgeClass=ed==='bull'?'b-bull':ed==='bear'?'b-bear':ed==='hold_bull'?'b-hbull':ed==='hold_bear'?'b-hbear':'b-neut';
+  var badgeText=dl(ed);
+
   document.getElementById('mainContent').innerHTML=
     '<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<span style="font-size:18px;font-weight:700;color:var(--white)">'+tk+'</span>'+
-      '<span class="badge b-'+d+'" style="font-size:11px;padding:2px 8px">'+dl(d)+'</span>'+
+      '<span class="badge '+badgeClass+'" style="font-size:11px;padding:2px 8px">'+badgeText+'</span>'+
       '<span style="font-size:12px;color:var(--text2)">'+gCat(r)+' \u00b7 '+sector+'</span>'+
       '<button onclick="openChart(\''+tk+'\')" style="margin-left:auto;padding:5px 14px;border-radius:5px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:11px;font-weight:600">\uD83D\uDCC8 Chart</button>'+
       '<button onclick="showDashboard()" style="padding:5px 10px;border-radius:5px;background:var(--card2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:11px">\u2190 Back</button>'+
@@ -345,7 +426,7 @@ function showTicker(r){
       '<div class="card"><div class="card-t">\uD83D\uDCCA Score Breakdown</div><div class="big" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(1)+'</div><div class="sub">Composite</div><div style="margin-top:8px"><div class="row"><span class="l">Technical</span><span class="v" style="color:'+sC(tech)+'">'+sn(tech.toFixed(0))+'</span></div><div class="row"><span class="l">Macro/Sector</span><span class="v" style="color:'+sC(macro)+'">'+sn(macro.toFixed(0))+'</span></div><div class="row"><span class="l">Fundamental</span><span class="v" style="color:'+sC(fund)+'">'+sn(fund.toFixed(0))+'</span></div><div class="row"><span class="l">News</span><span class="v" style="color:'+sC(news)+'">'+newsStr+'</span></div><div class="row"><span class="l">Severity</span><span class="v">'+severity+'</span></div></div></div>'+
       '<div class="card"><div class="card-t">\uD83C\uDFAF Backtest</div><div class="big">'+btAcc.toFixed(0)+'%</div><div class="sub">All-Time Accuracy</div><div style="margin-top:8px"><div class="row"><span class="l">1M</span><span class="v">'+sc(r.BT_1M,0)+'%</span></div><div class="row"><span class="l">3M</span><span class="v">'+sc(r.BT_3M,0)+'%</span></div><div class="row"><span class="l">Horizon</span><span class="v">'+(r.BT_Forward_Days||r.Horizon||'\u2014')+'d</span></div><div class="row"><span class="l">Band</span><span class="v">\u00b1'+sc(r.BT_Threshold,2)+'%</span></div><div class="row"><span class="l">ATR</span><span class="v">'+sc(r.BT_ATR_Pct,1)+'%</span></div></div></div>'+
       '<div class="card"><div class="card-t">\uD83D\uDCB0 Trade Sim</div><div class="big" style="color:'+(trPF>=1.1?'var(--bull)':trPF<0.9?'var(--bear)':'var(--white)')+'">'+trPF.toFixed(2)+'</div><div class="sub">Profit Factor</div><div style="margin-top:8px"><div class="row"><span class="l">Trades</span><span class="v">'+sc(r.TR_total_trades||r.BT_Trades,0)+'</span></div><div class="row"><span class="l">Win Rate</span><span class="v">'+sc(r.TR_win_rate,0)+'%</span></div><div class="row"><span class="l">Avg Win</span><span class="v" style="color:var(--bull)">+'+sc(r.TR_avg_win_pct,1)+'%</span></div><div class="row"><span class="l">Avg Loss</span><span class="v" style="color:var(--bear)">-'+sc(r.TR_avg_loss_pct,1)+'%</span></div><div class="row"><span class="l">Return</span><span class="v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</span></div><div class="row"><span class="l">Hold</span><span class="v">'+sc(r.TR_avg_holding_days,0)+'d</span></div><div class="row"><span class="l">SL</span><span class="v">'+sc(r.BT_SL_Level,1)+'%</span></div></div></div>'+
-      '<div class="card"><div class="card-t">\uD83D\uDCC8 Context</div><div class="row"><span class="l">Sector</span><span class="v">'+sector+'</span></div><div class="row"><span class="l">Streak</span><span class="v">'+streak+'</span></div><div class="row"><span class="l">Momentum</span><span class="v" style="color:'+sC(mom)+'">'+momStr+'</span></div><div class="row"><span class="l">Long WR</span><span class="v">'+sc(r.TR_long_win_rate,0)+'%</span></div><div class="row"><span class="l">Short WR</span><span class="v">'+sc(r.TR_short_win_rate,0)+'%</span></div><div class="row"><span class="l">Catalysts</span><span class="v">'+catStr+'</span></div></div>'+
+      '<div class="card"><div class="card-t">\uD83D\uDCC8 Context</div>'+posInfo+'<div class="row"><span class="l">Sector</span><span class="v">'+sector+'</span></div><div class="row"><span class="l">Streak</span><span class="v">'+streak+'</span></div><div class="row"><span class="l">Momentum</span><span class="v" style="color:'+sC(mom)+'">'+momStr+'</span></div><div class="row"><span class="l">Long WR</span><span class="v">'+sc(r.TR_long_win_rate,0)+'%</span></div><div class="row"><span class="l">Short WR</span><span class="v">'+sc(r.TR_short_win_rate,0)+'%</span></div><div class="row"><span class="l">Catalysts</span><span class="v">'+catStr+'</span></div></div>'+
     '</div>';
 }
 
@@ -387,11 +468,11 @@ function syncTimeScales(){
 
 function openChart(tk){
   var r=D.find(function(x){return String(x.Ticker).trim()===tk})||{};
-  var d=gd(r);
+  var d=gd(r),ed=gde(r);
   document.getElementById('mTitle').textContent=tk;
-  document.getElementById('mSub').textContent=gCat(r)+' \u00b7 '+cleanSector(r.Sector)+' \u00b7 Comp: '+sn(sc(r.Composite_Score,1));
+  document.getElementById('mSub').textContent=gCat(r)+' \u00b7 '+cleanSector(r.Sector)+' \u00b7 '+dl(ed)+' \u00b7 Comp: '+sn(sc(r.Composite_Score,1));
   document.getElementById('mKpis').innerHTML=
-    '<div class="mk"><div class="mk-v" style="color:var(--'+d+')">'+dl(d)+'</div><div class="mk-l">Signal</div></div>'+
+    '<div class="mk"><div class="mk-v" style="color:var(--'+(ed.indexOf('bull')>=0?'bull':ed.indexOf('bear')>=0?'bear':'neut')+')">'+dl(ed)+'</div><div class="mk-l">Signal</div></div>'+
     '<div class="mk"><div class="mk-v">'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</div><div class="mk-l">Acc</div></div>'+
     '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</div><div class="mk-l">PF</div></div>'+
     '<div class="mk"><div class="mk-v">'+sc(r.TR_win_rate,0)+'%</div><div class="mk-l">WR</div></div>'+
