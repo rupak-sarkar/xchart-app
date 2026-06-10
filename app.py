@@ -14,6 +14,7 @@ import pandas as pd
 # ── Engine imports ────────────────────────────────────────────────────────
 from engine.data_fetcher import smart_sync
 from create_stock_data import recompute_indicators
+from engine.news import build_news_cache
 
 from engine.accuracy import (
     compute_per_ticker_accuracy, print_accuracy_report,
@@ -99,7 +100,7 @@ def is_hit(pred_dir, actual_dir):
     return pred_dir == actual_dir
 
 
-# ── Ticker & News ─────────────────────────────────────────────────────────
+# ── Ticker Loading ────────────────────────────────────────────────────────
 
 def load_tickers():
     tdf = pd.read_csv(TICKER_FILE)
@@ -113,78 +114,6 @@ def load_tickers():
                 sector_map[tk] = sec
     print(f"Loaded {len(tickers)} tickers from tickers.csv (sector map: {len(sector_map)} entries)")
     return tickers, sector_map
-
-
-RSS_FEEDS = {
-    "mc_topnews":    "https://www.moneycontrol.com/rss/latestnews.xml",
-    "mc_business":   "https://www.moneycontrol.com/rss/business.xml",
-    "mc_markets":    "https://www.moneycontrol.com/rss/marketreports.xml",
-    "mc_stocks":     "https://www.moneycontrol.com/rss/stocksinnews.xml",
-    "et_markets":    "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
-    "et_stocks":     "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms",
-    "et_news":       "https://economictimes.indiatimes.com/rssfeedstopstories.cms",
-    "ndtv_business": "https://feeds.feedburner.com/ndtvprofit-latest",
-    "mint_market":   "https://www.livemint.com/rss/markets",
-    "mint_companies":"https://www.livemint.com/rss/companies",
-    "nse_announce":  "https://www.nseindia.com/api/corporate-announcements?index=equities&fo_sec=true",
-    "nse_actions":   "https://www.nseindia.com/api/corporate-actions?index=equities",
-    "fe_markets":    "https://www.financialexpress.com/market/feed/",
-    "fe_companies":  "https://www.financialexpress.com/industry/feed/",
-    "bl_markets":    "https://www.thehindubusinessline.com/markets/feeder/default.rss",
-    "bl_stocks":     "https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss",
-    "bl_companies":  "https://www.thehindubusinessline.com/companies/feeder/default.rss",
-}
-
-
-def _parse_feed(url, source_name, tickers, max_items=60):
-    import feedparser
-    articles = []
-    try:
-        feed = feedparser.parse(url)
-        if not feed.entries:
-            print(f"   {source_name}: No entries"); return []
-    except Exception as e:
-        print(f"   {source_name}: {e}"); return []
-    cutoff = datetime.now() - timedelta(days=NEWS_WINDOW_DAYS)
-    ow = 0; rf = 0; nn = 0
-    for entry in feed.entries[:max_items]:
-        title = entry.get("title", "").strip()
-        if not title: continue
-        published = entry.get("published_parsed") or entry.get("updated_parsed")
-        if published:
-            try: dt = datetime(*published[:6])
-            except: dt = datetime.now()
-        else: dt = datetime.now()
-        if dt < cutoff: ow += 1; continue
-        if REPORTING_KW.search(title): rf += 1; continue
-        if "nse" in source_name.lower() and NSE_NOISE_KW.search(title): nn += 1; continue
-        matched = []
-        tu = title.upper()
-        for tk in tickers:
-            tku = tk.upper()
-            if tku in tu or tku.replace(".", "") in tu:
-                matched.append(tk)
-        articles.append({"title": title, "source": source_name, "date": dt.strftime("%Y-%m-%d %H:%M"),
-                         "tickers": matched, "url": entry.get("link", "")})
-    extra = ""
-    if ow: extra += f", {ow} outside window"
-    if rf: extra += f", {rf} reporting"
-    if nn: extra += f", {nn} NSE noise"
-    print(f"   {source_name}: {len(articles)} predictive from {len(feed.entries[:max_items])}{extra}")
-    return articles
-
-
-def fetch_news(tickers):
-    all_articles = []
-    for name, url in RSS_FEEDS.items():
-        print(f"Fetching {name}...")
-        all_articles.extend(_parse_feed(url, name, tickers))
-    ticker_articles = defaultdict(list)
-    for art in all_articles:
-        for tk in art["tickers"]:
-            ticker_articles[tk].append(art)
-    print(f"\nCache: {len(ticker_articles)}/{len(tickers)} predictive | Scanned:{len(all_articles)} Kept:{len(all_articles)}")
-    return ticker_articles
 
 
 # ── FinBERT ───────────────────────────────────────────────────────────────
@@ -348,7 +277,6 @@ def compute_market_regime(stock_df):
             if c > 0 and s9 > 0:
                 nifty_5d += (c - s9) / s9 * 100
                 mega_count += 1
-    # ── FIX: average Nifty proxy across mega-cap stocks ──
     if mega_count > 0:
         nifty_5d = nifty_5d / mega_count
     if breadth >= 65 and nifty_5d > 1: regime = "BULL"
@@ -554,12 +482,10 @@ def main():
                 print(f"  -> MCap: already in Cr (median={med:,.0f})")
             else:
                 print(f"  -> MCap: ⚠️ median is {med} — check data")
-            # Show classification preview
             cats = mcap_latest.apply(lambda x: classify_cap(x, MCAP_THRESHOLD))
             vc = cats.value_counts()
             preview = " | ".join(f"{c}:{vc.get(c,0)}" for c in ["MEGA","LARGE","MID","SMALL"])
             print(f"  -> MCap split: {preview}")
-            # Sample values for debugging
             top3 = mcap_latest.nlargest(3)
             bot3 = mcap_latest.nsmallest(3)
             print(f"  -> Top3: {', '.join(f'{t}={v:,.0f}Cr' for t,v in top3.items())}")
@@ -607,10 +533,22 @@ def main():
     print(f"Entry: +/-{ENTRY_THRESHOLD_LC} | Exit: +/-{EXIT_THRESHOLD_LC}")
     print("=" * 110)
 
-    # ── PHASE 1: News ──
+    # ── PHASE 1: News (with cache) ──
     print(f"\nPHASE 1: Fetching predictive news...")
     print("-" * 110)
-    ticker_articles = fetch_news(tickers)
+    news_cache = build_news_cache(tickers)
+    # Convert news_cache dict → ticker_articles format for FinBERT
+    ticker_articles = defaultdict(list)
+    for tk in tickers:
+        entries = news_cache.get(tk, [])
+        for e in entries:
+            ticker_articles[tk].append({
+                "title": e["headline"],
+                "source": e["source"],
+                "date": e.get("pub_time", ""),
+                "tickers": [tk],
+                "url": e.get("news_url", ""),
+            })
     print("-" * 110)
 
     # ── PHASE 2: FinBERT ──
