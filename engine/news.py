@@ -5,14 +5,120 @@ from datetime import datetime, timezone, date
 from pathlib import Path
 from engine.config import (
     IST, NEWS_START_DATE, NEWS_CUTOFF_TIME, BROWSER_HEADERS,
-    ALL_CHECK CACHE FIRST — skip all RSS if fresh                     ║    ALL_FEEDS, SOURCE_WEIGHTS, NSE_SOURCES, SOURCE_LABELS, SOURCE_SEARCH_URLS,
-    # ╚══════════════════════════════════════════════════════════════════╝
+    ALL_FEEDS, SOURCE_WEIGHTS, NSE_SOURCES, SOURCE_LABELS, SOURCE_SEARCH_URLS,
+    COMPANY_ALIASES
+)
+from engine.sentiment import classify_headline, classify_nse_headline
+
+feedparser.USER_AGENT = BROWSER_HEADERS["User-Agent"]
+
+# -- News Cache Config --
+NEWS_CACHE_FILE = Path("news_cache.json")
+NEWS_CACHE_TTL_HOURS = 4
+
+
+def _news_cache_fresh():
+    """Check if news cache exists and is within TTL for today."""
+    if not NEWS_CACHE_FILE.exists():
+        return False
+    try:
+        with open(NEWS_CACHE_FILE, "r") as f:
+            cache = json.load(f)
+        cached_at = datetime.fromisoformat(cache.get("cached_at", "2000-01-01"))
+        age_hours = (datetime.now() - cached_at).total_seconds() / 3600
+        cache_date = cache.get("date", "")
+        if age_hours < NEWS_CACHE_TTL_HOURS and cache_date == date.today().strftime("%Y-%m-%d"):
+            print(f"  >>> News cache fresh ({age_hours:.1f}h old). Loading from cache.")
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def _load_news_cache():
+    """Load cached news_cache dict from disk."""
+    try:
+        with open(NEWS_CACHE_FILE, "r") as f:
+            cache = json.load(f)
+        data = cache.get("news_cache", {})
+        sources = cache.get("sources", {})
+        for src, info in sources.items():
+            notes = info.get("notes", "")
+            print(f"   {src}: {info.get('predictive', 0)} predictive from {info.get('total', 0)}{' (' + notes + ')' if notes else ''} [CACHED]")
+        real_keys = {k for k in data if not k.startswith("_filing_")}
+        n_articles = sum(len(v) for k, v in data.items() if not k.startswith("_filing_"))
+        print(f"\nCache: {len(real_keys)} predictive | {n_articles} articles [FROM CACHE]")
+        return data
+    except Exception as e:
+        print(f"  WARNING: Cache load failed: {e}")
+        return None
+
+
+def _save_news_cache(news_cache, source_summary):
+    """Save news_cache dict to disk."""
+    payload = {
+        "date": date.today().strftime("%Y-%m-%d"),
+        "cached_at": datetime.now().isoformat(),
+        "sources": source_summary,
+        "news_cache": news_cache,
+    }
+    try:
+        with open(NEWS_CACHE_FILE, "w") as f:
+            json.dump(payload, f, default=str)
+        n_articles = sum(len(v) for v in news_cache.values())
+        print(f"  Saved {n_articles} articles to news cache")
+    except Exception as e:
+        print(f"  WARNING: Cache save failed: {e}")
+
+
+# -- Existing helpers (unchanged) --
+
+def extract_pub_datetime_full(entry):
+    p = entry.get("published_parsed") or entry.get("updated_parsed")
+    if p:
+        try:
+            d = datetime(*p[:6], tzinfo=timezone.utc).astimezone(IST)
+            return d, d.strftime("%d %b %Y %I:%M %p")
+        except: pass
+    return None, ""
+
+def extract_news_url(e): return e.get("link", e.get("id", ""))
+
+def is_in_news_window(d):
+    if d is None: return True
+    return datetime.combine(NEWS_START_DATE, datetime.min.time()).replace(tzinfo=IST) <= d <= NEWS_CUTOFF_TIME
+
+def get_source_search_url(sl, tk):
+    t = SOURCE_SEARCH_URLS.get(sl, "")
+    return t.replace("{ticker}", tk) if t else ""
+
+def fetch_rss_with_headers(url, label, timeout=15):
+    try:
+        r = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout); r.raise_for_status()
+        return feedparser.parse(r.content)
+    except requests.exceptions.RequestException as e:
+        print(f"   {label}: {e}")
+        try: return feedparser.parse(url)
+        except: return None
+
+def match_ticker_in_text(tu, tl):
+    for t in sorted(tl, key=len, reverse=True):
+        if re.search(r'\b' + re.escape(t.upper()) + r'\b', tu): return t
+    for a, t in COMPANY_ALIASES.items():
+        if a in tu and t in tl: return t
+    return None
+
+
+# -- Main build function (with cache) --
+
+def build_news_cache(tl):
+    # Check cache first - skip all RSS if fresh
     if _news_cache_fresh():
         cached = _load_news_cache()
         if cached is not None:
             return cached
 
-    # ── FRESH FETCH ──
+    # Fresh fetch
     cache = {}; st = {"sc": 0, "rp": 0, "nn": 0, "kp": 0}
     source_summary = {}
 
@@ -55,15 +161,13 @@ from engine.config import (
     rl = {k for k in cache if not k.startswith("_filing_")}
     print(f"\nCache: {len(rl)}/{len(tl)} predictive | Scanned:{st['sc']} Reporting:{st['rp']} NSEnoise:{st['nn']} Kept:{st['kp']}")
 
-    # ╔══════════════════════════════════════════════════════════════════╗
-    # ║  SAVE TO CACHE                                                  ║
-    # ╚══════════════════════════════════════════════════════════════════╝
+    # Save to cache
     _save_news_cache(cache, source_summary)
 
     return cache
 
 
-# ── Remaining functions (unchanged) ───────────────────────────────────────
+# -- Remaining functions (unchanged) --
 
 def get_yfinance_news(tk, ar=None):
     import yfinance as yf
@@ -126,111 +230,3 @@ def get_live_price_return(tk):
             if len(h) >= 2: return round(((h['Close'].iloc[-1] - h['Close'].iloc[-2]) / h['Close'].iloc[-2]) * 100, 2)
         except: continue
     return 0.0
-    COMPANY_ALIASES
-)
-from engine.sentiment import classify_headline, classify_nse_headline
-
-feedparser.USER_AGENT = BROWSER_HEADERS["User-Agent"]
-
-# ── News Cache Config ─────────────────────────────────────────────────────
-NEWS_CACHE_FILE = Path("news_cache.json")
-NEWS_CACHE_TTL_HOURS = 4
-
-
-def _news_cache_fresh():
-    """Check if news cache exists and is within TTL for today."""
-    if not NEWS_CACHE_FILE.exists():
-        return False
-    try:
-        with open(NEWS_CACHE_FILE, "r") as f:
-            cache = json.load(f)
-        cached_at = datetime.fromisoformat(cache.get("cached_at", "2000-01-01"))
-        age_hours = (datetime.now() - cached_at).total_seconds() / 3600
-        cache_date = cache.get("date", "")
-        if age_hours < NEWS_CACHE_TTL_HOURS and cache_date == date.today().strftime("%Y-%m-%d"):
-            print(f"  ⚡ News cache fresh ({age_hours:.1f}h old). Loading from cache.")
-            return True
-    except Exception:
-        pass
-    return False
-
-
-def _load_news_cache():
-    """Load cached news_cache dict from disk."""
-    try:
-        with open(NEWS_CACHE_FILE, "r") as f:
-            cache = json.load(f)
-        data = cache.get("news_cache", {})
-        sources = cache.get("sources", {})
-        # Print source summary
-        for src, info in sources.items():
-            notes = info.get("notes", "")
-            print(f"   {src}: {info.get('predictive', 0)} predictive from {info.get('total', 0)}{' (' + notes + ')' if notes else ''} [CACHED]")
-        real_keys = {k for k in data if not k.startswith("_filing_")}
-        n_articles = sum(len(v) for k, v in data.items() if not k.startswith("_filing_"))
-        print(f"\nCache: {len(real_keys)} predictive | {n_articles} articles [FROM CACHE]")
-        return data
-    except Exception as e:
-        print(f"  ⚠️  Cache load failed: {e}")
-        return None
-
-
-def _save_news_cache(news_cache, source_summary):
-    """Save news_cache dict to disk."""
-    payload = {
-        "date": date.today().strftime("%Y-%m-%d"),
-        "cached_at": datetime.now().isoformat(),
-        "sources": source_summary,
-        "news_cache": news_cache,
-    }
-    try:
-        with open(NEWS_CACHE_FILE, "w") as f:
-            json.dump(payload, f, default=str)
-        n_articles = sum(len(v) for v in news_cache.values())
-        print(f"  💾 Saved {n_articles} articles to news cache")
-    except Exception as e:
-        print(f"  ⚠️  Cache save failed: {e}")
-
-
-# ── Existing helpers (unchanged) ──────────────────────────────────────────
-
-def extract_pub_datetime_full(entry):
-    p = entry.get("published_parsed") or entry.get("updated_parsed")
-    if p:
-        try:
-            d = datetime(*p[:6], tzinfo=timezone.utc).astimezone(IST)
-            return d, d.strftime("%d %b %Y %I:%M %p")
-        except: pass
-    return None, ""
-
-def extract_news_url(e): return e.get("link", e.get("id", ""))
-
-def is_in_news_window(d):
-    if d is None: return True
-    return datetime.combine(NEWS_START_DATE, datetime.min.time()).replace(tzinfo=IST) <= d <= NEWS_CUTOFF_TIME
-
-def get_source_search_url(sl, tk):
-    t = SOURCE_SEARCH_URLS.get(sl, "")
-    return t.replace("{ticker}", tk) if t else ""
-
-def fetch_rss_with_headers(url, label, timeout=15):
-    try:
-        r = requests.get(url, headers=BROWSER_HEADERS, timeout=timeout); r.raise_for_status()
-        return feedparser.parse(r.content)
-    except requests.exceptions.RequestException as e:
-        print(f"   {label}: {e}")
-        try: return feedparser.parse(url)
-        except: return None
-
-def match_ticker_in_text(tu, tl):
-    for t in sorted(tl, key=len, reverse=True):
-        if re.search(r'\b' + re.escape(t.upper()) + r'\b', tu): return t
-    for a, t in COMPANY_ALIASES.items():
-        if a in tu and t in tl: return t
-    return None
-
-
-# ── Main build function (with cache) ─────────────────────────────────────
-
-def build_news_cache(tl):
-    # ╔══════════════════════════════════════════════════════════════════╗
