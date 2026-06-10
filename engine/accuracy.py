@@ -514,36 +514,57 @@ def print_accuracy_report(bt_results, scored, hdf, all_rows):
         if no_signal > 0:
             print(f"  No signals: {no_signal} tickers (all neutral predictions)")
 
-    # Live accuracy
-    if hdf is not None and not hdf.empty and 'Date' in hdf.columns:
-        print(f"\n  -- LIVE ACCURACY --")
-        dates = sorted(hdf['Date'].unique())
-        all_h = 0
-        all_t = 0
-        for i in range(len(dates) - 1):
-            d1, d2 = dates[i], dates[i + 1]
-            rows1 = hdf[hdf['Date'] == d1]
-            rows2 = hdf[hdf['Date'] == d2]
-            merged = rows1.merge(rows2, on='Ticker', suffixes=('_1', '_2'))
-            hits = 0
-            total = 0
-            for _, mr in merged.iterrows():
-                raw_dir = mr.get('Composite_Direction_1', 0)
-                if pd.isna(raw_dir):
-                    continue
-                dir1 = int(raw_dir)
-                ret2 = safe_float(mr.get('Actual_Return_Pct_2', 0), 0)
-                if dir1 == 0:
-                    continue
-                total += 1
-                actual = 1 if ret2 > 0.25 else (-1 if ret2 < -0.25 else 0)
-                if dir1 == actual or actual == 0:
-                    hits += 1
-            if total > 0:
-                print(f"    {d1}->{d2}: {hits}/{total}={hits/total*100:.0f}%")
-            all_h += hits
-            all_t += total
-        if all_t > 0:
-            print(f"    AGG: {all_h}/{all_t}={all_h/all_t*100:.1f}%")
-
-    print(f"{'='*110}")
+    
+    # ── LIVE ACCURACY (horizon-aware) ──
+if history_df is not None and len(history_df) > 0 and 'Date' in history_df.columns:
+    print(f"\n  -- LIVE ACCURACY (horizon-aware) --")
+    dates = sorted(history_df['Date'].unique())
+    
+    # For each signal, check if enough days have passed to evaluate
+    live_hits = 0
+    live_total = 0
+    live_pending = 0
+    
+    for _, row in history_df.iterrows():
+        direction = int(row.get('Composite_Direction', 0) or 0)
+        if direction == 0:
+            continue
+        
+        sig_date = str(row.get('Date', ''))[:10]
+        ticker = str(row.get('Ticker', '')).strip()
+        cat = row.get('Category', row.get('BT_Category', 'MID'))
+        horizon = {'MEGA': 28, 'LARGE': 21, 'MID': 14, 'SMALL': 7}.get(cat, 14)
+        
+        # Find the actual return after horizon days
+        # Check if we have enough future data
+        future_dates = [d for d in dates if d > sig_date]
+        
+        if len(future_dates) < min(horizon, len(dates) - 1):
+            live_pending += 1
+            continue
+        
+        # Get the evaluation date (horizon days later or latest available)
+        eval_idx = min(horizon - 1, len(future_dates) - 1)
+        eval_date = future_dates[eval_idx]
+        
+        # Find this ticker's direction on eval date
+        eval_row = history_df[
+            (history_df['Ticker'].astype(str).str.strip() == ticker) & 
+            (history_df['Date'].astype(str).str[:10] == eval_date)
+        ]
+        
+        if eval_row.empty:
+            continue
+        
+        actual_ret = float(eval_row.iloc[0].get('Actual_Return_Pct', 0) or 0)
+        
+        live_total += 1
+        if (direction == 1 and actual_ret > 0) or (direction == -1 and actual_ret < 0):
+            live_hits += 1
+    
+    if live_total > 0:
+        print(f"    Evaluated: {live_hits}/{live_total} = {live_hits/live_total*100:.1f}%")
+    if live_pending > 0:
+        print(f"    Pending (horizon not reached): {live_pending} signals")
+    if live_total == 0:
+        print(f"    No signals have reached their horizon yet ({live_pending} pending)")
