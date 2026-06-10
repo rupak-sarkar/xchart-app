@@ -5,13 +5,13 @@
   "total_tickers": 158,
   "regime": "CHOPPY",
   "breadth": 34,
-  "nifty_5d": 0,
-  "avg_accuracy": 65.5,
-  "direction_accuracy": 65.5,
-  "avg_profit_factor": 0.97,
-  "avg_pf": 0.97,
+  "nifty_5d": -0.8,
+  "avg_accuracy": 61.1,
+  "direction_accuracy": 61.1,
+  "avg_profit_factor": 0.98,
+  "avg_pf": 0.98,
   "bulls": 1,
-  "bears": 0,
-  "neutrals": 157,
-  "same_day_accuracy": 0.0
+  "bears": 1,
+  "neutrals": 156,
+  "same_day_accuracy": 50.0
 }
