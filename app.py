@@ -1,7 +1,228 @@
 #!/usr/bin/env python3
 """
 xchart-app v7.4 — Multi-Layer Predictive Trading Engine
-LC: Strict SMA9 reversal | SC_count += 1LC: Strict SMA9 reversal | SC: BB-centric | ATR SL | σ-band
+LC: Strict SMA9 reversal | SC: BB-centric | ATR SL | sigma-band
+"""
+
+import os
+import sys
+import json
+import re
+import time
+import traceback
+import numpy as np
+import pandas as pd
+import feedparser
+from datetime import datetime, timedelta, timezone
+
+from engine.data_fetcher import ensure_data_exists
+from engine.technical import (
+    load_stock_data, compute_tech_score, detect_mcap_scale,
+    get_sector_from_stock_data, get_broad_sector
+)
+from engine.accuracy import (
+    compute_per_ticker_accuracy, print_accuracy_report,
+    ENTRY_THRESHOLD_LC, ENTRY_THRESHOLD_SC,
+    EXIT_THRESHOLD_LC, EXIT_THRESHOLD_SC,
+    HORIZONS, HOLD_DAYS, STOP_LOSS_PCT, is_hit, _classify_cap
+)
+from engine.utils import safe_float
+from create_stock_data import recompute_indicators
+
+try:
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    HAS_FINBERT = True
+except ImportError:
+    HAS_FINBERT = False
+
+
+VERSION = "7.4"
+TICKERS_FILE = 'tickers.csv'
+DATA_FILE = 'stock_data.csv'
+OUTPUT_FILE = 'data.csv'
+HISTORY_FILE = 'history.csv'
+CHARTS_DIR = 'charts'
+META_FILE = 'meta.json'
+
+W_TECH = 0.65
+W_NEWS = 0.10
+W_MACRO = 0.16
+W_FUND = 0.11
+FINBERT_BULL = 5
+FINBERT_BEAR = -5
+NEWS_LOOKBACK_HRS = 72
+
+RSS_FEEDS = {
+    'mc_topnews':     'https://www.moneycontrol.com/rss/MCtopnews.xml',
+    'mc_business':    'https://www.moneycontrol.com/rss/business.xml',
+    'mc_markets':     'https://www.moneycontrol.com/rss/marketreports.xml',
+    'mc_stocks':      'https://www.moneycontrol.com/rss/stocksnews.xml',
+    'et_markets':     'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms',
+    'et_stocks':      'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
+    'et_news':        'https://economictimes.indiatimes.com/news/rssfeeds/1715249553.cms',
+    'ndtv_business':  'https://feeds.feedburner.com/ndtvprofit-latest',
+    'mint_market':    'https://www.livemint.com/rss/market',
+    'mint_companies': 'https://www.livemint.com/rss/companies',
+    'nse_announce':   'https://www.nseindia.com/api/corporate-announcements?index=equities',
+    'nse_actions':    'https://www.nseindia.com/api/corporate-actions?index=equities',
+    'fe_markets':     'https://www.financialexpress.com/market/',
+    'fe_companies':   'https://www.financialexpress.com/industry/companies/feed/',
+    'bl_markets':     'https://www.thehindubusinessline.com/markets/feeder/default.rss',
+    'bl_stocks':      'https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss',
+    'bl_companies':   'https://www.thehindubusinessline.com/companies/feeder/default.rss',
+}
+
+REPORTING_KW = [
+    'quarterly result', 'q1 result', 'q2 result', 'q3 result', 'q4 result',
+    'net profit', 'revenue rose', 'revenue fell', 'reports profit', 'reports loss',
+    'earnings', 'fy25', 'fy26', 'annual report', 'agm', 'board approves dividend',
+]
+
+NSE_NOISE_KW = [
+    'board meeting', 'record date', 'trading window', 'loss of certificate',
+    'duplicate share', 'intimation', 'disclosure under', 'reg 29', 'reg 31',
+    'reg 39', 'reg 74', 'certificate', 'general meeting', 'alteration',
+    'change in director', 'newspaper', 'advertisement', 'book closure',
+]
+
+PREDICTIVE_KW = [
+    'upgrade', 'downgrade', 'target', 'outlook', 'forecast', 'expansion',
+    'acquisition', 'merger', 'buyback', 'stake', 'deal', 'order win',
+    'contract', 'partnership', 'launch', 'approve', 'fdi', 'fii', 'dii',
+    'bull', 'bear', 'rally', 'crash', 'surge', 'plunge', 'breakout',
+    'invest', 'capex', 'capacity', 'commissioning', 'plant', 'ipo',
+    'restructur', 'divest', 'demerger', 'rights issue', 'preferential',
+    'sector rotat', 'rate cut', 'rate hike', 'tariff', 'sanction',
+    'regulation', 'policy', 'subsidy', 'ban', 'recall', 'penalty',
+]
+
+
+def load_tickers():
+    """Load tickers from CSV."""
+    if not os.path.exists(TICKERS_FILE):
+        print("No tickers file found")
+        return [], {}
+    df = pd.read_csv(TICKERS_FILE)
+    tickers = df.iloc[:, 0].astype(str).str.strip().tolist()
+    sector_map = {}
+    if 'Sector' in df.columns:
+        for _, r in df.iterrows():
+            t = str(r.iloc[0]).strip()
+            s = str(r.get('Sector', '')).strip()
+            if s and s.lower() not in ('nan', 'none', ''):
+                sector_map[t] = s
+    print(f"Loaded {len(tickers)} tickers from {TICKERS_FILE} (sector map: {len(sector_map)} entries)")
+    return tickers, sector_map
+
+
+def _is_reporting(title):
+    """Check if headline is a reporting/results headline."""
+    tl = title.lower()
+    return any(kw in tl for kw in REPORTING_KW)
+
+
+def _is_nse_noise(title):
+    """Check if headline is NSE procedural noise."""
+    tl = title.lower()
+    return any(kw in tl for kw in NSE_NOISE_KW)
+
+
+def _is_predictive(title):
+    """Check if headline is predictive/catalyst."""
+    tl = title.lower()
+    if _is_reporting(title):
+        return False
+    return any(kw in tl for kw in PREDICTIVE_KW)
+
+
+def _parse_pub_date(entry):
+    """Parse publication date from RSS entry."""
+    for key in ('published_parsed', 'updated_parsed'):
+        pp = entry.get(key)
+        if pp:
+            try:
+                return datetime(*pp[:6], tzinfo=timezone.utc)
+            except Exception:
+                pass
+    for key in ('published', 'updated'):
+        ds = entry.get(key, '')
+        if ds:
+            for fmt in ('%a, %d %b %Y %H:%M:%S %z', '%Y-%m-%dT%H:%M:%S%z',
+                        '%a, %d %b %Y %H:%M:%S GMT'):
+                try:
+                    return datetime.strptime(ds.strip(), fmt).replace(tzinfo=timezone.utc)
+                except Exception:
+                    continue
+    return None
+
+
+def _match_tickers(title, tickers):
+    """Match ticker symbols in headline text."""
+    matched = []
+    tl = title.upper()
+    for t in tickers:
+        t_clean = t.replace('&', '').replace('-', '')
+        if len(t_clean) < 3:
+            continue
+        pattern = r'\b' + re.escape(t_clean) + r'\b'
+        if re.search(pattern, tl.replace('&', '').replace('-', '')):
+            matched.append(t)
+    return matched
+
+
+def fetch_predictive_news(tickers, lookback_hrs=72):
+    """Fetch predictive news from RSS feeds."""
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(hours=lookback_hrs)
+    news_cache = {}
+    total_scanned = 0
+    total_reporting = 0
+    total_nse_noise = 0
+    total_kept = 0
+
+    for source, url in RSS_FEEDS.items():
+        print(f"Fetching {source}...")
+        try:
+            if 'nseindia.com/api' in url:
+                import urllib.request
+                req = urllib.request.Request(url, headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json',
+                })
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read())
+                entries = data if isinstance(data, list) else []
+                is_nse_api = True
+            else:
+                feed = feedparser.parse(url)
+                entries = feed.get('entries', [])
+                is_nse_api = False
+        except Exception as e:
+            print(f"   {source}: {e}")
+            print(f"   {source}: No entries")
+            continue
+
+        predictive_count = 0
+        reporting_count = 0
+        nse_noise_count = 0
+        outside_count = 0
+
+        for entry in entries:
+            if is_nse_api:
+                title = entry.get('subject', '') or entry.get('desc', '') or ''
+                symbol = entry.get('symbol', '')
+            else:
+                title = entry.get('title', '')
+                symbol = ''
+
+            if not title:
+                continue
+            total_scanned += 1
+
+            pub_date = _parse_pub_date(entry) if not is_nse_api else None
+            if pub_date and pub_date < cutoff:
+                outside_count += 1
                 continue
 
             if _is_nse_noise(title):
@@ -31,11 +252,8 @@ LC: Strict SMA9 reversal | SC_count += 1LC: Strict SMA9 reversal | SC: BB-centri
                         'source': source,
                         'date': pub_date.isoformat() if pub_date else '',
                     })
-                predictive_count += 1
-                total_kept += 1
-            else:
-                predictive_count += 1
-                total_kept += 1
+            predictive_count += 1
+            total_kept += 1
 
         parts = [f"{predictive_count} predictive from {len(entries)}"]
         if outside_count:
@@ -52,10 +270,9 @@ LC: Strict SMA9 reversal | SC_count += 1LC: Strict SMA9 reversal | SC: BB-centri
     return news_cache
 
 
-# ═══════════════════════════════════════════════════════════════
-# FINBERT SCORING
-# ═══════════════════════════════════════════════════════════════
 class FinBERTScorer:
+    """FinBERT sentiment scorer for catalyst headlines."""
+
     def __init__(self):
         if not HAS_FINBERT:
             self.model = None
@@ -73,7 +290,8 @@ class FinBERTScorer:
         with torch.no_grad():
             outputs = self.model(**inputs)
         probs = torch.nn.functional.softmax(outputs.logits, dim=-1)[0]
-        pos, neg, neu = probs[0].item(), probs[1].item(), probs[2].item()
+        pos = probs[0].item()
+        neg = probs[1].item()
         return (pos - neg) * 100
 
     def score_catalysts(self, headlines):
@@ -89,10 +307,8 @@ class FinBERTScorer:
         return total, n_cat, len(headlines)
 
 
-# ═══════════════════════════════════════════════════════════════
-# FUNDAMENTAL SCORING
-# ═══════════════════════════════════════════════════════════════
 def compute_fund_score(ticker, stock_df):
+    """Compute fundamental score from stock data."""
     tk = stock_df[stock_df['Ticker'] == ticker]
     if tk.empty:
         return 0
@@ -127,20 +343,20 @@ def compute_fund_score(ticker, stock_df):
         score += 10
     elif roe > 12:
         score += 5
-    elif roe < 5 and roe > 0:
+    elif 0 < roe < 5:
         score -= 5
     if pe == 0 and pb == 0 and roe == 0:
         score = 5 if mcap > 10000 else 0
     return score
 
 
-# ═══════════════════════════════════════════════════════════════
-# MARKET REGIME
-# ═══════════════════════════════════════════════════════════════
 def compute_market_regime():
+    """Compute market regime from Nifty and NSE breadth data."""
     import yfinance as yf
-    regime = {'regime': 'UNKNOWN', 'nifty_5d': 0, 'breadth': 50,
-              'avg_rsi': 50, 'lt_breadth': 50}
+    regime = {
+        'regime': 'UNKNOWN', 'nifty_5d': 0, 'breadth': 50,
+        'avg_rsi': 50, 'lt_breadth': 50
+    }
     try:
         nifty = yf.download('^NSEI', period='1mo', progress=False)
         if not nifty.empty:
@@ -185,7 +401,6 @@ def compute_market_regime():
             regime['breadth'] = round(above_sma22 / total_stocks * 100)
             regime['avg_rsi'] = round(rsi_sum / total_stocks, 1)
             regime['lt_breadth'] = round(above_sma200 / total_stocks * 100)
-            regime['total_stocks'] = total_stocks
     except Exception:
         pass
 
@@ -211,6 +426,7 @@ def compute_market_regime():
 
 
 def compute_sector_strength(stock_df, tickers, mcap_threshold):
+    """Compute sector relative strength from SMA22."""
     sectors = {}
     for t in tickers:
         sec = get_sector_from_stock_data(t, stock_df)
@@ -238,14 +454,12 @@ def compute_sector_strength(stock_df, tickers, mcap_threshold):
     return sector_scores
 
 
-# ═══════════════════════════════════════════════════════════════
-# CHART DATA GENERATION (JSON with markers)
-# ═══════════════════════════════════════════════════════════════
 def generate_chart_data(ticker, stock_df, history_df, output_dir):
     """Generate chart JSON with OHLCV, indicators, and signal markers."""
     tk = stock_df[stock_df['Ticker'] == ticker].sort_values('Date').tail(365)
     if tk.empty:
         return
+
     data = {
         'ohlc': [], 'volume': [], 'markers': [],
         'sma9': [], 'sma22': [], 'sma200': [],
@@ -257,7 +471,9 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
         'ichi_spanA': [], 'ichi_spanB': [],
         'st_bull': [], 'st_bear': [], 'vwap': [],
     }
+
     date_set = set()
+
     for _, row in tk.iterrows():
         d = str(row['Date'])[:10]
         date_set.add(d)
@@ -266,13 +482,16 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
         l = float(row.get('Low', 0) or 0)
         c = float(row.get('Close', 0) or 0)
         v = float(row.get('Volume', 0) or 0)
+
         if c <= 0:
             continue
+
         data['ohlc'].append({'time': d, 'open': o, 'high': h, 'low': l, 'close': c})
         data['volume'].append({
             'time': d, 'value': v,
             'color': 'rgba(34,197,94,0.3)' if c >= o else 'rgba(239,68,68,0.3)'
         })
+
         ind_map = [
             ('SMA_9', 'sma9'), ('SMA_22', 'sma22'), ('SMA_200', 'sma200'),
             ('EMA_9', 'ema9'), ('EMA_21', 'ema21'),
@@ -285,6 +504,7 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
             val = row.get(col)
             if val is not None and not pd.isna(val):
                 data[key].append({'time': d, 'value': round(float(val), 4)})
+
         mh_val = row.get('MACD_Hist')
         if mh_val is not None and not pd.isna(mh_val):
             mh = float(mh_val)
@@ -292,6 +512,7 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
                 'time': d, 'value': round(mh, 4),
                 'color': 'rgba(34,197,94,0.5)' if mh >= 0 else 'rgba(239,68,68,0.5)'
             })
+
         st = row.get('ST_Direction')
         if st is not None and not pd.isna(st):
             if int(st) < 0:
@@ -317,35 +538,37 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
                     'time': hd, 'position': 'aboveBar',
                     'color': '#ef4444', 'shape': 'arrowDown', 'text': 'BEAR'
                 })
+
     data['markers'].sort(key=lambda m: m['time'])
 
-    with open(os.path.join(output_dir, f"{ticker}.json"), 'w') as f:
+    out_path = os.path.join(output_dir, f"{ticker}.json")
+    with open(out_path, 'w') as f:
         json.dump(data, f)
 
 
-# ═══════════════════════════════════════════════════════════════
-# MAIN ENGINE
-# ═══════════════════════════════════════════════════════════════
 def main():
+    """Main engine entry point."""
     today = datetime.now().strftime('%Y-%m-%d')
     now_str = datetime.now().strftime('%I:%M %p')
 
-    # ── Step 0: Data sync + recompute indicators ──
+    # Step 0: Data sync + recompute indicators
     ensure_data_exists()
     recompute_indicators()
 
     tickers, sector_map = load_tickers()
     if not tickers:
-        print("No tickers found!"); return
+        print("No tickers found!")
+        return
 
-    # ── Init FinBERT ──
+    # Init FinBERT
     scorer = FinBERTScorer()
     tickers, sector_map = load_tickers()
 
-    # ── Load stock data ──
+    # Load stock data
     stock_df = load_stock_data()
     if stock_df.empty:
-        print("No stock data!"); return
+        print("No stock data!")
+        return
 
     mcap_threshold = detect_mcap_scale(stock_df)
     print(f"  -> MCap threshold: {mcap_threshold}")
@@ -359,21 +582,17 @@ def main():
           f"MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d")
     print(f"MinHold: MEGA={HOLD_DAYS['MEGA']}d LARGE={HOLD_DAYS['LARGE']}d "
           f"MID={HOLD_DAYS['MID']}d SMALL={HOLD_DAYS['SMALL']}d")
-    print(f"SL: ATR-based LC | {STOP_LOSS_PCT}% fixed SC | Neutral band: σ-based")
-    print(f"Entry: ±{ENTRY_THRESHOLD_LC} | Exit: ±{EXIT_THRESHOLD_LC}")
+    print(f"SL: ATR-based LC | {STOP_LOSS_PCT}% fixed SC | Neutral band: sigma-based")
+    print(f"Entry: +/-{ENTRY_THRESHOLD_LC} | Exit: +/-{EXIT_THRESHOLD_LC}")
     print('=' * 110)
 
-    # ══════════════════════════════════════════════
     # PHASE 1: News
-    # ══════════════════════════════════════════════
     print(f"\nPHASE 1: Fetching predictive news...")
     print('-' * 110)
     news_cache = fetch_predictive_news(tickers, NEWS_LOOKBACK_HRS)
     print('-' * 110)
 
-    # ══════════════════════════════════════════════
     # PHASE 2: FinBERT scoring
-    # ══════════════════════════════════════════════
     print(f"\nPHASE 2: FinBERT scoring (CATALYST-ONLY)...")
     print('-' * 110)
 
@@ -395,7 +614,8 @@ def main():
             close_prev = None
             if len(tk) >= fwd + 1:
                 close_prev = safe_float(tk.iloc[-(fwd + 1)].get('Close', 0), 0)
-            actual_ret = ((close_now - close_prev) / close_prev * 100) if close_prev and close_prev > 0 else 0
+            if close_prev and close_prev > 0:
+                actual_ret = (close_now - close_prev) / close_prev * 100
 
         if total_score > FINBERT_BULL:
             direction = 'BULL'
@@ -404,9 +624,9 @@ def main():
         else:
             direction = 'NEUT'
 
-        hit = 'HIT' if (total_score > 0 and actual_ret > 0) or \
-                       (total_score < 0 and actual_ret < 0) or \
-                       (abs(actual_ret) < 0.25) else 'MISS'
+        hit = 'HIT' if ((total_score > 0 and actual_ret > 0) or
+                        (total_score < 0 and actual_ret < 0) or
+                        (abs(actual_ret) < 0.25)) else 'MISS'
 
         idx += 1
         print(f"[{idx:>3}] {t:<14} {direction:>4} Score: {total_score:>+5.1f} "
@@ -420,11 +640,10 @@ def main():
             'n_headlines': n_h,
         }
 
-    print(f"\n  Catalysts: {sum(s['n_catalysts'] for s in scored_tickers.values())} scored")
+    cat_total = sum(s['n_catalysts'] for s in scored_tickers.values())
+    print(f"\n  Catalysts: {cat_total} scored")
 
-    # ══════════════════════════════════════════════
     # PHASE 3: Multi-layer analysis
-    # ══════════════════════════════════════════════
     print(f"\nPHASE 3: Multi-layer analysis ({len(tickers)} tickers)...")
     print('-' * 110)
 
@@ -485,15 +704,11 @@ def main():
     # Sector strength
     sector_strength = compute_sector_strength(stock_df, tickers, mcap_threshold)
 
-    # ══════════════════════════════════════════════
     # PHASE 3b: Backtest
-    # ══════════════════════════════════════════════
     print(f"\nPHASE 3b: Backtest (ATR SL for LC, {abs(STOP_LOSS_PCT)}% SL for SC)...")
     bt_results = compute_per_ticker_accuracy(stock_df, mcap_threshold)
 
-    # ══════════════════════════════════════════════
     # Composite scoring
-    # ══════════════════════════════════════════════
     print(f"\nComputing composite + regime adjustment...")
     reg = regime['regime']
     if reg == 'STRONG_BEAR':
@@ -510,7 +725,6 @@ def main():
     print('-' * 110)
 
     all_rows = []
-    regime_flips = 0
     tech_bull = 0
     tech_bear = 0
     tech_neut = 0
@@ -534,7 +748,7 @@ def main():
 
         fund = fund_scores.get(t, 0)
 
-        composite = (tech * W_TECH + news * W_NEWS + macro * W_MACRO + fund * W_FUND)
+        composite = tech * W_TECH + news * W_NEWS + macro * W_MACRO + fund * W_FUND
 
         if composite > 0:
             composite *= bull_damp
@@ -606,10 +820,9 @@ def main():
         bt = bt_results.get(t, {})
         bt_acc = bt.get('BT_6M', 0)
 
-        bt_str = f"BT:{bt_acc:.0f}%/{cat}" if bt_acc > 0 else ""
-        corr_str = "<- CORRECTED" if corrected else ""
-
         if t in scored_tickers or direction != 0 or corrected:
+            bt_str = f"BT:{bt_acc:.0f}%/{cat}" if bt_acc > 0 else ""
+            corr_str = "<- CORRECTED" if corrected else ""
             print(f"  [{i + 1:>3}] {t:<14} Tech: {tech:>+3.0f} Macro: {macro:>+3.0f} "
                   f"Fund: {fund:>+3.0f} -> Comp: {composite:>+5.1f} {dir_label} {hit_label} "
                   f"{corr_str} {bt_str} H:{horizon}d")
@@ -662,9 +875,7 @@ def main():
         print(f"\n  Tech-only: Bull:{tech_bull} Bear:{tech_bear} Neut:{tech_neut} | "
               f"Hit:{tech_hits}/{tech_total_dir} = {tech_hits / tech_total_dir * 100:.1f}%")
 
-    # ══════════════════════════════════════════════
     # PHASE 4: Save
-    # ══════════════════════════════════════════════
     print(f"\nPHASE 4: Save...")
     print('-' * 110)
 
@@ -681,9 +892,7 @@ def main():
     n_dates = hdf['Date'].nunique()
     print(f"History: {len(hdf)} rows / {n_dates} days")
 
-    # ══════════════════════════════════════════════
     # PHASE 5: Charts + meta
-    # ══════════════════════════════════════════════
     print(f"\nPHASE 5: Generating chart JSON + meta...")
     print('-' * 110)
 
@@ -727,9 +936,7 @@ def main():
         json.dump(meta, f, indent=2)
     print(f"  -> meta.json saved (PF:{avg_pf} Acc:{avg_acc}%)")
 
-    # ══════════════════════════════════════════════
     # Summary
-    # ══════════════════════════════════════════════
     news_count = len(scored_tickers)
     no_news = len(all_rows) - news_count
 
@@ -751,7 +958,8 @@ def main():
     same_total = len(dir_rows)
     same_pct = same_hits / same_total * 100 if same_total > 0 else 0
     flips = sum(1 for r in all_rows if r.get('Corrected', False))
-    print(f"SAME-DAY: {same_hits}/{same_total} = {same_pct:.1f}% | Bull:{tech_bull} Bear:{tech_bear} | Flips:{flips}")
+    print(f"SAME-DAY: {same_hits}/{same_total} = {same_pct:.1f}% | "
+          f"Bull:{tech_bull} Bear:{tech_bear} | Flips:{flips}")
     print('=' * 110)
 
     print_accuracy_report(bt_results, scored_tickers, hdf, all_rows)
@@ -759,212 +967,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-"""
-
-import os, sys, json, re, time, traceback
-import numpy as np
-import pandas as pd
-import feedparser
-from datetime import datetime, timedelta, timezone
-
-# ── Engine imports ──
-from engine.data_fetcher import ensure_data_exists
-from engine.technical import (
-    load_stock_data, compute_tech_score, detect_mcap_scale,
-    get_sector_from_stock_data, get_broad_sector
-)
-from engine.accuracy import (
-    compute_per_ticker_accuracy, print_accuracy_report,
-    ENTRY_THRESHOLD_LC, ENTRY_THRESHOLD_SC,
-    EXIT_THRESHOLD_LC, EXIT_THRESHOLD_SC,
-    HORIZONS, HOLD_DAYS, STOP_LOSS_PCT, is_hit, _classify_cap
-)
-from engine.utils import safe_float
-from create_stock_data import recompute_indicators
-
-try:
-    import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    HAS_FINBERT = True
-except ImportError:
-    HAS_FINBERT = False
-
-# ═══════════════════════════════════════════════════════════════
-# CONSTANTS
-# ═══════════════════════════════════════════════════════════════
-VERSION = "7.4"
-TICKERS_FILE = 'tickers.csv'
-DATA_FILE = 'stock_data.csv'
-OUTPUT_FILE = 'data.csv'
-HISTORY_FILE = 'history.csv'
-CHARTS_DIR = 'charts'
-META_FILE = 'meta.json'
-
-W_TECH = 0.65
-W_NEWS = 0.10
-W_MACRO = 0.16
-W_FUND = 0.11
-FINBERT_BULL = 5
-FINBERT_BEAR = -5
-NEWS_LOOKBACK_HRS = 72
-
-RSS_FEEDS = {
-    'mc_topnews':     'https://www.moneycontrol.com/rss/MCtopnews.xml',
-    'mc_business':    'https://www.moneycontrol.com/rss/business.xml',
-    'mc_markets':     'https://www.moneycontrol.com/rss/marketreports.xml',
-    'mc_stocks':      'https://www.moneycontrol.com/rss/stocksnews.xml',
-    'et_markets':     'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms',
-    'et_stocks':      'https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms',
-    'et_news':        'https://economictimes.indiatimes.com/news/rssfeeds/1715249553.cms',
-    'ndtv_business':  'https://feeds.feedburner.com/ndtvprofit-latest',
-    'mint_market':    'https://www.livemint.com/rss/market',
-    'mint_companies': 'https://www.livemint.com/rss/companies',
-    'nse_announce':   'https://www.nseindia.com/api/corporate-announcements?index=equities',
-    'nse_actions':    'https://www.nseindia.com/api/corporate-actions?index=equities',
-    'fe_markets':     'https://www.financialexpress.com/market/',
-    'fe_companies':   'https://www.financialexpress.com/industry/companies/feed/',
-    'bl_markets':     'https://www.thehindubusinessline.com/markets/feeder/default.rss',
-    'bl_stocks':      'https://www.thehindubusinessline.com/markets/stock-markets/feeder/default.rss',
-    'bl_companies':   'https://www.thehindubusinessline.com/companies/feeder/default.rss',
-}
-
-REPORTING_KW = [
-    'quarterly result', 'q1 result', 'q2 result', 'q3 result', 'q4 result',
-    'net profit', 'revenue rose', 'revenue fell', 'reports profit', 'reports loss',
-    'earnings', 'fy25', 'fy26', 'annual report', 'agm', 'board approves dividend',
-]
-NSE_NOISE_KW = [
-    'board meeting', 'record date', 'trading window', 'loss of certificate',
-    'duplicate share', 'intimation', 'disclosure under', 'reg 29', 'reg 31',
-    'reg 39', 'reg 74', 'certificate', 'general meeting', 'alteration',
-    'change in director', 'newspaper', 'advertisement', 'book closure',
-]
-PREDICTIVE_KW = [
-    'upgrade', 'downgrade', 'target', 'outlook', 'forecast', 'expansion',
-    'acquisition', 'merger', 'buyback', 'stake', 'deal', 'order win',
-    'contract', 'partnership', 'launch', 'approve', 'fdi', 'fii', 'dii',
-    'bull', 'bear', 'rally', 'crash', 'surge', 'plunge', 'breakout',
-    'invest', 'capex', 'capacity', 'commissioning', 'plant', 'ipo',
-    'restructur', 'divest', 'demerger', 'rights issue', 'preferential',
-    'sector rotat', 'rate cut', 'rate hike', 'tariff', 'sanction',
-    'regulation', 'policy', 'subsidy', 'ban', 'recall', 'penalty',
-]
-
-
-# ═══════════════════════════════════════════════════════════════
-# TICKER LOADING
-# ═══════════════════════════════════════════════════════════════
-def load_tickers():
-    if not os.path.exists(TICKERS_FILE):
-        print(f"⚠️ {TICKERS_FILE} not found"); return [], {}
-    df = pd.read_csv(TICKERS_FILE)
-    tickers = df.iloc[:, 0].astype(str).str.strip().tolist()
-    sector_map = {}
-    if 'Sector' in df.columns:
-        for _, r in df.iterrows():
-            t = str(r.iloc[0]).strip()
-            s = str(r.get('Sector', '')).strip()
-            if s and s.lower() not in ('nan', 'none', ''):
-                sector_map[t] = s
-    print(f"Loaded {len(tickers)} tickers from {TICKERS_FILE} (sector map: {len(sector_map)} entries)")
-    return tickers, sector_map
-
-
-# ═══════════════════════════════════════════════════════════════
-# NEWS FETCHING
-# ═══════════════════════════════════════════════════════════════
-def _is_reporting(title):
-    tl = title.lower()
-    return any(kw in tl for kw in REPORTING_KW)
-
-def _is_nse_noise(title):
-    tl = title.lower()
-    return any(kw in tl for kw in NSE_NOISE_KW)
-
-def _is_predictive(title):
-    tl = title.lower()
-    if _is_reporting(title):
-        return False
-    return any(kw in tl for kw in PREDICTIVE_KW)
-
-def _parse_pub_date(entry):
-    for key in ('published_parsed', 'updated_parsed'):
-        pp = entry.get(key)
-        if pp:
-            try:
-                return datetime(*pp[:6], tzinfo=timezone.utc)
-            except Exception:
-                pass
-    for key in ('published', 'updated'):
-        ds = entry.get(key, '')
-        if ds:
-            for fmt in ('%a, %d %b %Y %H:%M:%S %z', '%Y-%m-%dT%H:%M:%S%z',
-                        '%a, %d %b %Y %H:%M:%S GMT'):
-                try:
-                    return datetime.strptime(ds.strip(), fmt).replace(tzinfo=timezone.utc)
-                except Exception:
-                    continue
-    return None
-
-def _match_tickers(title, tickers):
-    matched = []
-    tl = title.upper()
-    for t in tickers:
-        t_clean = t.replace('&', '').replace('-', '')
-        if len(t_clean) < 3:
-            continue
-        pattern = r'\b' + re.escape(t_clean) + r'\b'
-        if re.search(pattern, tl.replace('&', '').replace('-', '')):
-            matched.append(t)
-    return matched
-
-def fetch_predictive_news(tickers, lookback_hrs=72):
-    now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(hours=lookback_hrs)
-    news_cache = {}
-    total_scanned = 0
-    total_reporting = 0
-    total_nse_noise = 0
-    total_kept = 0
-
-    for source, url in RSS_FEEDS.items():
-        print(f"Fetching {source}...")
-        try:
-            if 'nseindia.com/api' in url:
-                import urllib.request
-                req = urllib.request.Request(url, headers={
-                    'User-Agent': 'Mozilla/5.0',
-                    'Accept': 'application/json',
-                })
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    data = json.loads(resp.read())
-                entries = data if isinstance(data, list) else []
-                is_nse_api = True
-            else:
-                feed = feedparser.parse(url)
-                entries = feed.get('entries', [])
-                is_nse_api = False
-        except Exception as e:
-            print(f"   {source}: {e}")
-            print(f"   {source}: No entries")
-            continue
-
-        predictive_count = 0
-        reporting_count = 0
-        nse_noise_count = 0
-        outside_count = 0
-
-        for entry in entries:
-            if is_nse_api:
-                title = entry.get('subject', '') or entry.get('desc', '') or ''
-                symbol = entry.get('symbol', '')
-            else:
-                title = entry.get('title', '')
-                symbol = ''
-
-            if not title:
-                continue
-            total_scanned += 1
-
-            pub_date = _parse_pub_date(entry) if not is_nse_api else None
-            if pub_date and pub_date < cutoff:
