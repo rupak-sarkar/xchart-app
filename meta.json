@@ -2,29 +2,16 @@
   "date": "2026-06-10",
   "version": "7.4",
   "tickers": 158,
+  "total_tickers": 158,
   "regime": "CHOPPY",
+  "breadth": 34,
   "nifty_5d": 0,
-  "breadth": 50,
-  "avg_rsi": 50,
-  "lt_breadth": 50,
-  "avg_accuracy": 74.2,
-  "avg_profit_factor": 1.17,
-  "entry_threshold_lc": 20,
-  "entry_threshold_sc": 20,
-  "horizons": {
-    "MEGA": 28,
-    "LARGE": 21,
-    "MID": 14,
-    "SMALL": 7
-  },
-  "hold_days": {
-    "MEGA": 14,
-    "LARGE": 10,
-    "MID": 7,
-    "SMALL": 5
-  },
-  "stop_loss": -5.0,
-  "bull_count": 0,
-  "bear_count": 1,
-  "neut_count": 157
+  "avg_accuracy": 65.5,
+  "direction_accuracy": 65.5,
+  "avg_profit_factor": 0.97,
+  "avg_pf": 0.97,
+  "bulls": 1,
+  "bears": 0,
+  "neutrals": 157,
+  "same_day_accuracy": 0.0
 }
