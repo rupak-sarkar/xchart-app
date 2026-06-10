@@ -1,11 +1,13 @@
 {
-  "date": "2026-06-09",
-  "version": "7.3",
+  "date": "2026-06-10",
+  "version": "7.4",
   "tickers": 158,
   "regime": "CHOPPY",
   "nifty_5d": 0,
   "breadth": 50,
-  "avg_accuracy": 74.1,
+  "avg_rsi": 50,
+  "lt_breadth": 50,
+  "avg_accuracy": 74.2,
   "avg_profit_factor": 1.17,
   "entry_threshold_lc": 20,
   "entry_threshold_sc": 20,
@@ -22,7 +24,7 @@
     "SMALL": 5
   },
   "stop_loss": -5.0,
-  "bull_count": 2,
+  "bull_count": 0,
   "bear_count": 1,
-  "neut_count": 155
+  "neut_count": 157
 }
