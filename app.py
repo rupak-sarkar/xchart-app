@@ -35,7 +35,7 @@ CHARTS_DIR   = DATA_DIR / "charts"
 
 # ── Constants ─────────────────────────────────────────────────────────────
 VERSION          = "7.4"
-MCAP_THRESHOLD   = 10000
+MCAP_THRESHOLD   = 10000          # in crores
 NEWS_WINDOW_DAYS = 3
 MAX_CATALYSTS    = 20
 FINBERT_MODEL    = "ProsusAI/finbert"
@@ -340,17 +340,22 @@ def compute_market_regime(stock_df):
         c = _col(row, "Close"); s = _col(row, "SMA_22")
         if c > 0 and s > 0: total += 1; above += (1 if c > s else 0)
     breadth = int(above / total * 100) if total else 50
-    nifty_5d = 0
+    nifty_5d = 0; mega_count = 0
     for _, row in latest.iterrows():
         mcap = _col(row, "Market_Cap")
         if mcap >= MCAP_THRESHOLD * 10:
             c = _col(row, "Close"); s9 = _col(row, "SMA_9")
-            if c > 0 and s9 > 0: nifty_5d += (c - s9) / s9 * 100
+            if c > 0 and s9 > 0:
+                nifty_5d += (c - s9) / s9 * 100
+                mega_count += 1
+    # ── FIX: average Nifty proxy across mega-cap stocks ──
+    if mega_count > 0:
+        nifty_5d = nifty_5d / mega_count
     if breadth >= 65 and nifty_5d > 1: regime = "BULL"
     elif breadth <= 35 and nifty_5d < -1: regime = "BEAR"
     else: regime = "CHOPPY"
-    print(f"  -> Nifty 5d: {int(nifty_5d)}%\n  -> Breadth: {breadth}%\n  -> REGIME: {regime}")
-    return regime, breadth, int(nifty_5d)
+    print(f"  -> Nifty 5d: {nifty_5d:+.1f}% ({mega_count} mega-caps)\n  -> Breadth: {breadth}%\n  -> REGIME: {regime}")
+    return regime, breadth, round(nifty_5d, 1)
 
 
 # ── Sector Strength ───────────────────────────────────────────────────────
@@ -420,7 +425,6 @@ def add_composite_scores(stock_df):
     sc += np.where((adx > 25) & (close > sma9) & (sma9 > 0), 4, 0)
     sc += np.where((adx > 25) & (close < sma9) & (sma9 > 0), -4, 0)
 
-    # SMA9 reversal (need shift per ticker group)
     sma9_prev = stock_df.groupby("Ticker")["SMA_9"].shift(1).fillna(0) if "SMA_9" in stock_df.columns else pd.Series(0, index=stock_df.index)
     sc += np.where((sma9 > sma9_prev) & (sma9_prev > 0) & (close > sma9), 8, 0)
     sc += np.where((sma9 < sma9_prev) & (sma9_prev > 0) & (close < sma9), -8, 0)
@@ -482,7 +486,6 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
         adx_v = _col(row, "ADX_14", "ADX")
         if adx_v > 0: data["adx"].append({"time": d, "value": round(adx_v, 2)})
 
-    # ── Signal markers from history ──
     if history_df is not None and len(history_df) > 0:
         hdf_tk = history_df[history_df["Ticker"].astype(str).str.strip() == ticker]
         date_set = set(str(r["Date"])[:10] for _, r in tdf.iterrows())
@@ -511,7 +514,7 @@ def main():
     today = date.today()
     today_str = today.strftime("%Y-%m-%d")
 
-    # ── Data sync (prints its own header) ──
+    # ── Data sync ──
     smart_sync()
 
     # ── Recompute indicators ──
@@ -521,6 +524,63 @@ def main():
     tickers, sector_map = load_tickers()
     stock_df = pd.read_csv(DATA_FILE, low_memory=False)
     stock_df["Ticker"] = stock_df["Ticker"].astype(str).str.strip()
+
+    # ╔══════════════════════════════════════════════════════════════════════╗
+    # ║  FIX 1: Forward-fill Market_Cap & Sector per ticker               ║
+    # ║  create_stock_data.py may set these on only one row per ticker.   ║
+    # ║  Without ffill, the LATEST row often has NaN → mcap=0 → SMALL.   ║
+    # ╚══════════════════════════════════════════════════════════════════════╝
+    for col in ["Market_Cap", "Sector", "Sub_Industry"]:
+        if col in stock_df.columns:
+            stock_df[col] = stock_df.groupby("Ticker")[col].transform(
+                lambda x: x.ffill().bfill()
+            )
+
+    # ╔══════════════════════════════════════════════════════════════════════╗
+    # ║  FIX 2: Auto-detect MCap scale & normalize to crores              ║
+    # ║  yfinance stores Market_Cap in raw INR (e.g. 1.3e13 for TCS).    ║
+    # ║  classify_cap expects crores (TCS ≈ 1,300,000 Cr).               ║
+    # ║  If median > 1e10 → values are raw INR → divide by 1e7.          ║
+    # ╚══════════════════════════════════════════════════════════════════════╝
+    if "Market_Cap" in stock_df.columns:
+        mcap_latest = stock_df.groupby("Ticker")["Market_Cap"].last().dropna()
+        if not mcap_latest.empty:
+            med = mcap_latest.median()
+            if med > 1e10:
+                stock_df["Market_Cap"] = stock_df["Market_Cap"] / 1e7
+                mcap_latest = mcap_latest / 1e7
+                print(f"  -> MCap: raw INR detected (median={med:.2e}), normalized to Cr")
+            elif med > 0:
+                print(f"  -> MCap: already in Cr (median={med:,.0f})")
+            else:
+                print(f"  -> MCap: ⚠️ median is {med} — check data")
+            # Show classification preview
+            cats = mcap_latest.apply(lambda x: classify_cap(x, MCAP_THRESHOLD))
+            vc = cats.value_counts()
+            preview = " | ".join(f"{c}:{vc.get(c,0)}" for c in ["MEGA","LARGE","MID","SMALL"])
+            print(f"  -> MCap split: {preview}")
+            # Sample values for debugging
+            top3 = mcap_latest.nlargest(3)
+            bot3 = mcap_latest.nsmallest(3)
+            print(f"  -> Top3: {', '.join(f'{t}={v:,.0f}Cr' for t,v in top3.items())}")
+            print(f"  -> Bot3: {', '.join(f'{t}={v:,.0f}Cr' for t,v in bot3.items())}")
+    else:
+        print("  -> ⚠️ No Market_Cap column found!")
+
+    # ╔══════════════════════════════════════════════════════════════════════╗
+    # ║  FIX 3: Rebuild sector_map from stock_data.csv if tickers.csv     ║
+    # ║  doesn't have Sector column.                                      ║
+    # ╚══════════════════════════════════════════════════════════════════════╝
+    if not sector_map and "Sector" in stock_df.columns:
+        latest_rows = stock_df.groupby("Ticker").tail(1)
+        for _, row in latest_rows.iterrows():
+            tk = str(row["Ticker"]).strip()
+            sec = str(row.get("Sector", "")).strip()
+            if sec and sec not in ("", "nan", "0", "Other", "None"):
+                sector_map[tk] = sec
+        if sector_map:
+            print(f"  -> Sector map rebuilt from stock_data.csv: {len(sector_map)} tickers mapped to {len(set(sector_map.values()))} sectors")
+
     n_tickers = stock_df["Ticker"].nunique()
     avg_days = len(stock_df) // n_tickers if n_tickers else 0
     print(f"  -> Loaded stock_data.csv: {n_tickers} tickers, {len(stock_df):,} rows (~{avg_days} days/ticker)")
@@ -562,7 +622,6 @@ def main():
     print(f"\nPHASE 3: Multi-layer analysis ({len(tickers)} tickers)...")
     print("-" * 110)
 
-    # Compute tech scores
     print(f"Computing technical scores (v{VERSION} cap-aware)...")
     scored_rows = []
     for tk in tickers:
@@ -578,7 +637,7 @@ def main():
             print(f"    DEBUG {tk}({cat}): RSI={_col(last, 'RSI_14', 'RSI', default=50):.1f}, "
                   f"Close={_col(last, 'Close')}, SMA9={_col(last, 'SMA_9'):.1f}, "
                   f"SMA22={_col(last, 'SMA_22'):.1f}, SMA200={_col(last, 'SMA_200'):.1f}, "
-                  f"SMA9prev={sma9p}, ATR={_col(last, 'ATR_Pct'):.1f}%  Score={tech}")
+                  f"SMA9prev={sma9p}, ATR={_col(last, 'ATR_Pct'):.1f}%  MCap={mcap:,.0f}Cr  Score={tech}")
         scored_rows.append({"Ticker": tk, "Category": cat, "Tech_Score": tech,
                            "row": last, "prev": prev, "mcap": mcap})
 
@@ -586,7 +645,6 @@ def main():
     sc_count = sum(1 for r in scored_rows if r["Category"] in ("MID", "SMALL"))
     print(f"  -> {len(scored_rows)}/{len(tickers)} scored | LC:{lc_count} SMC:{sc_count}")
 
-    # Compute fundamentals
     print("Computing fundamentals...")
     for sr in scored_rows:
         sr["Fund_Score"] = compute_fund_score(sr["row"])
@@ -594,18 +652,15 @@ def main():
     print(f"  -> {nz_fund}/{len(scored_rows)} with non-zero fund score")
     print(f"  -> {len(sector_map)}/{len(scored_rows)} mapped to {len(set(sector_map.values()))} sectors")
 
-    # Market regime
     print(f"\nComputing market regime...")
     regime, breadth, nifty_5d = compute_market_regime(stock_df)
 
-    # Sector strength
     print(f"\nComputing sector strength...")
     sector_scores = compute_sector_strength(stock_df, sector_map)
 
     # ── PHASE 3b: Backtest ──
     print(f"\nPHASE 3b: Backtest (ATR SL for LC, {STOP_LOSS_PCT*100:.1f}% SL for SC)...")
 
-    # Add Composite_Score to stock_df for accuracy.py backtest
     print("  Adding Composite_Score to stock_df (vectorized)...")
     stock_df = add_composite_scores(stock_df)
     nz = (stock_df["Composite_Score"] != 0).sum()
@@ -630,7 +685,6 @@ def main():
             fwd = HORIZONS[cat]
             print(f"  {cat:<10s} {len(cr):>3d}  {w_acc:>5.1f}%  {avg_sig:>6.1f}%  {fwd:>2d}d")
 
-    # ── Composite scoring + direction ──
     print(f"\nComputing composite + regime adjustment...")
     bull_damp = 0.7 if regime == "BEAR" else 1.0
     bear_damp = 0.7 if regime == "BULL" else 1.0
@@ -772,7 +826,6 @@ def main():
     print(f"  -> meta.json saved (PF:{avg_pf:.2f} Acc:{avg_acc:.1f}%)")
 
     print(f"\n{'='*110}")
-    sig_rate_pct = (tech_bull + tech_bear) / len(tickers) * 100 if tickers else 0
     print(f"data.csv | {today_str} | ENGINE v{VERSION} ATR SL + strict SMA9")
     print(f"TICKERS: {tech_bull + tech_bear} directional | {tech_neut} neutral")
     print(f"REGIME: {regime} (breadth={breadth}% nifty={nifty_5d}%)")
@@ -780,7 +833,6 @@ def main():
     print(f"SAME-DAY: {same_day_hit}/{same_day_total} = {sd_acc:.1f}%")
     print("=" * 110)
 
-    # ── Full report ──
     print_accuracy_report(stock_df, tickers, history_df=hdf2)
 
 
