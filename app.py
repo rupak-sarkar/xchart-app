@@ -527,7 +527,10 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
             hd = str(hr.get('Date', ''))[:10]
             if hd not in date_set:
                 continue
-            hdir = int(hr.get('Composite_Direction', 0) or 0)
+            raw_dir = hr.get('Composite_Direction', 0)
+            if pd.isna(raw_dir):
+                continue
+            hdir = int(raw_dir)
             if hdir == 1:
                 data['markers'].append({
                     'time': hd, 'position': 'belowBar',
