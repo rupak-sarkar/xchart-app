@@ -1,4 +1,4 @@
-"""create_stock_data.py — Recompute all technical indicators + refresh fundamentals.
+"""create_stock_data.py -- Recompute all technical indicators + refresh fundamentals.
 
 Call after data_fetcher sync to ensure indicators are current.
 Usage:
@@ -14,9 +14,9 @@ import pandas as pd
 DATA_FILE = 'stock_data.csv'
 TICKERS_FILE = 'tickers.csv'
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # INDICATOR COMPUTATIONS
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def compute_sma(series, period):
     return series.rolling(window=period, min_periods=period).mean()
@@ -88,7 +88,10 @@ def compute_adx(high, low, close, period=14):
 
 
 def compute_supertrend(high, low, close, period=10, multiplier=3):
-    """SuperTrend: direction -1 = Bullish, +1 = Bearish."""
+    """SuperTrend: returns (direction, st_value).
+    direction: -1 = Bullish, +1 = Bearish.
+    st_value: the actual SuperTrend line value for charting/signals.
+    """
     tr1 = high - low
     tr2 = (high - close.shift()).abs()
     tr3 = (low - close.shift()).abs()
@@ -103,13 +106,13 @@ def compute_supertrend(high, low, close, period=10, multiplier=3):
     final_upper = np.full(n, np.nan)
     final_lower = np.full(n, np.nan)
     direction = np.zeros(n, dtype=int)
+    st_value = np.full(n, np.nan)
 
     close_arr = close.values
     upper_arr = upper_basic.values
     lower_arr = lower_basic.values
     atr_arr = atr.values
 
-    # Initialize
     if n > 0:
         final_upper[0] = upper_arr[0]
         final_lower[0] = lower_arr[0]
@@ -141,7 +144,15 @@ def compute_supertrend(high, low, close, period=10, multiplier=3):
         else:
             direction[i] = direction[i - 1]
 
-    return pd.Series(direction, index=close.index)
+    # FIX: Compute ST value line (lower band when bullish, upper when bearish)
+    for i in range(n):
+        if direction[i] == -1:  # Bullish -> ST line is the lower band (support)
+            st_value[i] = final_lower[i]
+        else:  # Bearish -> ST line is the upper band (resistance)
+            st_value[i] = final_upper[i]
+
+    return (pd.Series(direction, index=close.index),
+            pd.Series(st_value, index=close.index))
 
 
 def compute_ichimoku(high, low, tenkan_period=9, kijun_period=26):
@@ -158,9 +169,9 @@ def compute_atr(high, low, close, period=14):
     return tr.rolling(window=period, min_periods=period).mean()
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # MAIN RECOMPUTATION
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def recompute_all_indicators(df):
     """Recompute all technical indicators for every ticker."""
@@ -189,73 +200,97 @@ def recompute_all_indicators(df):
         high = tk['High'].astype(float)
         low = tk['Low'].astype(float)
 
-        # ── SMAs ──
+        # -- SMAs --
         tk['SMA_9'] = compute_sma(close, 9)
         tk['SMA_22'] = compute_sma(close, 22)
         tk['SMA_50'] = compute_sma(close, 50)
         tk['SMA_52'] = compute_sma(close, 52)
         tk['SMA_200'] = compute_sma(close, 200)
 
-        # ── EMAs ──
+        # -- EMAs --
         tk['EMA_9'] = compute_ema(close, 9)
         tk['EMA_21'] = compute_ema(close, 21)
 
-        # ── RSI ──
+        # -- RSI --
         tk['RSI_14'] = compute_rsi(close, 14)
 
-        # ── MACD ──
+        # -- MACD --
         tk['MACD_Line'], tk['MACD_Signal'], tk['MACD_Hist'] = compute_macd(close)
 
-        # ── Bollinger Bands ──
+        # -- Bollinger Bands --
         tk['BB_Upper'], tk['BB_Lower'] = compute_bollinger(close)
 
-        # ── ADX ──
+        # -- ADX --
         tk['ADX_14'] = compute_adx(high, low, close, 14)
 
-        # ── SuperTrend ──
-        tk['ST_Direction'] = compute_supertrend(high, low, close)
+        # -- SuperTrend (FIX: now returns both direction AND value) --
+        tk['ST_Direction'], tk['ST_Value'] = compute_supertrend(high, low, close)
 
-        # ── Ichimoku ──
+        # -- Ichimoku --
         tk['Ichi_Tenkan'], tk['Ichi_Kijun'] = compute_ichimoku(high, low)
 
-        # ── ATR ──
+        # -- ATR --
         tk['ATR_14'] = compute_atr(high, low, close, 14)
+
+        # -- ATR_Pct (FIX: ATR as % of close, used by app.py for SL calc) --
+        tk['ATR_Pct'] = (tk['ATR_14'] / close.replace(0, np.nan) * 100).round(2)
 
         results.append(tk)
 
     result_df = pd.concat(results, ignore_index=True)
-    print(f"  ✅ Indicators recomputed for {total} tickers")
+    print(f"  Indicators recomputed for {total} tickers")
     return result_df
 
 
-# ═══════════════════════════════════════════════════════════════
-# FUNDAMENTALS (Market_Cap, Sector)
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+# FUNDAMENTALS (Market_Cap, Sector, PE, PB, ROE, etc.)
+# ===================================================================
 
 def refresh_fundamentals(df, force=False):
-    """Fetch Market_Cap, Sector, Industry from yfinance. Cached unless forced."""
+    """Fetch Market_Cap, Sector, and valuation ratios from yfinance."""
     import yfinance as yf
 
     tickers = df['Ticker'].unique()
     total = len(tickers)
 
     # Ensure columns exist
-    for col in ['Market_Cap', 'Sector', 'Industry', 'Sub_Industry']:
+    FUND_COLS = {
+        'Market_Cap': 0,
+        'Sector': '',
+        'Industry': '',
+        'Sub_Industry': '',
+        'PE_Ratio': 0,
+        'PB_Ratio': 0,
+        'ROE': 0,
+        'Dividend_Yield': 0,
+        'Debt_to_Equity': 0,
+    }
+    for col, default in FUND_COLS.items():
         if col not in df.columns:
-            df[col] = 0 if col == 'Market_Cap' else ''
+            df[col] = default
 
     # Check existing data
     if not force:
         last_mcap = df.groupby('Ticker')['Market_Cap'].last()
         last_mcap = pd.to_numeric(last_mcap, errors='coerce').fillna(0)
         filled = (last_mcap > 0).sum()
-        if filled > total * 0.7:
+
+        # Also check if sector is mostly empty
+        last_sector = df.groupby('Ticker')['Sector'].last().fillna('')
+        sector_filled = (last_sector.str.strip() != '').sum()
+        sector_missing = sector_filled < total * 0.5
+
+        if filled > total * 0.7 and not sector_missing:
             missing = last_mcap[last_mcap <= 0].index.tolist()
             if not missing:
-                print(f"  ✅ Fundamentals already present ({filled}/{total} tickers)")
+                print(f"  Fundamentals already present ({filled}/{total} tickers, {sector_filled} sectors)")
                 return df
             tickers_to_fetch = missing
             print(f"  Refreshing {len(missing)} tickers with missing fundamentals...")
+        elif sector_missing and filled > total * 0.5:
+            # MCap present but sectors mostly empty -> re-fetch all
+            tickers_to_fetch = list(tickers)
+            print(f"  Sectors mostly empty ({sector_filled}/{total}). Refreshing all {total} tickers...")
         else:
             tickers_to_fetch = list(tickers)
             print(f"  Fetching fundamentals for all {total} tickers...")
@@ -279,11 +314,36 @@ def refresh_fundamentals(df, force=False):
                     info = yf.Ticker(f"{ticker}{suffix}").info
                     mcap = info.get('marketCap', 0) or 0
                     if mcap > 0:
+                        # FIX: Try multiple field names for sector
+                        sector = (
+                            info.get('sector', '') or
+                            info.get('sectorDisp', '') or
+                            info.get('industryDisp', '') or
+                            ''
+                        )
+                        industry = (
+                            info.get('industry', '') or
+                            info.get('industryDisp', '') or
+                            ''
+                        )
+
+                        # FIX: Fetch valuation ratios
+                        pe = info.get('trailingPE', 0) or info.get('forwardPE', 0) or 0
+                        pb = info.get('priceToBook', 0) or 0
+                        roe = info.get('returnOnEquity', 0) or 0
+                        dy = info.get('dividendYield', 0) or info.get('trailingAnnualDividendYield', 0) or 0
+                        de = info.get('debtToEquity', 0) or 0
+
                         fund_data[ticker] = {
-                            'Market_Cap': round(mcap / 1e7, 2),  # → Crores
-                            'Sector': info.get('sector', '') or '',
-                            'Industry': info.get('industry', '') or '',
-                            'Sub_Industry': info.get('industry', '') or '',
+                            'Market_Cap': round(mcap / 1e7, 2),  # raw INR -> Crores
+                            'Sector': sector,
+                            'Industry': industry,
+                            'Sub_Industry': industry,
+                            'PE_Ratio': round(float(pe), 2) if pe else 0,
+                            'PB_Ratio': round(float(pb), 2) if pb else 0,
+                            'ROE': round(float(roe) * 100, 2) if roe and roe < 1 else round(float(roe), 2) if roe else 0,
+                            'Dividend_Yield': round(float(dy) * 100, 2) if dy and dy < 1 else round(float(dy), 2) if dy else 0,
+                            'Debt_to_Equity': round(float(de) / 100, 2) if de and de > 10 else round(float(de), 2) if de else 0,
                         }
                         fetched += 1
                         break
@@ -292,7 +352,8 @@ def refresh_fundamentals(df, force=False):
 
             if ticker not in fund_data:
                 fund_data[ticker] = {
-                    'Market_Cap': 0, 'Sector': '', 'Industry': '', 'Sub_Industry': ''
+                    'Market_Cap': 0, 'Sector': '', 'Industry': '', 'Sub_Industry': '',
+                    'PE_Ratio': 0, 'PB_Ratio': 0, 'ROE': 0, 'Dividend_Yield': 0, 'Debt_to_Equity': 0,
                 }
 
         if i + batch_size < len(tickers_to_fetch):
@@ -304,16 +365,26 @@ def refresh_fundamentals(df, force=False):
         for col, val in data.items():
             df.loc[mask, col] = val
 
+    # Report
     total_filled = df.groupby('Ticker')['Market_Cap'].last()
     total_filled = pd.to_numeric(total_filled, errors='coerce').fillna(0)
-    print(f"  ✅ Fundamentals: {(total_filled > 0).sum()}/{total} tickers with Market_Cap")
+    mcap_ok = (total_filled > 0).sum()
+
+    sector_filled = df.groupby('Ticker')['Sector'].last().fillna('')
+    sector_ok = (sector_filled.str.strip() != '').sum()
+
+    pe_filled = df.groupby('Ticker')['PE_Ratio'].last()
+    pe_filled = pd.to_numeric(pe_filled, errors='coerce').fillna(0)
+    pe_ok = (pe_filled > 0).sum()
+
+    print(f"  Fundamentals: {mcap_ok}/{total} MCap | {sector_ok}/{total} Sector | {pe_ok}/{total} PE")
 
     return df
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # VALIDATION
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def validate_indicators(df):
     """Quick sanity check on recomputed indicators."""
@@ -333,25 +404,22 @@ def validate_indicators(df):
         sma200 = float(last.get('SMA_200', 0))
         rsi = float(last.get('RSI_14', 0))
 
-        # SMA should not equal Close (unless very short history)
         if len(tk) > 20 and abs(sma9 - close) < 0.001:
-            print(f"    ⚠️ {ticker}: SMA_9 = Close ({sma9:.2f}) — possible issue")
+            print(f"    Warning: {ticker}: SMA_9 = Close ({sma9:.2f}) -- possible issue")
             issues += 1
 
-        # RSI should not be exactly 50 (default/uncomputed)
         if len(tk) > 20 and abs(rsi - 50.0) < 0.01:
-            print(f"    ⚠️ {ticker}: RSI_14 = 50.0 — possible issue")
+            print(f"    Warning: {ticker}: RSI_14 = 50.0 -- possible issue")
             issues += 1
 
-        # SMA200 should exist for tickers with 200+ rows
         if len(tk) > 210 and (pd.isna(sma200) or sma200 == 0):
-            print(f"    ⚠️ {ticker}: SMA_200 missing with {len(tk)} rows")
+            print(f"    Warning: {ticker}: SMA_200 missing with {len(tk)} rows")
             issues += 1
 
     if issues == 0:
-        print(f"  ✅ Validation passed (sampled {len(sample)} tickers)")
+        print(f"  Validation passed (sampled {len(sample)} tickers)")
     else:
-        print(f"  ⚠️ {issues} issues found — check data pipeline")
+        print(f"  {issues} issues found -- check data pipeline")
 
     # Summary stats
     last_rows = df.groupby('Ticker').last()
@@ -359,30 +427,37 @@ def validate_indicators(df):
     rsi_valid = last_rows['RSI_14'].between(1, 99).sum() if 'RSI_14' in last_rows.columns else 0
     sma9_valid = (last_rows['SMA_9'] != last_rows['Close']).sum() if 'SMA_9' in last_rows.columns else 0
     sector_filled = last_rows.get('Sector', pd.Series()).ne('').sum()
+    pe_filled = pd.to_numeric(last_rows.get('PE_Ratio', 0), errors='coerce').gt(0).sum()
+    st_valid = pd.to_numeric(last_rows.get('ST_Value', 0), errors='coerce').gt(0).sum()
+    atr_valid = pd.to_numeric(last_rows.get('ATR_Pct', 0), errors='coerce').gt(0).sum()
 
     print(f"\n  Summary:")
     print(f"    Tickers:       {len(tickers)}")
     print(f"    RSI valid:     {rsi_valid}/{len(tickers)}")
-    print(f"    SMA9 ≠ Close:  {sma9_valid}/{len(tickers)}")
+    print(f"    SMA9 != Close: {sma9_valid}/{len(tickers)}")
     print(f"    Market_Cap:    {mcap_filled}/{len(tickers)}")
     print(f"    Sector:        {sector_filled}/{len(tickers)}")
+    print(f"    PE_Ratio:      {pe_filled}/{len(tickers)}")
+    print(f"    ST_Value:      {st_valid}/{len(tickers)}")
+    print(f"    ATR_Pct:       {atr_valid}/{len(tickers)}")
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 # ENTRY POINT
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 def recompute_indicators(force_fundamentals=False):
-    """Main entry — recompute all indicators on existing stock_data.csv."""
+    """Main entry -- recompute all indicators on existing stock_data.csv."""
     if not os.path.exists(DATA_FILE):
-        print(f"  ⚠️ {DATA_FILE} not found — run data_fetcher first")
+        print(f"  {DATA_FILE} not found -- run data_fetcher first")
         return False
 
     print(f"\n{'=' * 80}")
     print(f"Recomputing Indicators + Fundamentals")
     print(f"{'=' * 80}")
 
-    df = pd.read_csv(DATA_FILE)
+    df = pd.read_csv(DATA_FILE, low_memory=False)
+    df['Ticker'] = df['Ticker'].astype(str).str.strip()
     n_tickers = df['Ticker'].nunique()
     n_rows = len(df)
     print(f"  Loaded: {n_rows:,} rows, {n_tickers} tickers")
@@ -390,7 +465,7 @@ def recompute_indicators(force_fundamentals=False):
     # Step 1: Recompute all technical indicators
     df = recompute_all_indicators(df)
 
-    # Step 2: Refresh fundamentals (Market_Cap, Sector)
+    # Step 2: Refresh fundamentals (Market_Cap, Sector, PE, PB, ROE, etc.)
     df = refresh_fundamentals(df, force=force_fundamentals)
 
     # Step 3: Validate
@@ -398,7 +473,7 @@ def recompute_indicators(force_fundamentals=False):
 
     # Step 4: Save
     df.to_csv(DATA_FILE, index=False)
-    print(f"\n  ✅ Saved {DATA_FILE}: {n_rows:,} rows, {n_tickers} tickers")
+    print(f"\n  Saved {DATA_FILE}: {n_rows:,} rows, {n_tickers} tickers")
     print(f"{'=' * 80}\n")
     return True
 
