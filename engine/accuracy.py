@@ -19,6 +19,11 @@ ATR_MULT   = {"MEGA": 2.5, "LARGE": 2.0}
 ATR_FLOOR  = 0.03
 ATR_CAP    = 0.10
 
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  FIX: MCap threshold aligned with app.py (was hardcoded different) ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+MCAP_THRESHOLD = 10000      # in crores – same as app.py
+
 CAP_LABELS = {"MEGA": "MEGA", "LARGE": "LARGE", "MID": "MID", "SMALL": "SMALL"}
 
 
@@ -30,12 +35,17 @@ def _classify_cap(row):
         v = str(row.get(col, "")).strip().upper()
         if v in CAP_LABELS:
             return v
+    # ╔══════════════════════════════════════════════════════════════════╗
+    # ║  FIX: Use same thresholds as app.py classify_cap()            ║
+    # ║  OLD: MEGA>=200000, LARGE>=50000, MID>=10000                  ║
+    # ║  NEW: MEGA>=100000, LARGE>=20000, MID>=5000  (threshold-based)║
+    # ╚══════════════════════════════════════════════════════════════════╝
     mcap = float(row.get("Market_Cap", 0) or 0)
-    if mcap >= 200000:
+    if mcap >= MCAP_THRESHOLD * 10:     # 100,000 Cr
         return "MEGA"
-    elif mcap >= 50000:
+    elif mcap >= MCAP_THRESHOLD * 2:    #  20,000 Cr
         return "LARGE"
-    elif mcap >= 10000:
+    elif mcap >= MCAP_THRESHOLD * 0.5:  #   5,000 Cr
         return "MID"
     return "SMALL"
 
@@ -292,7 +302,6 @@ def print_accuracy_report(df, tickers, history_df=None):
         cr = rdf[rdf["Category"] == cat]
         if cr.empty:
             continue
-        # Only tickers with directional predictions
         cr_dir = cr[cr["dir_preds"] > 0]
         if cr_dir.empty:
             continue
@@ -323,7 +332,8 @@ def print_accuracy_report(df, tickers, history_df=None):
     total_flips = int(tr["TR_flips"].sum())
     overall_wr = total_wins / total_trades * 100 if total_trades else 0
 
-    print(f"\n  Trades: {total_trades:,} | Wins: {overall_wr:.1f}% | SL exits: {total_sl} ({total_sl/total_trades*100:.0f}%) | Signal flips: {total_flips} ({total_flips/total_trades*100:.0f}%)" if total_trades else "")
+    if total_trades:
+        print(f"\n  Trades: {total_trades:,} | Wins: {overall_wr:.1f}% | SL exits: {total_sl} ({total_sl/total_trades*100:.0f}%) | Signal flips: {total_flips} ({total_flips/total_trades*100:.0f}%)")
 
     print(f"\n  {'Cat':<10s} {'Trades':>6s}  {'WinR':>5s}   {'AvgW':>6s}   {'AvgL':>6s}    {'PF':>5s}    {'Ret':>6s}  {'Hold':>6s}  {'SL%':>4s}  {'Flip':>4s}  {'AvgSL':>5s}")
     print("  " + "-" * 88)
@@ -335,7 +345,6 @@ def print_accuracy_report(df, tickers, history_df=None):
         nt   = int(cr["TR_total_trades"].sum())
         nw   = int((cr["TR_win_rate"] * cr["TR_total_trades"] / 100).sum())
         wr   = nw / nt * 100 if nt else 0
-        # Weighted averages
         aw   = (cr["TR_avg_win_pct"] * cr["TR_total_trades"]).sum() / nt if nt else 0
         al   = (cr["TR_avg_loss_pct"] * cr["TR_total_trades"]).sum() / nt if nt else 0
         gw   = (cr["TR_avg_win_pct"] * cr["TR_win_rate"] / 100 * cr["TR_total_trades"]).sum()
@@ -403,7 +412,6 @@ def print_accuracy_report(df, tickers, history_df=None):
             for _, pr in preds.iterrows():
                 tk = str(pr["Ticker"]).strip()
                 pred_dir = int(pr["Composite_Direction"])
-                # Find next day actual return
                 nxt = hdf[(hdf["Date"] == d_to) & (hdf["Ticker"].astype(str).str.strip() == tk)]
                 if nxt.empty:
                     continue
@@ -430,13 +438,11 @@ def print_accuracy_report(df, tickers, history_df=None):
                 cat = "MID"
             horizon = HORIZONS[cat]
 
-            # Find dates after signal date
             future_dates = [d for d in dates if d > sig_date]
             if len(future_dates) < horizon:
                 h_pending += 1
                 continue
 
-            # Evaluate at horizon
             eval_date = future_dates[min(horizon - 1, len(future_dates) - 1)]
             eval_row = hdf[(hdf["Ticker"].astype(str).str.strip() == tk) & (hdf["Date"] == eval_date)]
             if eval_row.empty:
