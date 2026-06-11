@@ -11,8 +11,8 @@ import time
 import numpy as np
 import pandas as pd
 
-DATA_FILE = 'stock_data.csv'
-TICKERS_FILE = 'tickers.csv'
+DATA_FILE = 'output/stock_data.csv'
+TICKERS_FILE = 'output/tickers.csv'
 
 # ===================================================================
 # INDICATOR COMPUTATIONS

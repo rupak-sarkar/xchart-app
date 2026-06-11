@@ -11,7 +11,7 @@ NIFTY500_FUNDAMENTALS_FILE = SCREENER_DIR / "nifty500_fundamentals.csv"
 NIFTY500_SCORES_FILE = SCREENER_DIR / "nifty500_scores.csv"
 NIFTY500_OHLCV_DIR = SCREENER_DIR / "ohlcv"
 NIFTY500_BACKTEST_DIR = SCREENER_DIR / "backtest_data"
-PREMIUM_TICKERS_FILE = Path("tickers.csv")  # Feeds existing premium engine
+PREMIUM_TICKERS_FILE = Path("output/tickers.csv")  # Feeds existing premium engine
 
 # ===================================================================
 # OHLCV SETTINGS

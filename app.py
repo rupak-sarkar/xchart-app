@@ -13,7 +13,7 @@ import pandas as pd
 
 # ── Engine imports ────────────────────────────────────────────────────────
 from engine.data_fetcher import smart_sync
-from create_stock_data import recompute_indicators
+from engine.create_stock_data import recompute_indicators
 from engine.news import build_news_cache
 
 from engine.accuracy import (
@@ -27,11 +27,11 @@ STOP_LOSS_PCT = SL_FIXED
 
 # ── Paths ─────────────────────────────────────────────────────────────────
 DATA_DIR     = Path(".")
-DATA_FILE    = DATA_DIR / "stock_data.csv"
-TICKER_FILE  = DATA_DIR / "tickers.csv"
-HISTORY_FILE = DATA_DIR / "history.csv"
-OUTPUT_CSV   = DATA_DIR / "data.csv"
-META_JSON    = DATA_DIR / "meta.json"
+DATA_FILE    = DATA_DIR / "output/stock_data.csv"
+TICKER_FILE  = DATA_DIR / "output/tickers.csv"
+HISTORY_FILE = DATA_DIR / "output/history.csv"
+OUTPUT_CSV   = DATA_DIR / "output/data.csv"
+META_JSON    = DATA_DIR / "output/meta.json"
 CHARTS_DIR   = DATA_DIR / "charts"
 
 # ── Constants ─────────────────────────────────────────────────────────────

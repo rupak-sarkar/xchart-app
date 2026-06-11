@@ -13,7 +13,7 @@ from engine.sentiment import classify_headline, classify_nse_headline
 feedparser.USER_AGENT = BROWSER_HEADERS["User-Agent"]
 
 # -- News Cache Config --
-NEWS_CACHE_FILE = Path("news_cache.json")
+NEWS_CACHE_FILE = Path("output/news_cache.json")
 NEWS_CACHE_TTL_HOURS = 4
 
 

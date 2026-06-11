@@ -1,5 +1,23 @@
-# Screener pipeline
-screener_data/ohlcv/
-news_cache.json
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.env
+
+# Screener raw cache (too large for git, ~500 CSV files)
+screener_data/ohlcv/
+
+# Large intermediate (uncomment if repo gets too big)
+# output/stock_data.csv
+# screener_data/nifty500_ohlcv.csv
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Migration script (one-time use)
+migrate.py

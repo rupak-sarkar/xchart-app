@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np, pandas as pd
 
 DATA_DIR     = Path(".")
-DATA_FILE    = DATA_DIR / "stock_data.csv"
-TICKER_FILE  = DATA_DIR / "tickers.csv"
+DATA_FILE    = DATA_DIR / "output/stock_data.csv"
+TICKER_FILE  = DATA_DIR / "output/tickers.csv"
 BATCH_SIZE   = 20
 LOOKBACK_DAYS= 500
 MCAP_THRESHOLD=10000
