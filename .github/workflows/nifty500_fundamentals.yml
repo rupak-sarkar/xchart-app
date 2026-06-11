@@ -3,7 +3,7 @@ name: Nifty 500 Fundamentals (Weekly)
 on:
   schedule:
     - cron: '    - cron: '0 18 * * 0'  # Every Sunday 6PM UTC (11:30 PM IST)
-
+workflow_dispatch:
 permissions:
   contents: write
 
