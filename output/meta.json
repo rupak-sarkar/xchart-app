@@ -11,7 +11,7 @@
   "avg_profit_factor": 1.16,
   "avg_pf": 1.16,
   "bulls": 5,
-  "bears": 1,
-  "neutral momentums": 48,
-  "same_day_accuracy": 50.0
+  "bears": 2,
+  "neutral momentums": 47,
+  "same_day_accuracy": 57.1
 }
