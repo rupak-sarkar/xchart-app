@@ -1,0 +1,89 @@
+name: Nifty 500 OHLCV (Daily)
+
+on:
+  schedule:
+    - cron: '0 12 * * 1-5'   # Mon-Fri 12:00 UTC (5:30 PM IST, after market close)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Download mode'
+        required: false
+        default: 'daily'
+        type: choice
+        options:
+          - daily
+          - full
+          - indicators-only
+
+permissions:
+  contents: write
+
+jobs:
+  ohlcv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run OHLCV pipeline
+        run: |
+          MODE="${{ github.event.inputs.mode || 'daily' }}"
+          if [ "$MODE" = "full" ]; then
+            python -m screener.run_ohlcv --full
+          elif [ "$MODE" = "indicators-only" ]; then
+            python -m screener.run_ohlcv --indicators-only
+          else
+            python -m screener.run_ohlcv
+          fi
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Verify outputs
+        run: |
+          echo "=== OHLCV files ==="
+          ls -la screener_data/ 2>/dev/null || echo "No screener_data/"
+          echo ""
+          echo "=== Sync meta ==="
+          cat screener_data/ohlcv_sync_meta.json 2>/dev/null || echo "No sync meta"
+          echo ""
+          echo "=== OHLCV cache count ==="
+          ls screener_data/ohlcv/*.csv 2>/dev/null | wc -l || echo "No cache"
+          echo ""
+          echo "=== Backtest JSON count ==="
+          ls screener_data/backtest_data/*.json 2>/dev/null | wc -l || echo "No JSON"
+          echo ""
+          echo "=== Backtest data size ==="
+          du -sh screener_data/backtest_data/ 2>/dev/null || echo "No data"
+
+      - name: Commit results
+        run: |
+          git config --global user.name "GitHub Actions Automation"
+          git config --global user.email "actions@github.com"
+
+          # Add all screener data (OHLCV cache is large, only commit backtest JSON + meta)
+          git add screener_data/backtest_data/ 2>/dev/null || true
+          git add screener_data/ohlcv_sync_meta.json 2>/dev/null || true
+          git add screener_data/nifty500_ohlcv.csv 2>/dev/null || true
+
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+          git diff --cached --quiet || git commit -m "OHLCV update ${TIMESTAMP}"
+          git push || echo "Nothing to push"
