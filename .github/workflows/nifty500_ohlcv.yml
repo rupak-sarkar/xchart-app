@@ -2,7 +2,7 @@ name: Nifty 500 OHLCV (Daily)
 
 on:
   schedule:
-    - cron: '0 12 * * 1-5'   # Mon-Fri 12:00 UTC (5:30 PM IST, after market close)
+    - cron: '0 12 * * 1-5'
   workflow_dispatch:
     inputs:
       mode:
@@ -44,6 +44,9 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Ensure output dirs
+        run: mkdir -p screener_data/ohlcv screener_data/backtest_data
+
       - name: Run OHLCV pipeline
         run: |
           MODE="${{ github.event.inputs.mode || 'daily' }}"
@@ -59,31 +62,20 @@ jobs:
 
       - name: Verify outputs
         run: |
-          echo "=== OHLCV files ==="
-          ls -la screener_data/ 2>/dev/null || echo "No screener_data/"
-          echo ""
-          echo "=== Sync meta ==="
-          cat screener_data/ohlcv_sync_meta.json 2>/dev/null || echo "No sync meta"
-          echo ""
-          echo "=== OHLCV cache count ==="
-          ls screener_data/ohlcv/*.csv 2>/dev/null | wc -l || echo "No cache"
-          echo ""
           echo "=== Backtest JSON count ==="
           ls screener_data/backtest_data/*.json 2>/dev/null | wc -l || echo "No JSON"
           echo ""
-          echo "=== Backtest data size ==="
-          du -sh screener_data/backtest_data/ 2>/dev/null || echo "No data"
+          echo "=== Sync meta ==="
+          cat screener_data/ohlcv_sync_meta.json 2>/dev/null || echo "No sync meta"
 
       - name: Commit results
         run: |
           git config --global user.name "GitHub Actions Automation"
           git config --global user.email "actions@github.com"
-
-          # Add all screener data (OHLCV cache is large, only commit backtest JSON + meta)
           git add screener_data/backtest_data/ 2>/dev/null || true
           git add screener_data/ohlcv_sync_meta.json 2>/dev/null || true
-          git add screener_data/nifty500_ohlcv.csv 2>/dev/null || true
-
+          git add screener_data/nifty500_tickers.csv 2>/dev/null || true
+          git add screener_data/nifty500_scores.csv 2>/dev/null || true
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
           git diff --cached --quiet || git commit -m "OHLCV update ${TIMESTAMP}"
           git push || echo "Nothing to push"
