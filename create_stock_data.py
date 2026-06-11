@@ -144,7 +144,7 @@ def compute_supertrend(high, low, close, period=10, multiplier=3):
         else:
             direction[i] = direction[i - 1]
 
-    # FIX: Compute ST value line (lower band when bullish, upper when bearish)
+    # Compute ST value line (lower band when bullish, upper when bearish)
     for i in range(n):
         if direction[i] == -1:  # Bullish -> ST line is the lower band (support)
             st_value[i] = final_lower[i]
@@ -223,7 +223,7 @@ def recompute_all_indicators(df):
         # -- ADX --
         tk['ADX_14'] = compute_adx(high, low, close, 14)
 
-        # -- SuperTrend (FIX: now returns both direction AND value) --
+        # -- SuperTrend (returns both direction AND value) --
         tk['ST_Direction'], tk['ST_Value'] = compute_supertrend(high, low, close)
 
         # -- Ichimoku --
@@ -232,7 +232,7 @@ def recompute_all_indicators(df):
         # -- ATR --
         tk['ATR_14'] = compute_atr(high, low, close, 14)
 
-        # -- ATR_Pct (FIX: ATR as % of close, used by app.py for SL calc) --
+        # -- ATR_Pct (ATR as % of close, used by app.py for SL calc) --
         tk['ATR_Pct'] = (tk['ATR_14'] / close.replace(0, np.nan) * 100).round(2)
 
         results.append(tk)
@@ -253,21 +253,21 @@ def refresh_fundamentals(df, force=False):
     tickers = df['Ticker'].unique()
     total = len(tickers)
 
-    # Ensure columns exist
-    FUND_COLS = {
-        'Market_Cap': 0,
-        'Sector': '',
-        'Industry': '',
-        'Sub_Industry': '',
-        'PE_Ratio': 0,
-        'PB_Ratio': 0,
-        'ROE': 0,
-        'Dividend_Yield': 0,
-        'Debt_to_Equity': 0,
-    }
-    for col, default in FUND_COLS.items():
+    # Ensure columns exist with correct dtypes
+    FUND_COLS_NUM = ['Market_Cap', 'PE_Ratio', 'PB_Ratio', 'ROE', 'Dividend_Yield', 'Debt_to_Equity']
+    FUND_COLS_STR = ['Sector', 'Industry', 'Sub_Industry']
+
+    for col in FUND_COLS_NUM:
         if col not in df.columns:
-            df[col] = default
+            df[col] = 0.0
+        else:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
+
+    for col in FUND_COLS_STR:
+        if col not in df.columns:
+            df[col] = ''
+        else:
+            df[col] = df[col].astype(str).replace('nan', '').replace('0', '').fillna('')
 
     # Check existing data
     if not force:
@@ -280,17 +280,25 @@ def refresh_fundamentals(df, force=False):
         sector_filled = (last_sector.str.strip() != '').sum()
         sector_missing = sector_filled < total * 0.5
 
-        if filled > total * 0.7 and not sector_missing:
+        # Check if PE is mostly empty
+        last_pe = df.groupby('Ticker')['PE_Ratio'].last()
+        last_pe = pd.to_numeric(last_pe, errors='coerce').fillna(0)
+        pe_filled = (last_pe > 0).sum()
+        pe_missing = pe_filled < total * 0.3
+
+        if filled > total * 0.7 and not sector_missing and not pe_missing:
             missing = last_mcap[last_mcap <= 0].index.tolist()
             if not missing:
-                print(f"  Fundamentals already present ({filled}/{total} tickers, {sector_filled} sectors)")
+                print(f"  Fundamentals already present ({filled}/{total} MCap, {sector_filled} sectors, {pe_filled} PE)")
                 return df
             tickers_to_fetch = missing
             print(f"  Refreshing {len(missing)} tickers with missing fundamentals...")
-        elif sector_missing and filled > total * 0.5:
-            # MCap present but sectors mostly empty -> re-fetch all
+        elif sector_missing or pe_missing:
             tickers_to_fetch = list(tickers)
-            print(f"  Sectors mostly empty ({sector_filled}/{total}). Refreshing all {total} tickers...")
+            reason = []
+            if sector_missing: reason.append(f"sectors {sector_filled}/{total}")
+            if pe_missing: reason.append(f"PE {pe_filled}/{total}")
+            print(f"  Data incomplete ({', '.join(reason)}). Refreshing all {total} tickers...")
         else:
             tickers_to_fetch = list(tickers)
             print(f"  Fetching fundamentals for all {total} tickers...")
@@ -314,7 +322,7 @@ def refresh_fundamentals(df, force=False):
                     info = yf.Ticker(f"{ticker}{suffix}").info
                     mcap = info.get('marketCap', 0) or 0
                     if mcap > 0:
-                        # FIX: Try multiple field names for sector
+                        # Try multiple field names for sector
                         sector = (
                             info.get('sector', '') or
                             info.get('sectorDisp', '') or
@@ -327,7 +335,7 @@ def refresh_fundamentals(df, force=False):
                             ''
                         )
 
-                        # FIX: Fetch valuation ratios
+                        # Fetch valuation ratios
                         pe = info.get('trailingPE', 0) or info.get('forwardPE', 0) or 0
                         pb = info.get('priceToBook', 0) or 0
                         roe = info.get('returnOnEquity', 0) or 0
@@ -336,14 +344,14 @@ def refresh_fundamentals(df, force=False):
 
                         fund_data[ticker] = {
                             'Market_Cap': round(mcap / 1e7, 2),  # raw INR -> Crores
-                            'Sector': sector,
-                            'Industry': industry,
-                            'Sub_Industry': industry,
-                            'PE_Ratio': round(float(pe), 2) if pe else 0,
-                            'PB_Ratio': round(float(pb), 2) if pb else 0,
-                            'ROE': round(float(roe) * 100, 2) if roe and roe < 1 else round(float(roe), 2) if roe else 0,
-                            'Dividend_Yield': round(float(dy) * 100, 2) if dy and dy < 1 else round(float(dy), 2) if dy else 0,
-                            'Debt_to_Equity': round(float(de) / 100, 2) if de and de > 10 else round(float(de), 2) if de else 0,
+                            'Sector': str(sector),
+                            'Industry': str(industry),
+                            'Sub_Industry': str(industry),
+                            'PE_Ratio': round(float(pe), 2) if pe else 0.0,
+                            'PB_Ratio': round(float(pb), 2) if pb else 0.0,
+                            'ROE': round(float(roe) * 100, 2) if roe and abs(float(roe)) < 1 else round(float(roe), 2) if roe else 0.0,
+                            'Dividend_Yield': round(float(dy) * 100, 2) if dy and abs(float(dy)) < 1 else round(float(dy), 2) if dy else 0.0,
+                            'Debt_to_Equity': round(float(de) / 100, 2) if de and float(de) > 10 else round(float(de), 2) if de else 0.0,
                         }
                         fetched += 1
                         break
@@ -352,12 +360,18 @@ def refresh_fundamentals(df, force=False):
 
             if ticker not in fund_data:
                 fund_data[ticker] = {
-                    'Market_Cap': 0, 'Sector': '', 'Industry': '', 'Sub_Industry': '',
-                    'PE_Ratio': 0, 'PB_Ratio': 0, 'ROE': 0, 'Dividend_Yield': 0, 'Debt_to_Equity': 0,
+                    'Market_Cap': 0.0, 'Sector': '', 'Industry': '', 'Sub_Industry': '',
+                    'PE_Ratio': 0.0, 'PB_Ratio': 0.0, 'ROE': 0.0,
+                    'Dividend_Yield': 0.0, 'Debt_to_Equity': 0.0,
                 }
 
         if i + batch_size < len(tickers_to_fetch):
             time.sleep(1.5)  # Rate limit
+
+    # Cast numeric columns to float before assignment (avoids int64 vs float TypeError)
+    for col in FUND_COLS_NUM:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(float)
 
     # Apply to all rows of each ticker
     for ticker, data in fund_data.items():
@@ -366,16 +380,16 @@ def refresh_fundamentals(df, force=False):
             df.loc[mask, col] = val
 
     # Report
-    total_filled = df.groupby('Ticker')['Market_Cap'].last()
-    total_filled = pd.to_numeric(total_filled, errors='coerce').fillna(0)
-    mcap_ok = (total_filled > 0).sum()
+    total_mcap = df.groupby('Ticker')['Market_Cap'].last()
+    total_mcap = pd.to_numeric(total_mcap, errors='coerce').fillna(0)
+    mcap_ok = (total_mcap > 0).sum()
 
-    sector_filled = df.groupby('Ticker')['Sector'].last().fillna('')
-    sector_ok = (sector_filled.str.strip() != '').sum()
+    sector_last = df.groupby('Ticker')['Sector'].last().fillna('')
+    sector_ok = (sector_last.str.strip() != '').sum()
 
-    pe_filled = df.groupby('Ticker')['PE_Ratio'].last()
-    pe_filled = pd.to_numeric(pe_filled, errors='coerce').fillna(0)
-    pe_ok = (pe_filled > 0).sum()
+    pe_last = df.groupby('Ticker')['PE_Ratio'].last()
+    pe_last = pd.to_numeric(pe_last, errors='coerce').fillna(0)
+    pe_ok = (pe_last > 0).sum()
 
     print(f"  Fundamentals: {mcap_ok}/{total} MCap | {sector_ok}/{total} Sector | {pe_ok}/{total} PE")
 
