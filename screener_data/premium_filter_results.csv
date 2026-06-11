@@ -1,0 +1,505 @@
+Ticker,Premium_Pass,Criteria_Met,Criteria_Total,Fail_Reasons,Market_Cap,Sector
+360ONE,False,12,14,roce_10|de_05,43254.24,Financial Services
+3MINDIA,False,13,14,de_05,35107.59,Industrials
+ABB,False,11,14,roe_10|de_05|yoy_sales,142381.23,Industrials
+ACC,False,11,14,roce_10|de_05|yoy_profit,24481.82,Basic Materials
+ACMESOLAR,False,10,14,roce_10|de_05|profit_3y|mcap_3y_ago,23597.72,Utilities
+AIAENG,True,14,14,,40300.4,Industrials
+APLAPOLLO,False,13,14,de_05,48981.72,Basic Materials
+AUBANK,False,10,14,roce_10|roe_10|pe_vs_industry|opm_positive,72089.4,Financial Services
+AWL,False,12,14,yoy_profit|avg_roe_3y,23989.22,Consumer Defensive
+AADHARHFC,False,12,14,roce_10|de_05,19772.92,Financial Services
+AARTIIND,False,9,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y,15515.9,Basic Materials
+AAVAS,False,12,14,roce_10|de_05,10531.0,Financial Services
+ABBOTINDIA,False,13,14,de_05,55386.31,Healthcare
+ACE,False,13,14,yoy_profit,10616.0,Industrials
+ACUTAAS,False,13,14,de_05,25610.11,Basic Materials
+ADANIENSOL,False,9,14,roce_10|roe_10|de_05|pe_vs_industry|avg_roe_3y,176192.12,Utilities
+ADANIENT,False,10,14,roce_10|de_05|yoy_profit|pe_vs_industry,399083.75,Energy
+ADANIGREEN,False,8,14,roce_10|roe_10|de_05|yoy_profit|pe_vs_industry|avg_roe_3y,239581.79,Utilities
+ADANIPORTS,False,13,14,de_05,411740.51,Industrials
+ADANIPOWER,False,13,14,de_05,415604.46,Utilities
+ATGL,False,12,14,de_05|pe_vs_industry,78762.9,Utilities
+ABCAPITAL,False,11,14,roce_10|de_05|profit_3y,88251.58,Financial Services
+ABFRL,False,6,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y,7086.51,Consumer Cyclical
+ABLBL,False,10,14,de_05|yoy_profit|profit_3y|mcap_3y_ago,11585.22,Consumer Cyclical
+ABREL,False,6,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y,13057.03,Real Estate
+ABSLAMC,False,12,14,de_05|yoy_profit,30901.24,Financial Services
+CPPLUS,False,12,14,de_05|mcap_3y_ago,39403.31,Industrials
+AEGISLOG,False,13,14,pe_vs_industry,32499.09,Energy
+AEGISVOPAK,False,10,14,roce_10|de_05|profit_3y|mcap_3y_ago,22064.54,Energy
+AFCONS,False,4,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,11649.58,Industrials
+AFFLE,True,14,14,,20198.81,Communication Services
+AJANTPHARM,False,13,14,de_05,39272.26,Healthcare
+ALKEM,False,13,14,yoy_profit,63387.38,Healthcare
+ABDL,False,10,14,de_05|yoy_profit|avg_roe_3y|mcap_3y_ago,17018.96,Consumer Defensive
+ARE&M,False,13,14,de_05,14574.31,Industrials
+AMBER,False,10,14,roce_10|roe_10|pe_vs_industry|avg_roe_3y,25710.2,Consumer Cyclical
+AMBUJACEM,False,9,14,roce_10|roe_10|de_05|yoy_profit|avg_roe_3y,100895.99,Basic Materials
+ANANDRATHI,False,12,14,de_05|pe_vs_industry,28955.94,Financial Services
+ANANTRAJ,False,12,14,roce_10|avg_roe_3y,18470.68,Real Estate
+ANGELONE,False,13,14,de_05,29569.69,Financial Services
+ANTHEM,False,12,14,de_05|mcap_3y_ago,43816.49,Healthcare
+ANURAS,False,10,14,roce_10|roe_10|profit_3y|avg_roe_3y,14322.12,Basic Materials
+APARINDS,True,14,14,,58457.53,Industrials
+APOLLOHOSP,False,13,14,de_05,122116.31,Healthcare
+APOLLOTYRE,False,12,14,roe_10|avg_roe_3y,24057.07,Consumer Cyclical
+APTUS,False,11,14,roce_10|de_05|opm_positive,12941.7,Financial Services
+ASAHIINDIA,False,12,14,de_05|profit_3y,21937.76,Consumer Cyclical
+ASHOKLEY,False,13,14,de_05,81399.87,Industrials
+ASIANPAINT,True,14,14,,257961.57,Basic Materials
+ASTERDM,False,11,14,roce_10|yoy_profit|pe_vs_industry,42065.94,Healthcare
+ASTRAL,False,13,14,de_05,40034.25,Industrials
+ATHERENERG,False,7,14,roce_10|roe_10|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,39361.85,Consumer Cyclical
+ATUL,False,12,14,de_05|avg_roe_3y,19126.84,Basic Materials
+AUROPHARMA,False,13,14,roe_10,84241.08,Healthcare
+AIIL,False,11,14,yoy_sales|yoy_profit|profit_3y,39060.13,Financial Services
+DMART,False,12,14,de_05|yoy_profit,260044.15,Consumer Defensive
+AXISBANK,False,12,14,roce_10|opm_positive,409713.4,Financial Services
+BEML,False,9,14,roce_10|roe_10|pe_vs_industry|profit_3y|avg_roe_3y,14387.34,Industrials
+BLS,True,14,14,,10323.04,Industrials
+BSE,True,14,14,,157915.18,Financial Services
+BAJAJ-AUTO,False,13,14,de_05,282455.44,Consumer Cyclical
+BAJFINANCE,False,11,14,roce_10|de_05|opm_positive,541297.21,Financial Services
+BAJAJFINSV,False,11,14,roce_10|de_05|avg_roe_3y,262970.59,Financial Services
+BAJAJHLDNG,False,12,14,roce_10|opm_positive,109768.79,Financial Services
+BAJAJHFL,False,10,14,roce_10|de_05|pe_vs_industry|mcap_3y_ago,68994.64,Financial Services
+BALKRISIND,False,12,14,roe_10|yoy_profit,38160.81,Consumer Cyclical
+BALRAMCHIN,False,11,14,roe_10|de_05|yoy_profit,11589.06,Consumer Defensive
+BANDHANBNK,False,7,14,roce_10|roe_10|yoy_sales|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y,31237.64,Financial Services
+BANKBARODA,False,12,14,roce_10|opm_positive,138385.66,Financial Services
+BANKINDIA,False,12,14,roce_10|opm_positive,64365.62,Financial Services
+MAHABANK,False,12,14,roce_10|opm_positive,63901.44,Financial Services
+BATAINDIA,False,9,14,roe_10|de_05|yoy_sales|yoy_profit|profit_3y,8455.18,Consumer Cyclical
+BAYERCROP,False,12,14,de_05|profit_3y,18960.17,Basic Materials
+BELRISE,False,13,14,mcap_3y_ago,19612.05,Consumer Cyclical
+BERGEPAINT,False,12,14,de_05|yoy_sales,59926.71,Basic Materials
+BDL,False,10,14,roce_10|yoy_sales|yoy_profit|pe_vs_industry,42532.25,Industrials
+BEL,True,14,14,,294072.41,Industrials
+BHARATFORG,False,11,14,de_05|yoy_profit|pe_vs_industry,92887.84,Consumer Cyclical
+BHEL,False,11,14,roce_10|roe_10|avg_roe_3y,129062.68,Industrials
+BPCL,False,13,14,de_05,122345.48,Energy
+BHARTIARTL,False,12,14,de_05|yoy_profit,1085865.77,Communication Services
+BHARTIHEXA,False,13,14,de_05,73925.0,Communication Services
+BIKAJI,True,14,14,,16840.71,Consumer Defensive
+GROWW,False,9,14,de_05|yoy_profit|pe_vs_industry|profit_3y|mcap_3y_ago,118828.75,Financial Services
+BIOCON,False,8,14,roce_10|roe_10|yoy_profit|pe_vs_industry|profit_3y|avg_roe_3y,67363.41,Healthcare
+BSOFT,False,12,14,de_05|yoy_sales,8687.83,Technology
+BLUEDART,False,12,14,yoy_profit|profit_3y,11176.09,Industrials
+BLUEJET,False,11,14,de_05|yoy_sales|yoy_profit,8646.38,Healthcare
+BLUESTARCO,True,14,14,,32006.66,Industrials
+BBTC,False,13,14,profit_3y,10396.01,Consumer Defensive
+BOSCHLTD,False,13,14,de_05,110802.1,Consumer Cyclical
+FIRSTCRY,False,7,14,roce_10|roe_10|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,10305.43,Consumer Cyclical
+BRIGADE,False,9,14,roce_10|de_05|yoy_sales|yoy_profit|pe_vs_industry,15862.5,Real Estate
+BRITANNIA,True,14,14,,123155.96,Consumer Defensive
+MAPMYINDIA,False,13,14,de_05,4614.44,Technology
+CCL,False,13,14,de_05,15107.29,Consumer Defensive
+CESC,False,13,14,de_05,22268.26,Utilities
+CGPOWER,False,12,14,de_05|pe_vs_industry,141958.85,Industrials
+CIEINDIA,False,11,14,roe_10|de_05|profit_3y,16543.99,Consumer Cyclical
+CRISIL,False,12,14,roe_10|de_05,28506.08,Financial Services
+CANFINHOME,False,11,14,roce_10|de_05|opm_positive,11244.91,Financial Services
+CANBK,False,11,14,roce_10|yoy_sales|opm_positive,119297.21,Financial Services
+CANHLIFE,False,7,14,roce_10|roe_10|yoy_sales|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,13201.31,Financial Services
+CAPLIPOINT,True,14,14,,17718.33,Healthcare
+CGCL,False,12,14,roce_10|de_05,19174.77,Financial Services
+CARBORUNIV,False,8,14,roce_10|roe_10|yoy_profit|pe_vs_industry|profit_3y|avg_roe_3y,19007.44,Industrials
+CARTRADE,False,10,14,roce_10|roe_10|de_05|avg_roe_3y,11432.75,Consumer Cyclical
+CASTROLIND,False,10,14,roe_10|de_05|yoy_profit|pe_vs_industry,18012.91,Energy
+CEATLTD,False,13,14,de_05,12703.54,Consumer Cyclical
+CEMPRO,True,14,14,,20190.19,Industrials
+CENTRALBK,False,11,14,roce_10|yoy_profit|opm_positive,27308.08,Financial Services
+CDSL,False,11,14,yoy_sales|yoy_profit|pe_vs_industry,24875.18,Financial Services
+CHALET,False,13,14,de_05,15882.55,Consumer Cyclical
+CHAMBLFERT,False,12,14,yoy_sales|yoy_profit,18642.35,Basic Materials
+CHENNPETRO,False,13,14,profit_3y,16977.39,Energy
+CHOICEIN,False,12,14,de_05|pe_vs_industry,14616.36,Financial Services
+CHOLAHLDNG,False,11,14,roce_10|de_05|avg_roe_3y,26769.55,Financial Services
+CHOLAFIN,False,11,14,roce_10|de_05|opm_positive,124028.56,Financial Services
+CIPLA,False,11,14,de_05|yoy_sales|yoy_profit,111749.25,Healthcare
+CUB,False,12,14,roce_10|opm_positive,19082.56,Financial Services
+CLEAN,False,12,14,yoy_profit|profit_3y,7876.6,Basic Materials
+COALINDIA,False,13,14,profit_3y,274980.96,Energy
+COCHINSHIP,False,12,14,yoy_sales|yoy_profit,36510.35,Industrials
+COFORGE,False,13,14,de_05,61699.56,Technology
+COHANCE,False,7,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|pe_vs_industry|profit_3y,16215.28,Healthcare
+COLPAL,False,13,14,de_05,55175.01,Consumer Defensive
+CAMS,False,13,14,de_05,17920.6,Technology
+CONCORDBIO,False,12,14,yoy_sales|yoy_profit,14053.1,Healthcare
+CONCOR,False,9,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit,33530.23,Industrials
+COROMANDEL,False,11,14,yoy_sales|yoy_profit|profit_3y,54940.96,Basic Materials
+CRAFTSMAN,False,13,14,de_05,20975.02,Consumer Cyclical
+CREDITACC,False,11,14,de_05|yoy_profit|profit_3y,20287.23,Financial Services
+CROMPTON,False,9,14,roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y,16536.03,Consumer Cyclical
+CUMMINSIND,False,13,14,yoy_sales,154040.03,Industrials
+CYIENT,False,9,14,roce_10|roe_10|de_05|yoy_profit|profit_3y,9353.35,Industrials
+DCMSHRIRAM,False,10,14,roce_10|yoy_sales|profit_3y|avg_roe_3y,15963.13,Industrials
+DLF,False,11,14,roce_10|de_05|avg_roe_3y,139360.05,Real Estate
+DOMS,True,14,14,,13687.65,Industrials
+DABUR,False,12,14,yoy_sales|yoy_profit,74796.51,Consumer Defensive
+DALBHARAT,False,11,14,roce_10|roe_10|avg_roe_3y,30228.09,Basic Materials
+DATAPATTNS,False,13,14,yoy_sales,23541.26,Industrials
+DEEPAKFERT,False,11,14,de_05|yoy_profit|profit_3y,18975.02,Basic Materials
+DEEPAKNTR,False,11,14,roe_10|yoy_sales|profit_3y,21992.01,Basic Materials
+DELHIVERY,False,10,14,roce_10|roe_10|profit_3y|avg_roe_3y,32368.96,Industrials
+DEVYANI,False,8,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y,13129.58,Consumer Cyclical
+DIVISLAB,False,13,14,pe_vs_industry,176682.6,Healthcare
+DIXON,True,14,14,,69137.83,Technology
+LALPATHLAB,False,11,14,de_05|yoy_sales|yoy_profit,26607.91,Healthcare
+DRREDDY,False,11,14,yoy_sales|yoy_profit|profit_3y,106252.97,Healthcare
+DUMMYVEDL1,False,5,14,mcap_500|roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,0.0,
+DUMMYVEDL2,False,5,14,mcap_500|roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,0.0,
+DUMMYVEDL3,False,5,14,mcap_500|roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,0.0,
+DUMMYVEDL4,False,5,14,mcap_500|roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,0.0,
+EIDPARRY,False,11,14,roe_10|profit_3y|avg_roe_3y,12636.31,Basic Materials
+EIHOTEL,False,12,14,de_05|yoy_profit,18110.55,Consumer Cyclical
+EICHERMOT,False,13,14,de_05,197075.51,Consumer Cyclical
+ELECON,False,13,14,yoy_profit,11850.56,Industrials
+ELGIEQUIP,True,14,14,,18708.0,Industrials
+EMAMILTD,False,11,14,de_05|yoy_sales|yoy_profit,16868.54,Consumer Defensive
+EMCURE,False,13,14,mcap_3y_ago,31925.39,Healthcare
+EMMVEE,False,12,14,de_05|mcap_3y_ago,22265.82,Technology
+ENDURANCE,True,14,14,,34887.2,Consumer Cyclical
+ENGINERSIN,False,10,14,roe_10|de_05|yoy_sales|yoy_profit,12586.94,Industrials
+ERIS,False,13,14,de_05,18922.75,Healthcare
+ESCORTS,False,11,14,roce_10|de_05|yoy_profit,29979.16,Industrials
+ETERNAL,False,9,14,roce_10|roe_10|pe_vs_industry|profit_3y|avg_roe_3y,216240.33,Consumer Cyclical
+EXIDEIND,False,11,14,roce_10|roe_10|avg_roe_3y,32780.25,Consumer Cyclical
+NYKAA,False,12,14,de_05|avg_roe_3y,74531.03,Consumer Cyclical
+FEDERALBNK,False,12,14,roce_10|opm_positive,76353.65,Financial Services
+FACT,False,8,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y,57537.65,Basic Materials
+FINCABLES,False,13,14,roce_10,15491.23,Industrials
+FSL,False,13,14,de_05,17051.84,Technology
+FIVESTAR,False,12,14,de_05|yoy_profit,12497.91,Financial Services
+FORCEMOT,False,13,14,profit_3y,22523.5,Consumer Cyclical
+FORTIS,False,13,14,avg_roe_3y,74665.36,Healthcare
+GAIL,False,10,14,roce_10|roe_10|yoy_sales|yoy_profit,109205.49,Utilities
+GVT&D,False,11,14,de_05|pe_vs_industry|profit_3y,121238.03,Industrials
+GMRAIRPORT,False,9,14,roce_10|roe_10|yoy_profit|profit_3y|avg_roe_3y,105695.35,Industrials
+GABRIEL,True,14,14,,17878.96,Consumer Cyclical
+GALLANTT,False,13,14,roe_10,15747.2,Basic Materials
+GRSE,False,13,14,de_05,29051.54,Industrials
+GICRE,False,12,14,roce_10|opm_positive,64982.97,Financial Services
+GILLETTE,False,13,14,yoy_sales,24987.97,Consumer Defensive
+GLAND,False,12,14,de_05|avg_roe_3y,38047.95,Healthcare
+GLAXO,False,13,14,de_05,35629.48,Healthcare
+GLENMARK,False,12,14,de_05|avg_roe_3y,60517.96,Healthcare
+MEDANTA,True,14,14,,33027.74,Healthcare
+GODIGIT,False,10,14,roce_10|de_05|opm_positive|avg_roe_3y,27414.36,Financial Services
+GPIL,False,13,14,de_05,18080.1,Basic Materials
+GODFRYPHLP,False,13,14,de_05,34209.92,Consumer Defensive
+GODREJCP,False,12,14,yoy_profit|avg_roe_3y,103235.15,Consumer Defensive
+GODREJIND,False,11,14,roce_10|de_05|avg_roe_3y,33990.34,Industrials
+GODREJPROP,False,10,14,roce_10|roe_10|de_05|avg_roe_3y,48738.36,Real Estate
+GRANULES,True,14,14,,18910.62,Healthcare
+GRAPHITE,False,7,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|opm_positive|avg_roe_3y,12199.25,Industrials
+GRASIM,False,9,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y,209521.49,Basic Materials
+GRAVITA,True,14,14,,11441.95,Industrials
+GESHIP,False,13,14,de_05,19837.5,Industrials
+FLUOROCHEM,False,9,14,roce_10|roe_10|yoy_profit|profit_3y|avg_roe_3y,40430.29,Basic Materials
+GMDCLTD,False,10,14,roce_10|de_05|yoy_profit|profit_3y,18722.25,Energy
+HEG,False,10,14,roce_10|roe_10|profit_3y|avg_roe_3y,9880.45,Industrials
+HBLENGINE,False,13,14,de_05,20678.74,Industrials
+HCLTECH,False,12,14,de_05|yoy_profit,300394.19,Technology
+HDBFS,False,12,14,de_05|mcap_3y_ago,51627.54,Financial Services
+HDFCAMC,False,12,14,de_05|yoy_profit,102439.56,Financial Services
+HDFCBANK,False,11,14,roce_10|yoy_profit|opm_positive,1146402.9,Financial Services
+HDFCLIFE,False,12,14,roce_10|opm_positive,117632.85,Financial Services
+HFCL,False,12,14,roe_10|avg_roe_3y,25047.35,Technology
+HAVELLS,False,13,14,de_05,70817.3,Industrials
+HEROMOTOCO,False,13,14,de_05,96768.95,Consumer Cyclical
+HEXT,False,13,14,mcap_3y_ago,30609.98,Technology
+HSCL,True,14,14,,34311.35,Basic Materials
+HINDALCO,False,12,14,de_05|yoy_profit,229049.16,Basic Materials
+HAL,False,13,14,roce_10,279032.97,Industrials
+HINDCOPPER,False,13,14,de_05,48278.67,Basic Materials
+HINDPETRO,False,12,14,de_05|profit_3y,77814.47,Energy
+HINDUNILVR,False,13,14,de_05,502765.56,Consumer Defensive
+HINDZINC,True,14,14,,230279.87,Basic Materials
+POWERINDIA,False,12,14,de_05|pe_vs_industry,148203.11,Industrials
+HOMEFIRST,False,12,14,roce_10|de_05,10756.09,Financial Services
+HONASA,False,12,14,de_05|profit_3y,13593.82,Consumer Defensive
+HONAUT,False,13,14,de_05,31169.25,Industrials
+HUDCO,False,10,14,roce_10|de_05|yoy_sales|opm_positive,40704.63,Financial Services
+HYUNDAI,False,12,14,de_05|mcap_3y_ago,157641.11,Consumer Cyclical
+ICICIBANK,False,12,14,roce_10|opm_positive,944422.73,Financial Services
+ICICIGI,False,11,14,roce_10|yoy_profit|opm_positive,85467.19,Financial Services
+ICICIAMC,False,12,14,de_05|mcap_3y_ago,158469.17,Financial Services
+ICICIPRULI,False,10,14,roce_10|yoy_sales|opm_positive|avg_roe_3y,66744.41,Financial Services
+IDBI,False,11,14,roce_10|yoy_sales|opm_positive,77750.62,Financial Services
+IDFCFIRSTB,False,7,14,roce_10|roe_10|yoy_profit|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y,62833.48,Financial Services
+IFCI,False,7,14,roce_10|roe_10|yoy_profit|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y,18989.53,Financial Services
+IIFL,False,10,14,roce_10|de_05|opm_positive|avg_roe_3y,20882.94,Financial Services
+IRB,False,10,14,roce_10|roe_10|de_05|yoy_sales,24409.64,Industrials
+IRCON,False,8,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|profit_3y,12251.16,Industrials
+ITCHOTELS,False,8,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y|mcap_3y_ago,31096.75,Consumer Cyclical
+ITC,False,12,14,de_05|yoy_sales,353832.19,Consumer Defensive
+ITI,False,7,14,roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y,27807.16,Technology
+INDGN,False,12,14,de_05|yoy_profit,12178.07,Healthcare
+INDIACEM,False,9,14,roce_10|roe_10|yoy_profit|profit_3y|avg_roe_3y,17880.27,Basic Materials
+INDIAMART,False,12,14,de_05|yoy_profit,11836.49,Communication Services
+INDIANB,False,12,14,roce_10|opm_positive,111212.09,Financial Services
+IEX,False,13,14,de_05,10411.04,Financial Services
+INDHOTEL,True,14,14,,93334.45,Consumer Cyclical
+IOC,False,13,14,de_05,189563.51,Energy
+IOB,False,12,14,roce_10|opm_positive,62429.86,Financial Services
+IRCTC,False,12,14,de_05|yoy_profit,41684.0,Consumer Cyclical
+IRFC,False,12,14,roce_10|de_05,121968.37,Financial Services
+IREDA,False,11,14,roce_10|roe_10|de_05,33233.21,Financial Services
+IGL,False,11,14,de_05|yoy_profit|profit_3y,22512.03,Utilities
+INDUSTOWER,False,12,14,de_05|yoy_profit,108915.94,Communication Services
+INDUSINDBK,False,6,14,roce_10|roe_10|yoy_sales|yoy_profit|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y,69261.01,Financial Services
+NAUKRI,False,9,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y,62428.93,Communication Services
+INFY,False,13,14,de_05,451257.51,Technology
+INOXWIND,False,8,14,roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|avg_roe_3y,14016.01,Industrials
+INTELLECT,False,13,14,de_05,10147.82,Technology
+INDIGO,False,10,14,roe_10|de_05|yoy_profit|profit_3y,174088.68,Industrials
+IGIL,False,11,14,roe_10|de_05|mcap_3y_ago,15296.29,Basic Materials
+IKS,False,13,14,mcap_3y_ago,27640.1,Healthcare
+IPCALAB,False,12,14,de_05|avg_roe_3y,40937.71,Healthcare
+JBCHEPHARM,False,12,14,yoy_sales|yoy_profit,36169.06,Healthcare
+JKCEMENT,False,13,14,de_05,36323.8,Basic Materials
+JBMA,False,13,14,de_05,15250.33,Consumer Cyclical
+JKTYRE,False,13,14,de_05,10160.76,Consumer Cyclical
+JMFINANCIL,False,9,14,roce_10|de_05|yoy_profit|opm_positive|avg_roe_3y,11065.36,Financial Services
+JSWCEMENT,False,7,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y|mcap_3y_ago,16717.4,Basic Materials
+JSWDULUX,False,12,14,roe_10|yoy_sales,14517.34,
+JSWENERGY,False,10,14,roce_10|roe_10|de_05|avg_roe_3y,101193.29,Utilities
+JSWINFRA,False,12,14,de_05|pe_vs_industry,57435.78,Industrials
+JSWSTEEL,False,13,14,de_05,312987.25,Basic Materials
+JAINREC,False,12,14,de_05|mcap_3y_ago,10533.74,Basic Materials
+JPPOWER,False,10,14,roce_10|roe_10|yoy_profit|avg_roe_3y,12158.04,Utilities
+J&KBANK,False,11,14,roce_10|yoy_sales|opm_positive,16855.8,Financial Services
+JINDALSAW,False,10,14,roce_10|roe_10|yoy_sales|yoy_profit,14250.2,Basic Materials
+JSL,True,14,14,,55975.03,Basic Materials
+JINDALSTEL,False,10,14,roce_10|roe_10|profit_3y|avg_roe_3y,114090.95,Basic Materials
+JIOFIN,False,9,14,roce_10|roe_10|yoy_profit|pe_vs_industry|avg_roe_3y,150564.84,Financial Services
+JUBLFOOD,False,13,14,de_05,27201.42,Consumer Cyclical
+JUBLINGREA,False,11,14,roe_10|profit_3y|avg_roe_3y,9736.63,Basic Materials
+JUBLPHARMA,False,9,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y,14981.05,Healthcare
+JWL,False,10,14,roce_10|roe_10|yoy_sales|yoy_profit,11299.67,Industrials
+JYOTICNC,False,12,14,yoy_profit|profit_3y,14393.61,Industrials
+KPRMILL,False,12,14,roe_10|de_05,36125.85,Consumer Cyclical
+KEI,False,13,14,de_05,49535.45,Industrials
+KPITTECH,False,13,14,yoy_profit,20060.43,Technology
+KAJARIACER,False,12,14,de_05|profit_3y,17153.63,Industrials
+KPIL,True,14,14,,21390.97,Industrials
+KALYANKJIL,False,13,14,de_05,34163.05,Consumer Cyclical
+KARURVYSYA,False,12,14,roce_10|opm_positive,26664.18,Financial Services
+KAYNES,False,11,14,roce_10|roe_10|avg_roe_3y,20290.72,Technology
+KEC,False,10,14,de_05|yoy_sales|yoy_profit|avg_roe_3y,12995.88,Industrials
+KFINTECH,False,13,14,de_05,13922.99,Technology
+KIRLOSENG,False,13,14,de_05,26137.86,Industrials
+KOTAKBANK,False,12,14,roce_10|opm_positive,391244.21,Financial Services
+KIMS,False,8,14,roce_10|roe_10|de_05|yoy_profit|pe_vs_industry|profit_3y,30626.63,Healthcare
+LTF,False,11,14,roce_10|de_05|opm_positive,64365.02,Financial Services
+LTTS,False,13,14,de_05,34908.24,Technology
+LGEINDIA,False,11,14,de_05|profit_3y|mcap_3y_ago,103234.5,Technology
+LICHSGFIN,False,11,14,roce_10|de_05|opm_positive,29477.88,Financial Services
+LTFOODS,False,13,14,yoy_profit,12992.47,Consumer Defensive
+LTM,False,13,14,de_05,113393.44,Technology
+LT,False,13,14,de_05,531283.05,Industrials
+LATENTVIEW,False,13,14,de_05,5918.05,Industrials
+LAURUSLABS,False,12,14,pe_vs_industry|avg_roe_3y,75137.92,Healthcare
+THELEELA,False,9,14,roce_10|roe_10|profit_3y|avg_roe_3y|mcap_3y_ago,13580.4,Consumer Cyclical
+LEMONTREE,False,13,14,de_05,8209.88,Consumer Cyclical
+LENSKART,False,9,14,roce_10|roe_10|profit_3y|avg_roe_3y|mcap_3y_ago,86961.58,Healthcare
+LICI,False,12,14,roce_10|opm_positive,248698.92,Financial Services
+LINDEINDIA,False,12,14,yoy_profit|pe_vs_industry,57276.88,Basic Materials
+LLOYDSME,False,12,14,de_05|profit_3y,94183.17,Basic Materials
+LODHA,True,14,14,,86710.83,Real Estate
+LUPIN,True,14,14,,103942.68,Healthcare
+MMTC,False,11,14,roce_10|profit_3y|opm_positive,9460.5,Industrials
+MRF,True,14,14,,52138.49,Consumer Cyclical
+MGL,False,12,14,de_05|yoy_profit,10480.32,Utilities
+M&MFIN,False,11,14,roce_10|de_05|opm_positive,38309.76,Financial Services
+M&M,False,13,14,de_05,360336.72,Consumer Cyclical
+MANAPPURAM,False,8,14,roce_10|roe_10|de_05|yoy_sales|profit_3y|opm_positive,27433.31,Financial Services
+MRPL,False,11,14,de_05|yoy_profit|profit_3y,27287.96,Energy
+MANKIND,True,14,14,,97991.55,Healthcare
+MARICO,True,14,14,,105069.46,Consumer Defensive
+MARUTI,False,13,14,yoy_profit,411804.47,Consumer Cyclical
+MFSL,False,6,14,roce_10|roe_10|yoy_sales|yoy_profit|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y,53649.79,Financial Services
+MAXHEALTH,True,14,14,,98258.69,Healthcare
+MAZDOCK,False,12,14,de_05|yoy_profit,94693.46,Industrials
+MEESHO,False,6,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,77407.81,Consumer Cyclical
+MINDACORP,False,13,14,de_05,14895.99,Consumer Cyclical
+MSUMI,True,14,14,,24125.99,Consumer Cyclical
+MOTILALOFS,False,11,14,de_05|yoy_sales|yoy_profit,50066.03,Financial Services
+MPHASIS,True,14,14,,43464.31,Technology
+MCX,True,14,14,,70724.38,Financial Services
+MUTHOOTFIN,False,11,14,roce_10|de_05|opm_positive,116024.4,Financial Services
+NATCOPHARM,False,11,14,de_05|yoy_sales|yoy_profit,15084.63,Healthcare
+NBCC,False,13,14,yoy_sales,27140.4,Industrials
+NCC,False,12,14,roe_10|avg_roe_3y,9105.66,Industrials
+NHPC,False,9,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y,72454.83,Utilities
+NLCINDIA,False,12,14,roce_10|de_05,43034.27,Utilities
+NMDC,True,14,14,,77781.2,Basic Materials
+NSLNISP,False,8,14,roce_10|roe_10|yoy_profit|pe_vs_industry|profit_3y|avg_roe_3y,13337.19,Basic Materials
+NTPCGREEN,False,8,14,roce_10|roe_10|de_05|pe_vs_industry|avg_roe_3y|mcap_3y_ago,81794.38,Utilities
+NTPC,False,12,14,roce_10|de_05,341177.22,Utilities
+NH,False,13,14,de_05,37746.1,Healthcare
+NATIONALUM,True,14,14,,68065.58,Basic Materials
+NAVA,False,11,14,roce_10|yoy_profit|profit_3y,16016.46,Industrials
+NAVINFLUOR,True,14,14,,36705.36,Basic Materials
+NESTLEIND,False,12,14,roce_10|de_05,274302.71,Consumer Defensive
+NETWEB,True,14,14,,23866.12,Technology
+NEULANDLAB,False,13,14,roe_10,21776.17,Healthcare
+NEWGEN,False,12,14,de_05|yoy_profit,6426.29,Technology
+NAM-INDIA,False,13,14,de_05,66504.38,Financial Services
+NIVABUPA,False,9,14,roce_10|de_05|opm_positive|avg_roe_3y|mcap_3y_ago,15330.84,Financial Services
+NUVAMA,False,11,14,roce_10|de_05|opm_positive,27536.45,Financial Services
+NUVOCO,False,10,14,roce_10|roe_10|yoy_profit|avg_roe_3y,10761.11,Basic Materials
+OBEROIRLTY,True,14,14,,57547.33,Real Estate
+ONGC,True,14,14,,317777.85,Energy
+OIL,False,11,14,roce_10|de_05|profit_3y,69838.41,Energy
+OLAELEC,False,5,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,20122.67,Consumer Cyclical
+OLECTRA,False,12,14,roe_10|pe_vs_industry,10279.79,Industrials
+PAYTM,False,6,14,roce_10|roe_10|de_05|yoy_profit|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y,65512.88,Technology
+ONESOURCE,False,8,14,roce_10|roe_10|yoy_profit|profit_3y|avg_roe_3y|mcap_3y_ago,18932.61,Healthcare
+OFSS,True,14,14,,80669.46,Technology
+POLICYBZR,False,9,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y,69500.36,Financial Services
+PCBL,False,9,14,roce_10|roe_10|de_05|yoy_profit|profit_3y,10928.42,Basic Materials
+PGEL,False,9,14,roce_10|roe_10|yoy_sales|yoy_profit|avg_roe_3y,13103.51,Technology
+PIIND,False,11,14,de_05|yoy_sales|yoy_profit,42495.11,Basic Materials
+PNBHOUSING,False,11,14,roce_10|de_05|opm_positive,24857.67,Financial Services
+PTCIL,False,10,14,roce_10|roe_10|pe_vs_industry|avg_roe_3y,27256.45,Industrials
+PVRINOX,False,8,14,roce_10|roe_10|de_05|yoy_sales|profit_3y|avg_roe_3y,9281.37,Communication Services
+PAGEIND,True,14,14,,42094.72,Consumer Cyclical
+PARADEEP,False,11,14,de_05|yoy_sales|yoy_profit,12614.81,Basic Materials
+PATANJALI,True,14,14,,45593.04,Consumer Defensive
+PERSISTENT,False,12,14,de_05|pe_vs_industry,76147.01,Technology
+PETRONET,False,13,14,yoy_sales,39457.5,Energy
+PFIZER,False,12,14,de_05|yoy_profit,20919.98,Healthcare
+PHOENIXLTD,False,12,14,profit_3y|avg_roe_3y,61971.94,Real Estate
+PWL,False,7,14,roce_10|roe_10|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,30298.44,Consumer Defensive
+PIDILITIND,False,13,14,de_05,152544.18,Basic Materials
+PINELABS,False,6,14,roce_10|roe_10|de_05|yoy_profit|pe_vs_industry|profit_3y|avg_roe_3y|mcap_3y_ago,16670.68,Technology
+PIRAMALFIN,False,8,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y|mcap_3y_ago,44075.48,Financial Services
+PPLPHARMA,False,8,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y,21403.32,Healthcare
+POLYMED,False,12,14,roce_10|yoy_profit,15007.8,Healthcare
+POLYCAB,False,13,14,de_05,141095.94,Industrials
+POONAWALLA,False,8,14,roce_10|roe_10|de_05|pe_vs_industry|profit_3y|avg_roe_3y,32617.96,Financial Services
+PFC,False,10,14,roce_10|de_05|yoy_sales|opm_positive,136475.71,Financial Services
+POWERGRID,False,13,14,de_05,266601.81,Utilities
+PREMIERENE,False,11,14,de_05|profit_3y|mcap_3y_ago,47747.17,Technology
+PRESTIGE,False,11,14,roe_10|de_05|avg_roe_3y,57084.68,Real Estate
+PNB,False,12,14,roce_10|opm_positive,122020.57,Financial Services
+RRKABEL,True,14,14,,24069.98,Industrials
+RBLBANK,False,8,14,roce_10|roe_10|pe_vs_industry|profit_3y|opm_positive|avg_roe_3y,22243.49,Financial Services
+RECLTD,False,10,14,roce_10|de_05|yoy_profit|opm_positive,88700.15,Financial Services
+RHIM,False,9,14,roce_10|roe_10|yoy_profit|profit_3y|avg_roe_3y,7396.88,Industrials
+RITES,False,12,14,yoy_profit|profit_3y,9636.59,Industrials
+RADICO,False,13,14,roe_10,46204.98,Consumer Defensive
+RVNL,False,9,14,roce_10|roe_10|yoy_profit|pe_vs_industry|profit_3y,46327.06,Industrials
+RAILTEL,False,12,14,de_05|yoy_profit,9451.64,Communication Services
+RAINBOW,False,13,14,de_05,13591.96,Healthcare
+RKFORGE,False,8,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y,10215.36,Industrials
+REDINGTON,False,13,14,yoy_profit,18062.11,Technology
+RELIANCE,False,9,14,roce_10|roe_10|yoy_profit|pe_vs_industry|avg_roe_3y,1709151.3,Energy
+RPOWER,False,7,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|profit_3y|avg_roe_3y,10637.2,Utilities
+SBFC,False,12,14,roce_10|de_05,9943.88,Financial Services
+SBICARD,False,10,14,roce_10|de_05|profit_3y|opm_positive,54075.2,Financial Services
+SBILIFE,False,11,14,roce_10|yoy_sales|opm_positive,172455.22,Financial Services
+SJVN,False,8,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y,27634.32,Utilities
+SRF,False,13,14,profit_3y,78796.57,Industrials
+SAGILITY,False,12,14,avg_roe_3y|mcap_3y_ago,18378.9,Healthcare
+SAILIFE,False,13,14,mcap_3y_ago,25055.08,Healthcare
+SAMMAANCAP,False,7,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|profit_3y|avg_roe_3y,19249.35,Financial Services
+MOTHERSON,False,13,14,avg_roe_3y,148216.55,Consumer Cyclical
+SAPPHIRE,False,8,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|avg_roe_3y,5370.46,Consumer Cyclical
+SARDAEN,True,14,14,,18397.83,Basic Materials
+SAREGAMA,False,12,14,de_05|yoy_sales,8682.33,Communication Services
+SCHAEFFLER,False,12,14,roe_10|de_05,60336.34,Consumer Cyclical
+SCHNEIDER,False,11,14,de_05|yoy_profit|pe_vs_industry,26045.6,Industrials
+SCI,False,13,14,roe_10,13370.76,Industrials
+SHREECEM,False,11,14,roce_10|roe_10|avg_roe_3y,85511.37,Basic Materials
+SHRIRAMFIN,False,10,14,roce_10|de_05|yoy_profit|opm_positive,208527.11,Financial Services
+SHYAMMETL,False,11,14,roe_10|de_05|avg_roe_3y,26978.47,Basic Materials
+ENRIN,False,10,14,roe_10|de_05|profit_3y|mcap_3y_ago,121526.13,Utilities
+SIEMENS,False,11,14,roe_10|de_05|yoy_profit,125425.64,Industrials
+SIGNATURE,False,11,14,roce_10|de_05|profit_3y,10928.22,Real Estate
+SOBHA,False,10,14,roce_10|roe_10|pe_vs_industry|avg_roe_3y,13639.82,Real Estate
+SOLARINDS,True,14,14,,155109.01,Basic Materials
+SONACOMS,False,13,14,de_05,36394.88,Consumer Cyclical
+SONATSOFTW,False,13,14,yoy_sales,7054.11,Technology
+STARHEALTH,False,8,14,roce_10|roe_10|yoy_profit|profit_3y|opm_positive|avg_roe_3y,30594.04,Financial Services
+SBIN,False,12,14,roce_10|opm_positive,923707.9,Financial Services
+SAIL,False,10,14,roce_10|roe_10|de_05|avg_roe_3y,74911.21,Basic Materials
+SUMICHEM,False,13,14,de_05,22386.69,Basic Materials
+SUNPHARMA,False,12,14,de_05|yoy_profit,430488.66,Healthcare
+SUNTV,False,10,14,de_05|yoy_sales|yoy_profit|profit_3y,19759.4,Communication Services
+SUNDARMFIN,False,11,14,roce_10|de_05|opm_positive,45322.9,Financial Services
+SUPREMEIND,False,13,14,de_05,43764.43,Industrials
+SPLPETRO,False,12,14,de_05|profit_3y,12546.12,Basic Materials
+SUZLON,False,13,14,de_05,73210.1,Industrials
+SWANCORP,False,8,14,roce_10|roe_10|yoy_profit|profit_3y|opm_positive|avg_roe_3y,9793.96,Industrials
+SWIGGY,False,7,14,roce_10|roe_10|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,62597.43,Consumer Cyclical
+SYNGENE,False,9,14,roce_10|roe_10|de_05|profit_3y|avg_roe_3y,18000.92,Healthcare
+SYRMA,False,13,14,avg_roe_3y,23800.74,Technology
+TBOTEK,True,14,14,,13407.8,Consumer Cyclical
+TVSMOTOR,False,12,14,de_05|pe_vs_industry,156225.87,Consumer Cyclical
+TATACAP,False,10,14,roce_10|de_05|profit_3y|mcap_3y_ago,135503.43,Financial Services
+TATACHEM,False,7,14,roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y,18882.54,Basic Materials
+TATACOMM,False,12,14,de_05|profit_3y,56031.0,Communication Services
+TCS,True,14,14,,772678.77,Technology
+TATACONSUM,False,11,14,roce_10|roe_10|avg_roe_3y,109711.35,Consumer Defensive
+TATAELXSI,False,12,14,de_05|profit_3y,24975.52,Technology
+TATAINVEST,False,9,14,roce_10|roe_10|pe_vs_industry|opm_positive|avg_roe_3y,32160.9,Financial Services
+TMCV,False,12,14,profit_3y|mcap_3y_ago,131961.99,Consumer Cyclical
+TMPV,False,9,14,roce_10|roe_10|de_05|yoy_profit|opm_positive,138422.75,Consumer Cyclical
+TATAPOWER,False,9,14,roce_10|de_05|yoy_sales|yoy_profit|avg_roe_3y,124698.13,Utilities
+TATASTEEL,False,12,14,de_05|avg_roe_3y,246892.7,Basic Materials
+TATATECH,False,12,14,pe_vs_industry|profit_3y,29700.66,Technology
+TTML,False,8,14,roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|avg_roe_3y,8240.02,Communication Services
+TECHM,False,12,14,de_05|profit_3y,129766.61,Technology
+TECHNOE,False,11,14,roce_10|de_05|yoy_profit,11740.44,Industrials
+TEGA,False,9,14,roce_10|roe_10|yoy_sales|yoy_profit|profit_3y,12682.31,Industrials
+TEJASNET,False,6,14,roce_10|roe_10|de_05|yoy_sales|yoy_profit|profit_3y|opm_positive|avg_roe_3y,10179.21,Technology
+TENNIND,False,12,14,de_05|mcap_3y_ago,22634.13,Consumer Cyclical
+NIACL,False,10,14,roce_10|roe_10|opm_positive|avg_roe_3y,24214.06,Financial Services
+RAMCOCEM,False,10,14,roce_10|roe_10|yoy_profit|avg_roe_3y,20108.48,Basic Materials
+THERMAX,False,13,14,pe_vs_industry,51495.09,Industrials
+TIMKEN,False,13,14,de_05,26413.06,Industrials
+TITAGARH,False,9,14,roe_10|yoy_sales|yoy_profit|profit_3y|avg_roe_3y,11079.61,Industrials
+TITAN,False,13,14,de_05,357053.44,Consumer Cyclical
+TORNTPHARM,False,10,14,roce_10|de_05|yoy_profit|pe_vs_industry,154744.04,Healthcare
+TORNTPOWER,False,11,14,de_05|yoy_sales|yoy_profit,69352.25,Utilities
+TARIL,False,13,14,yoy_profit,9019.98,Industrials
+TRAVELFOOD,False,13,14,mcap_3y_ago,16017.49,Consumer Cyclical
+TRENT,True,14,14,,144553.93,Consumer Cyclical
+TRIDENT,False,8,14,roce_10|roe_10|yoy_sales|yoy_profit|profit_3y|avg_roe_3y,12010.29,Consumer Cyclical
+TRITURBINE,False,13,14,de_05,20367.53,Industrials
+TIINDIA,False,10,14,roe_10|yoy_profit|pe_vs_industry|profit_3y,57590.59,Industrials
+UCOBANK,False,9,14,roce_10|roe_10|yoy_sales|opm_positive|avg_roe_3y,31499.37,Financial Services
+UNOMINDA,True,14,14,,61631.97,Consumer Cyclical
+UPL,False,10,14,roe_10|de_05|profit_3y|avg_roe_3y,50188.75,Basic Materials
+UTIAMC,False,9,14,roe_10|de_05|yoy_sales|yoy_profit|profit_3y,11752.17,Financial Services
+ULTRACEMCO,False,13,14,avg_roe_3y,318585.7,Basic Materials
+UNIONBANK,False,12,14,roce_10|opm_positive,125603.35,Financial Services
+UBL,False,12,14,roe_10|avg_roe_3y,34919.99,Consumer Defensive
+UNITDSPR,False,12,14,de_05|yoy_sales,91492.53,Consumer Defensive
+URBANCO,False,6,14,roce_10|roe_10|de_05|yoy_profit|profit_3y|opm_positive|avg_roe_3y|mcap_3y_ago,17981.9,Technology
+USHAMART,False,13,14,de_05,14614.26,Basic Materials
+VTL,False,9,14,roce_10|roe_10|yoy_profit|profit_3y|avg_roe_3y,17774.92,Consumer Cyclical
+VBL,False,13,14,roe_10,175845.58,Consumer Defensive
+VEDL,False,13,14,roce_10,119057.4,Basic Materials
+VIJAYA,True,14,14,,13162.55,Healthcare
+VMM,False,12,14,avg_roe_3y|mcap_3y_ago,55017.56,Consumer Cyclical
+IDEA,False,8,14,roce_10|roe_10|yoy_profit|profit_3y|opm_positive|avg_roe_3y,153522.08,Communication Services
+VOLTAS,False,10,14,roce_10|roe_10|yoy_profit|avg_roe_3y,42263.91,Consumer Cyclical
+WAAREEENER,False,13,14,mcap_3y_ago,86695.23,Technology
+WELCORP,False,13,14,yoy_profit,36639.02,Basic Materials
+WELSPUNLIV,False,10,14,roce_10|roe_10|yoy_sales|yoy_profit,12956.48,Consumer Cyclical
+WHIRLPOOL,False,10,14,roce_10|roe_10|de_05|avg_roe_3y,9764.62,Consumer Cyclical
+WIPRO,False,13,14,yoy_profit,186080.77,Technology
+WOCKPHARMA,False,9,14,roce_10|roe_10|pe_vs_industry|profit_3y|avg_roe_3y,31260.25,Healthcare
+YESBANK,False,10,14,roce_10|roe_10|opm_positive|avg_roe_3y,69739.92,Financial Services
+ZFCVINDIA,True,14,14,,27696.47,Consumer Cyclical
+ZEEL,False,8,14,roce_10|roe_10|de_05|yoy_profit|opm_positive|avg_roe_3y,10704.99,Communication Services
+ZENTEC,False,12,14,de_05|yoy_profit,15425.11,Industrials
+ZENSARTECH,False,12,14,roe_10|de_05,10038.91,Technology
+ZYDUSLIFE,True,14,14,,111279.42,Healthcare
+ZYDUSWELL,False,8,14,roce_10|roe_10|de_05|pe_vs_industry|profit_3y|avg_roe_3y,15919.0,Consumer Defensive
+ECLERX,True,14,14,,12458.59,Technology
