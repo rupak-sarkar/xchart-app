@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>xchart.in | Free Backtest Any Stock - Nifty 500</title>
+<meta name="description" content="Backtest any trading strategy on Nifty 500 stocks. Free. No login required.">
+<link rel="canonical" href="https://xchart.in/backtest.html">
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0c0e14;--card:#151823;--card2:#1c2030;--border:#2a2e3d;
+  --text:#c9d1d9;--text2:#8b949e;--white:#e6edf3;
+  --bull:#22c55e;--bear:#ef4444;--neut:#eab308;--accent:#3b82f6;
+  --radius:8px;--gold:#f59e0b
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ── Header ── */
+.hdr{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:20px;font-weight:700;color:var(--white)}.logo span{color:var(--accent)}
+.ver{font-size:9px;background:var(--accent);color:#fff;padding:1px 6px;border-radius:8px;margin-left:5px;vertical-align:middle}
+.nav{display:flex;gap:16px;font-size:13px}
+.nav a{color:var(--text2);font-weight:500}.nav a:hover{color:var(--white)}
+.nav a.active{color:var(--accent)}
+
+/* ── Hero ── */
+.hero{text-align:center;padding:40px 20px 30px;max-width:800px;margin:0 auto}
+.hero h1{font-size:32px;font-weight:800;color:var(--white);margin-bottom:10px;line-height:1.2}
+.hero h1 em{color:var(--accent);font-style:normal}
+.hero p{font-size:15px;color:var(--text2);margin-bottom:20px;line-height:1.6}
+.hero-stats{display:flex;justify-content:center;gap:30px;margin-top:16px;flex-wrap:wrap}
+.hs{text-align:center}
+.hs-v{font-size:22px;font-weight:700;color:var(--white)}
+.hs-l{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px}
+
+/* ── Main Layout ── */
+.bt-wrap{display:flex;gap:12px;padding:0 16px 20px;max-width:1400px;margin:0 auto}
+.bt-config{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:8px}
+.bt-results{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.card-t{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;font-weight:600;display:flex;align-items:center;gap:6px}
+.card-t .icon{font-size:14px}
+
+/* ── Form Elements ── */
+.fg{margin-bottom:10px}
+.fg label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:500}
+.fg select,.fg input[type="number"],.fg input[type="text"]{
+  width:100%;padding:7px 10px;background:var(--card2);border:1px solid var(--border);
+  border-radius:5px;color:var(--white);font-size:12px;outline:none
+}
+.fg select:focus,.fg input:focus{border-color:var(--accent)}
+.fg input[type="number"]{width:70px;display:inline-block}
+.fg-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.fg-row label{margin:0;min-width:0;flex:1}
+.fg-row input[type="number"]{width:65px;flex-shrink:0}
+
+/* ── Checkbox Rules ── */
+.rule{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(42,46,61,0.4)}
+.rule:last-child{border-bottom:none}
+.rule input[type="checkbox"]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
+.rule-label{font-size:12px;color:var(--text);flex:1}
+.rule-val{display:flex;align-items:center;gap:4px}
+.rule-val input{width:55px !important;text-align:center;font-size:11px;padding:4px 6px}
+.rule-val select{width:55px;font-size:11px;padding:4px}
+.rule-val span{font-size:10px;color:var(--text2)}
+
+/* ── Run Button ── */
+.btn-run{
+  width:100%;padding:12px;background:var(--accent);color:#fff;border:none;
+  border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;
+  transition:all 0.2s;letter-spacing:0.3px
+}
+.btn-run:hover{background:#2563eb;transform:translateY(-1px)}
+.btn-run:active{transform:translateY(0)}
+.btn-run:disabled{background:var(--border);color:var(--text2);cursor:not-allowed;transform:none}
+
+/* ── KPI Grid ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px}
+.kpi{background:var(--card2);border:1px solid var(--border);border-radius:5px;padding:8px;text-align:center}
+.kpi-v{font-size:16px;font-weight:700;color:var(--white)}
+.kpi-l{font-size:9px;color:var(--text2);text-transform:uppercase;margin-top:2px}
+
+/* ── Trade Table ── */
+.tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+.tbl th{color:var(--text2);font-weight:600;text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase}
+.tbl td{padding:4px 6px;border-bottom:1px solid rgba(42,46,61,0.3);color:var(--white)}
+.tbl tr:hover{background:var(--card2)}
+
+/* ── Chart ── */
+.chart-wrap{position:relative;min-height:350px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+
+/* ── Premium Teaser ── */
+.premium-card{background:linear-gradient(135deg,#1a1d2e 0%,#1c2040 100%);border:1px solid var(--gold);border-radius:var(--radius);padding:16px;text-align:center}
+.premium-card h3{color:var(--gold);font-size:14px;margin-bottom:6px}
+.premium-card p{font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5}
+.btn-premium{
+  padding:8px 20px;background:var(--gold);color:#000;border:none;border-radius:5px;
+  font-size:12px;font-weight:700;cursor:pointer
+}
+.btn-premium:hover{background:#d97706}
+
+/* ── Status Bar ── */
+.status{font-size:11px;color:var(--text2);padding:6px 0;display:flex;align-items:center;gap:6px}
+.status .dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dot-ok{background:var(--bull)}.dot-err{background:var(--bear)}.dot-load{background:var(--neut)}
+
+/* ── Footer ── */
+.ftr{background:var(--card);border-top:1px solid var(--border);padding:10px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;font-size:10px;color:var(--text2);margin-top:20px}
+
+/* ── Loading Spinner ── */
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Responsive ── */
+@media(max-width:900px){
+  .bt-wrap{flex-direction:column}
+  .bt-config{width:100%}
+  .hero h1{font-size:24px}
+  .hero-stats{gap:16px}
+  .kpi-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:500px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .chart-wrap{min-height:250px}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="/" class="logo">x<span>chart</span>.in<span class="ver">Backtest</span></a>
+  </div>
+  <div class="nav">
+    <a href="/">Dashboard</a>
+    <a href="/backtest.html" class="active">Backtest</a>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <h1>Backtest <em>any</em> trading strategy<br>on Nifty 500. <em>Free.</em></h1>
+  <p>Pick a stock. Choose your indicators. Set your rules. See real results — accuracy, profit factor, win rate, trade log. No login. No limits.</p>
+  <div class="hero-stats" id="heroStats">
+    <div class="hs"><div class="hs-v" id="hsTickers">500</div><div class="hs-l">Stocks</div></div>
+    <div class="hs"><div class="hs-v">3Y</div><div class="hs-l">History</div></div>
+    <div class="hs"><div class="hs-v">15</div><div class="hs-l">Indicators</div></div>
+    <div class="hs"><div class="hs-v">Free</div><div class="hs-l">Forever</div></div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="bt-wrap">
+
+  <!-- Left: Config Panel -->
+  <div class="bt-config">
+
+    <!-- Stock Selection -->
+    <div class="card">
+      <div class="card-t"><span class="icon">📊</span> Stock & Period</div>
+      <div class="fg">
+        <label>Select Stock</label>
+        <input type="text" id="tickerSearch" placeholder="Search Nifty 500..." list="tickerList" autocomplete="off">
+        <datalist id="tickerList"></datalist>
+      </div>
+      <div class="fg-row">
+        <label>Period</label>
+        <select id="period">
+          <option value="6m">6 Months</option>
+          <option value="1y" selected>1 Year</option>
+          <option value="2y">2 Years</option>
+          <option value="3y">3 Years (Full)</option>
+        </select>
+      </div>
+      <div class="status" id="dataStatus"><span class="dot dot-load"></span> Select a stock to begin</div>
+    </div>
+
+    <!-- Entry Rules -->
+    <div class="card">
+      <div class="card-t"><span class="icon">🟢</span> Entry Rules (BUY when)</div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_rsi" checked>
+        <span class="rule-label">RSI below</span>
+        <div class="rule-val"><input type="number" id="e_rsi_val" value="30" min="10" max="90" step="5"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_sma_cross">
+        <span class="rule-label">SMA cross</span>
+        <div class="rule-val">
+          <input type="number" id="e_sma_fast" value="9" min="2" max="50" step="1">
+          <span>></span>
+          <input type="number" id="e_sma_slow" value="22" min="5" max="200" step="1">
+        </div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_macd">
+        <span class="rule-label">MACD crossover</span>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_supertrend">
+        <span class="rule-label">SuperTrend bullish</span>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_bb_low">
+        <span class="rule-label">BB position below</span>
+        <div class="rule-val"><input type="number" id="e_bb_val" value="0.2" min="0" max="1" step="0.05"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_adx">
+        <span class="rule-label">ADX above</span>
+        <div class="rule-val"><input type="number" id="e_adx_val" value="25" min="10" max="50" step="5"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_ema_cross">
+        <span class="rule-label">EMA cross</span>
+        <div class="rule-val">
+          <input type="number" id="e_ema_fast" value="9" min="2" max="50">
+          <span>></span>
+          <input type="number" id="e_ema_slow" value="21" min="5" max="100">
+        </div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="e_price_sma200">
+        <span class="rule-label">Price > SMA</span>
+        <div class="rule-val"><input type="number" id="e_price_sma_val" value="200" min="9" max="200" step="1"></div>
+      </div>
+
+      <div style="margin-top:8px;font-size:10px;color:var(--text2)">
+        Logic: <select id="entryLogic" style="font-size:10px;padding:2px 4px;background:var(--card2);border:1px solid var(--border);color:var(--white);border-radius:3px">
+          <option value="all">ALL rules must match</option>
+          <option value="any">ANY rule matches</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Exit Rules -->
+    <div class="card">
+      <div class="card-t"><span class="icon">🔴</span> Exit Rules</div>
+
+      <div class="rule">
+        <input type="checkbox" id="x_rsi" checked>
+        <span class="rule-label">RSI above</span>
+        <div class="rule-val"><input type="number" id="x_rsi_val" value="70" min="10" max="95" step="5"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="x_sl" checked>
+        <span class="rule-label">Stop Loss %</span>
+        <div class="rule-val"><input type="number" id="x_sl_val" value="5" min="1" max="20" step="0.5"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="x_tp">
+        <span class="rule-label">Take Profit %</span>
+        <div class="rule-val"><input type="number" id="x_tp_val" value="10" min="2" max="50" step="1"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="x_trail">
+        <span class="rule-label">Trailing SL %</span>
+        <div class="rule-val"><input type="number" id="x_trail_val" value="3" min="1" max="15" step="0.5"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="x_maxhold" checked>
+        <span class="rule-label">Max hold days</span>
+        <div class="rule-val"><input type="number" id="x_maxhold_val" value="14" min="1" max="90" step="1"></div>
+      </div>
+
+      <div class="rule">
+        <input type="checkbox" id="x_signal_flip">
+        <span class="rule-label">Exit on signal flip</span>
+      </div>
+    </div>
+
+    <!-- Run Button -->
+    <button class="btn-run" id="btnRun" disabled>▶ Run Backtest</button>
+
+    <!-- Premium Teaser -->
+    <div class="premium-card">
+      <h3>🔒 Compare with AI Engine v7.4</h3>
+      <p>See how our multi-layer AI model (FinBERT + Technical + Macro + Fundamental) performs on this stock vs your strategy.</p>
+      <button class="btn-premium" onclick="window.location.href='/'">View Premium Signals →</button>
+    </div>
+
+  </div>
+
+  <!-- Right: Results Panel -->
+  <div class="bt-results">
+
+    <!-- KPIs -->
+    <div class="card" id="kpiCard" style="display:none">
+      <div class="card-t"><span class="icon">🎯</span> Backtest Results <span id="resultTicker" style="color:var(--accent);margin-left:4px"></span></div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-wrap" id="chartWrap" style="display:none">
+      <div id="btChart" style="width:100%;height:350px"></div>
+    </div>
+
+    <!-- Equity Curve -->
+    <div class="chart-wrap" id="equityWrap" style="display:none">
+      <div id="eqChart" style="width:100%;height:180px"></div>
+    </div>
+
+    <!-- Trade Log -->
+    <div class="card" id="tradeCard" style="display:none">
+      <div class="card-t"><span class="icon">📋</span> Trade Log <span id="tradeCount" style="color:var(--text2);font-weight:400"></span></div>
+      <div style="max-height:300px;overflow-y:auto">
+        <table class="tbl" id="tradeTable">
+          <thead><tr><th>#</th><th>Entry</th><th>Exit</th><th>Days</th><th>Return</th><th>Type</th></tr></thead>
+          <tbody id="tradeBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Placeholder when no results -->
+    <div class="card" id="placeholder">
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:48px;margin-bottom:12px">📈</div>
+        <div style="font-size:16px;color:var(--white);font-weight:600;margin-bottom:8px">Ready to backtest</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">
+          1. Search and select a Nifty 500 stock<br>
+          2. Configure your entry & exit rules<br>
+          3. Click <strong style="color:var(--accent)">Run Backtest</strong> to see results
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="ftr">
+  <div>⚠️ Educational tool only. Not investment advice. Past performance ≠ future results. <a href="/disclaimer.html">Disclaimer</a></div>
+  <div>© 2026 xchart.in · Charts by <a href="https://www.tradingview.com/" target="_blank">TradingView</a></div>
+</div>
+
+<script src="backtest.js"></script>
+</body>
+</html>
