@@ -84,7 +84,12 @@ def main(force=False):
         import pandas as pd
         tk_df = pd.read_csv(PREMIUM_TICKERS_FILE)
         n_premium = len(tk_df)
-        has_sector = 'Sector' in tk_df.columns and (tk_df['Sector'].str.strip() != '').sum() > 0
+        has_sector = False
+        if 'Sector' in tk_df.columns and n_premium > 0:
+            try:
+                has_sector = (tk_df['Sector'].astype(str).str.strip() != '').sum() > 0
+            except Exception:
+                pass
         print(f"  -> tickers.csv: {n_premium} premium tickers" +
               (f" ({(tk_df['Sector'].str.strip() != '').sum()} with sectors)" if has_sector else ""))
     else:
