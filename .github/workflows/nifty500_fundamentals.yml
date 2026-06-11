@@ -1,0 +1,78 @@
+name: Nifty 500 Fundamentals (Weekly)
+
+on:
+  schedule:
+    - cron: '    - cron: '0 18 * * 0'  # Every Sunday 6PM UTC (11:30 PM IST)
+
+permissions:
+  contents: write
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run fundamental screening
+        run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            python -m screener.run_fundamentals --force
+          else
+            python -m screener.run_fundamentals
+          fi
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Verify outputs
+        run: |
+          echo "=== Screener outputs ==="
+          ls -la screener_data/ 2>/dev/null || echo "No screener_data/"
+          echo ""
+          echo "=== Premium tickers ==="
+          head -20 tickers.csv 2>/dev/null || echo "No tickers.csv"
+          echo ""
+          echo "=== Score distribution ==="
+          if [ -f screener_data/nifty500_scores.csv ]; then
+            python -c "
+          import pandas as pd
+          df = pd.read_csv('screener_data/nifty500_scores.csv')
+          print(f'Total: {len(df)}')
+          for t in [80,70,60,50,40]:
+              n = (df['Quality_Score'] >= t).sum()
+              print(f'>={t}: {n}')
+          "
+          fi
+
+      - name: Commit results
+        run: |
+          git config --global user.name "GitHub Actions Automation"
+          git config --global user.email "actions@github.com"
+          git add screener_data/ tickers.csv 2>/dev/null || true
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+          git diff --cached --quiet || git commit -m "Fundamentals screening ${TIMESTAMP}"
+          git push || echo "Nothing to push"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force re-fetch all data'
+        required: false
