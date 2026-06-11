@@ -44,6 +44,9 @@ jobs:
       - name: Clean pycache
         run: find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
+      - name: Ensure output dirs
+        run: mkdir -p output/charts
+
       - name: Run engine
         run: python app.py
         env:
@@ -53,20 +56,19 @@ jobs:
       - name: Verify outputs
         run: |
           echo "=== Output files ==="
-          ls -la data.csv history.csv meta.json 2>/dev/null || echo "Some outputs missing"
+          ls -la output/ 2>/dev/null || echo "No output/"
           echo ""
           echo "=== meta.json ==="
-          cat meta.json 2>/dev/null || echo "No meta.json"
+          cat output/meta.json 2>/dev/null || echo "No meta.json"
           echo ""
           echo "=== Charts count ==="
-          ls charts/*.json 2>/dev/null | wc -l || echo "No charts"
+          ls output/charts/*.json 2>/dev/null | wc -l || echo "No charts"
 
       - name: Commit results
         run: |
           git config --global user.name "GitHub Actions Automation"
           git config --global user.email "actions@github.com"
-          git add data.csv history.csv meta.json stock_data.csv charts/ 2>/dev/null || true
-          git add news_cache.json 2>/dev/null || true
+          git add output/ 2>/dev/null || true
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
           git diff --cached --quiet || git commit -m "Engine v7.4 update ${TIMESTAMP}"
           git push || echo "Nothing to push"
