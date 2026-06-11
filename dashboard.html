@@ -202,7 +202,7 @@ function gde(r){
   return 'neut';
 }
 
-function enrichActiveMomentum Readings(){
+function enrichActiveMomentum(){
   // For each NEUT ticker, check history for recent POSITIVE/NEGATIVE within horizon
   if(!H.length)return;
   var today=M.date||'';
@@ -273,7 +273,7 @@ function init(){
     if((M.regime||'').indexOf('POSITIVE')>=0)dt.style.color='var(--bull)';
     else if((M.regime||'').indexOf('NEGATIVE')>=0)dt.style.color='var(--bear)';
     else dt.style.color='var(--neut)';
-    enrichActiveMomentum Readings();
+    enrichActiveMomentum();
     buildList();showDashboard();
   });
 }
@@ -299,7 +299,7 @@ function buildList(){
   if(s)items=items.filter(function(r){return String(r.Ticker).toLowerCase().indexOf(s)>=0});
 
   if(sort==='comp')items.sort(function(a,b){return pf(b.Composite_Score)-pf(a.Composite_Score)});
-  else if(sort==='accuracy')items.sort(function(a,b){return pf(b.BT_6M||b.BT_Hist. Alignment)-pf(a.BT_6M||a.BT_Hist. Alignment)});
+  else if(sort==='accuracy')items.sort(function(a,b){return pf(b.BT_6M||b.BT_Accuracy)-pf(a.BT_6M||a.BT_Accuracy)});
   else if(sort==='pf')items.sort(function(a,b){return pf(b.TR_profit_factor||b.BT_PF)-pf(a.TR_profit_factor||a.BT_PF)});
   else if(sort==='winrate')items.sort(function(a,b){return pf(b.TR_win_rate)-pf(a.TR_win_rate)});
   else if(sort==='return')items.sort(function(a,b){return pf(b.TR_total_return_pct)-pf(a.TR_total_return_pct)});
@@ -367,10 +367,10 @@ function showDashboard(){
     if(!it.length)return;
     var ap=it.reduce(function(s,r){return s+pf(r.TR_profit_factor||r.BT_PF)},0)/it.length;
     var aw=it.reduce(function(s,r){return s+pf(r.TR_win_rate)},0)/it.length;
-    var aa=it.reduce(function(s,r){return s+pf(r.BT_6M||r.BT_Hist. Alignment)},0)/it.length;
+    var aa=it.reduce(function(s,r){return s+pf(r.BT_6M||r.BT_Accuracy)},0)/it.length;
     catRows+='<tr><td style="font-weight:600">'+c+'</td><td>'+it.length+'</td><td>'+aa.toFixed(1)+'%</td><td>'+aw.toFixed(1)+'%</td><td style="color:'+(ap>=1.1?'var(--bull)':ap<0.95?'var(--bear)':'var(--white)')+'">'+ap.toFixed(2)+'</td></tr>';
   });
-  var mkRow=function(r){var tk=String(r.Ticker).trim();return'<tr><td class="tk" onclick="selTk=\''+tk+'\';buildList();showTicker(D.find(function(x){return String(x.Ticker).trim()===\''+tk+'\'}))">'+tk+'</td><td>'+gCat(r)+'</td><td style="color:'+sC(pf(r.Composite_Score))+'">'+(pf(r.Composite_Score)>0?'+':'')+sc(r.Composite_Score,1)+'</td><td>'+sc(r.BT_6M||r.BT_Hist. Alignment,0)+'%</td><td style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':pf(r.TR_profit_factor||r.BT_PF)<0.9?'var(--bear)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</td></tr>'};
+  var mkRow=function(r){var tk=String(r.Ticker).trim();return'<tr><td class="tk" onclick="selTk=\''+tk+'\';buildList();showTicker(D.find(function(x){return String(x.Ticker).trim()===\''+tk+'\'}))">'+tk+'</td><td>'+gCat(r)+'</td><td style="color:'+sC(pf(r.Composite_Score))+'">'+(pf(r.Composite_Score)>0?'+':'')+sc(r.Composite_Score,1)+'</td><td>'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</td><td style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':pf(r.TR_profit_factor||r.BT_PF)<0.9?'var(--bear)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</td></tr>'};
   var regimeColor=(M.regime||'').indexOf('POSITIVE')>=0?'var(--bull)':(M.regime||'').indexOf('NEGATIVE')>=0?'var(--bear)':'var(--neut)';
   var holdStr='';
   if(hBulls.length||hBears.length)holdStr=' \u00b7 Hold: <span style="color:var(--bull)">'+hBulls.length+'\u25B2</span> <span style="color:var(--bear)">'+hBears.length+'\u25BC</span>';
@@ -401,7 +401,7 @@ function showTicker(r){
   var mom=pf(r.Actual_Return_Pct);
   var momStr=mom!==0?(mom>0?'+':'')+mom.toFixed(2)+'%':'\u2014';
   var catStr=nCat>0?parseInt(nCat)+' catalyst'+(nCat>1?'s':'')+' ('+newsDir+')':'None';
-  var btAcc=pf(r.BT_6M||r.BT_Hist. Alignment);
+  var btAcc=pf(r.BT_6M||r.BT_Accuracy);
   var trPF=pf(r.TR_profit_factor||r.BT_PF);
 
   // Position info
@@ -473,7 +473,7 @@ function openChart(tk){
   document.getElementById('mSub').textContent=gCat(r)+' \u00b7 '+cleanSector(r.Sector)+' \u00b7 '+dl(ed)+' \u00b7 Comp: '+sn(sc(r.Composite_Score,1));
   document.getElementById('mKpis').innerHTML=
     '<div class="mk"><div class="mk-v" style="color:var(--'+(ed.indexOf('bull')>=0?'bull':ed.indexOf('bear')>=0?'bear':'neut')+')">'+dl(ed)+'</div><div class="mk-l">Signal</div></div>'+
-    '<div class="mk"><div class="mk-v">'+sc(r.BT_6M||r.BT_Hist. Alignment,0)+'%</div><div class="mk-l">Acc</div></div>'+
+    '<div class="mk"><div class="mk-v">'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</div><div class="mk-l">Acc</div></div>'+
     '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</div><div class="mk-l">PF</div></div>'+
     '<div class="mk"><div class="mk-v">'+sc(r.TR_win_rate,0)+'%</div><div class="mk-l">WR</div></div>'+
     '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</div><div class="mk-l">Ret</div></div>'+
