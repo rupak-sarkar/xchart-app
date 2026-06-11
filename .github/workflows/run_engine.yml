@@ -30,6 +30,12 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
 
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-finbert-v1
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -42,6 +48,7 @@ jobs:
         run: python app.py
         env:
           PYTHONUNBUFFERED: "1"
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
       - name: Verify outputs
         run: |
@@ -59,6 +66,7 @@ jobs:
           git config --global user.name "GitHub Actions Automation"
           git config --global user.email "actions@github.com"
           git add data.csv history.csv meta.json stock_data.csv charts/ 2>/dev/null || true
+          git add news_cache.json 2>/dev/null || true
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
           git diff --cached --quiet || git commit -m "Engine v7.4 update ${TIMESTAMP}"
           git push || echo "Nothing to push"
