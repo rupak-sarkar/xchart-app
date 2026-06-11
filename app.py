@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-app.py  –  xChart PREDICTIVE Engine v7.4
+app.py  –  xChart ANALYTICAL Engine v7.4
 """
 
 import os, sys, json, re, time, math, traceback
@@ -178,16 +178,16 @@ def run_finbert_phase(ticker_articles, tickers, stock_df, history_df):
             if not hrows.empty:
                 last = hrows.iloc[-1]
                 act_ret = float(last.get("Actual_Return_Pct", 0) or 0)
-                last_dir = int(last.get("Composite_Direction", 0) or 0)
+                last_dir = int(last.get("Momentum_Direction", 0) or 0)
                 ret_str = f" Ret: {act_ret:+.2f}%"
                 if last_dir != 0:
                     was_hit = "HIT" if is_hit(last_dir, 1 if act_ret > 0 else (-1 if act_ret < 0 else 0)) else "MISS"
                     hit_str = f" {was_hit}"
-        dir_label = "BULL" if direction == 1 else ("BEAR" if direction == -1 else "NEUT")
+        dir_label = "POSITIVE" if direction == 1 else ("NEGATIVE" if direction == -1 else "NEUTRAL")
         print(f"[{idx:>3d}] {tk:<18s} {dir_label} Score: {score:+.1f}{ret_str}{hit_str} [{len(headlines)}cat/{len(headlines)}h]")
         results[tk] = {
             "News_Score": score,
-            "News_Direction": dir_label,
+            "News_Sentiment": dir_label,
             "N_Catalysts": len(headlines),
             "headlines": headlines[:5],
         }
@@ -302,8 +302,8 @@ def compute_market_regime(stock_df):
                 mega_count += 1
     if mega_count > 0:
         nifty_5d = nifty_5d / mega_count
-    if breadth >= 65 and nifty_5d > 1: regime = "BULL"
-    elif breadth <= 35 and nifty_5d < -1: regime = "BEAR"
+    if breadth >= 65 and nifty_5d > 1: regime = "POSITIVE"
+    elif breadth <= 35 and nifty_5d < -1: regime = "NEGATIVE"
     else: regime = "CHOPPY"
     print(f"  -> Nifty 5d: {nifty_5d:+.1f}% ({mega_count} mega-caps)\n  -> Breadth: {breadth}%\n  -> REGIME: {regime}")
     return regime, breadth, round(nifty_5d, 1)
@@ -335,8 +335,8 @@ def compute_sector_strength(stock_df, sector_map):
 def compute_composite(tech, macro, fund, news, regime):
     base = tech * TECH_WEIGHT + macro * MACRO_WEIGHT + fund * FUND_WEIGHT + news * NEWS_WEIGHT
     if news != 0: base += news * 0.3
-    bull_damp = 0.7 if regime == "BEAR" else 1.0
-    bear_damp = 0.7 if regime == "BULL" else 1.0
+    bull_damp = 0.7 if regime == "NEGATIVE" else 1.0
+    bear_damp = 0.7 if regime == "POSITIVE" else 1.0
     if base > 0: base *= bull_damp
     elif base < 0: base *= bear_damp
     return round(base, 1)
@@ -441,7 +441,7 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
         hdf_tk = history_df[history_df["Ticker"].astype(str).str.strip() == ticker]
         date_set = set(str(r["Date"])[:10] for _, r in tdf.iterrows())
         for _, hr in hdf_tk.iterrows():
-            raw_dir = hr.get("Composite_Direction", 0)
+            raw_dir = hr.get("Momentum_Direction", 0)
             if pd.isna(raw_dir): continue
             hdir = int(raw_dir)
             if hdir == 0: continue
@@ -449,10 +449,10 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
             if hdate not in date_set: continue
             if hdir == 1:
                 data["markers"].append({"time": hdate, "position": "belowBar",
-                    "color": "#22c55e", "shape": "arrowUp", "text": "BULL"})
+                    "color": "#22c55e", "shape": "arrowUp", "text": "POSITIVE"})
             else:
                 data["markers"].append({"time": hdate, "position": "aboveBar",
-                    "color": "#ef4444", "shape": "arrowDown", "text": "BEAR"})
+                    "color": "#ef4444", "shape": "arrowDown", "text": "NEGATIVE"})
     data["markers"].sort(key=lambda m: m["time"])
     out_path = os.path.join(output_dir, ticker + ".json")
     with open(out_path, "w") as f:
@@ -547,7 +547,7 @@ def main():
         hdf["Ticker"] = hdf["Ticker"].astype(str).str.strip()
 
     now_str = datetime.now().strftime("%I:%M %p")
-    print(f"\nPREDICTIVE Engine v{VERSION} - {len(tickers)} tickers | {today_str}")
+    print(f"\nANALYTICAL Engine v{VERSION} - {len(tickers)} tickers | {today_str}")
     print(f"News: {(today - timedelta(days=NEWS_WINDOW_DAYS)).strftime('%Y-%m-%d')} to {now_str} | CATALYST-ONLY FinBERT")
     print(f"Tech: MEGA/LARGE=SMA9-reversal(strict) | MID/SMALL=BB-centric")
     print(f"Horizons: MEGA={HORIZONS['MEGA']}d LARGE={HORIZONS['LARGE']}d MID={HORIZONS['MID']}d SMALL={HORIZONS['SMALL']}d")
@@ -647,8 +647,8 @@ def main():
             print(f"  {cat:<10s} {len(cr):>3d}  {w_acc:>5.1f}%  {avg_sig:>6.1f}%  {fwd:>2d}d")
 
     print(f"\nComputing composite + regime adjustment...")
-    bull_damp = 0.7 if regime == "BEAR" else 1.0
-    bear_damp = 0.7 if regime == "BULL" else 1.0
+    bull_damp = 0.7 if regime == "NEGATIVE" else 1.0
+    bear_damp = 0.7 if regime == "POSITIVE" else 1.0
     print(f"  Regime: {regime} -> bull_damp={bull_damp} bear_damp={bear_damp}")
     print("-" * 110)
 
@@ -664,15 +664,15 @@ def main():
         macro = sector_scores.get(sec, 0)
         nr = news_results.get(tk, {})
         news_score = nr.get("News_Score", 0)
-        news_dir = nr.get("News_Direction", "NEUT")
+        news_dir = nr.get("News_Sentiment", "NEUTRAL")
         n_cat = nr.get("N_Catalysts", 0)
         comp = compute_composite(tech, macro, fund, news_score, regime)
         is_lc = cat in ("MEGA", "LARGE")
         entry = ENTRY_THRESHOLD_LC if is_lc else ENTRY_THRESHOLD_SC
 
-        if comp >= entry: direction = 1; dir_label = "BULL"; tech_bull += 1
-        elif comp <= -entry: direction = -1; dir_label = "BEAR"; tech_bear += 1
-        else: direction = 0; dir_label = "NEUT"; tech_neut += 1
+        if comp >= entry: direction = 1; dir_label = "POSITIVE"; tech_bull += 1
+        elif comp <= -entry: direction = -1; dir_label = "NEGATIVE"; tech_bear += 1
+        else: direction = 0; dir_label = "NEUTRAL"; tech_neut += 1
 
         tdf_tk = stock_df[stock_df["Ticker"].astype(str).str.strip() == tk].sort_values("Date")
         act_ret = 0
@@ -686,12 +686,12 @@ def main():
             actual_dir = 1 if act_ret > 0 else (-1 if act_ret < 0 else 0)
             if is_hit(direction, actual_dir): same_day_hit += 1
 
-        severity = "NEUT"
+        severity = "NEUTRAL"
         if direction != 0 and not hdf.empty:
             prev_rows = hdf[hdf["Ticker"].astype(str).str.strip() == tk]
             if not prev_rows.empty:
                 last_h = prev_rows.iloc[-1]
-                last_dir = int(last_h.get("Composite_Direction", 0) or 0)
+                last_dir = int(last_h.get("Momentum_Direction", 0) or 0)
                 if last_dir != 0:
                     actual_dir_h = 1 if act_ret > 0 else (-1 if act_ret < 0 else 0)
                     severity = "HIT" if is_hit(last_dir, actual_dir_h) else "MISS"
@@ -711,8 +711,8 @@ def main():
             "Tech_Score": tech, "Technical_Score": tech,
             "Macro_Score": round(macro, 1), "Fund_Score": fund, "Fundamental_Score": fund,
             "News_Score": news_score, "Forecast_Score": news_score,
-            "N_Catalysts": n_cat, "News_Direction": news_dir,
-            "Composite_Score": comp, "Composite_Direction": direction,
+            "N_Catalysts": n_cat, "News_Sentiment": news_dir,
+            "Composite_Score": comp, "Momentum_Direction": direction,
             "Forecast_Direction": direction, "Direction_Label": dir_label,
             "Composite_Severity": severity, "Actual_Return_Pct": round(act_ret, 2),
             "Regime": regime,
@@ -732,7 +732,7 @@ def main():
         all_rows.append(out)
 
     sd_acc = same_day_hit / same_day_total * 100 if same_day_total else 0
-    print(f"\n  Tech-only: Bull:{tech_bull} Bear:{tech_bear} Neut:{tech_neut} | Hit:{same_day_hit}/{same_day_total} = {sd_acc:.1f}%")
+    print(f"\n  Tech-only: Positive:{tech_bull} Negative:{tech_bear} Neutral:{tech_neut} | Hit:{same_day_hit}/{same_day_total} = {sd_acc:.1f}%")
 
     # ── PHASE 4: Save ──
     print(f"\nPHASE 4: Save...")
@@ -741,7 +741,7 @@ def main():
     out_df = pd.DataFrame(all_rows)
     out_df.to_csv(OUTPUT_CSV, index=False)
 
-    today_rows = out_df[["Ticker", "Category", "Composite_Score", "Composite_Direction",
+    today_rows = out_df[["Ticker", "Category", "Composite_Score", "Momentum_Direction",
                           "Direction_Label", "Actual_Return_Pct", "Tech_Score", "Fund_Score",
                           "News_Score", "Macro_Score"]].copy()
     today_rows["Date"] = today_str
@@ -780,7 +780,7 @@ def main():
         "nifty_5d": nifty_5d, "avg_accuracy": round(avg_acc, 1),
         "direction_accuracy": round(avg_acc, 1), "avg_profit_factor": round(avg_pf, 2),
         "avg_pf": round(avg_pf, 2), "bulls": tech_bull, "bears": tech_bear,
-        "neutrals": tech_neut, "same_day_accuracy": round(sd_acc, 1),
+        "neutral momentums": tech_neut, "same_day_accuracy": round(sd_acc, 1),
     }
     with open(META_JSON, "w") as f:
         json.dump(meta, f, indent=2)
@@ -788,10 +788,10 @@ def main():
 
     print(f"\n{'='*110}")
     print(f"data.csv | {today_str} | ENGINE v{VERSION} ATR SL + strict SMA9")
-    print(f"TICKERS: {tech_bull + tech_bear} directional | {tech_neut} neutral")
+    print(f"READINGS: {tech_bull + tech_bear} directional momentum | {tech_neut} neutral momentum")
     print(f"REGIME: {regime} (breadth={breadth}% nifty={nifty_5d}%)")
     print(f"STRATEGY: LC({lc_count}) SMC({sc_count}) | MEGA/LARGE=SMA9-rev(strict) | MID/SMALL=BB")
-    print(f"SAME-DAY: {same_day_hit}/{same_day_total} = {sd_acc:.1f}%")
+    print(f"SAME-DAY ALIGNMENT: {same_day_hit}/{same_day_total} = {sd_acc:.1f}%")
     print("=" * 110)
 
     print_accuracy_report(stock_df, tickers, history_df=hdf2)

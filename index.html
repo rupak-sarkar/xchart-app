@@ -128,9 +128,9 @@ a{color:var(--accent);text-decoration:none}
       <select id="sortBy">
         <option value="signal">Sort: Signal</option>
         <option value="comp">Composite Score</option>
-        <option value="accuracy">Accuracy</option>
+        <option value="accuracy">Hist. Alignment</option>
         <option value="pf">Profit Factor</option>
-        <option value="winrate">Win Rate</option>
+        <option value="winrate">Favorable Rate</option>
         <option value="return">Total Return</option>
         <option value="alpha">Alphabetical</option>
       </select>
@@ -147,7 +147,7 @@ a{color:var(--accent);text-decoration:none}
       <button class="md-x" id="mClose">&#10005;</button>
     </div>
     <div class="ind-bar" id="indBar">
-      <button class="ib active" data-i="signals">Signals</button>
+      <button class="ib active" data-i="momentum readings">Momentum Readings</button>
       <button class="ib active" data-i="volume">Vol</button>
       <div class="i-sep"></div>
       <button class="ib" data-i="sma9">SMA9</button>
@@ -191,7 +191,7 @@ var sC=function(v){return v>0?'var(--bull)':v<0?'var(--bear)':'var(--text2)'};
 var sn=function(v){v=parseFloat(v);return v>0?'+'+v:v};
 var gCat=function(r){return r.Category||r.BT_Category||'MID'};
 var gd=function(r){var d=parseInt(r.Composite_Direction||r.Forecast_Direction||0);return d===1?'bull':d===-1?'bear':'neut'};
-var dl=function(d){return d==='bull'?'BULL':d==='bear'?'BEAR':d==='hold_bull'?'H-BULL':d==='hold_bear'?'H-BEAR':'NEUT'};
+var dl=function(d){return d==='bull'?'POSITIVE':d==='bear'?'NEGATIVE':d==='hold_bull'?'H-POSITIVE':d==='hold_bear'?'H-NEGATIVE':'NEUT'};
 var cleanSector=function(s){return(s&&s!=='Other'&&s!=='0'&&s!=='nan'&&String(s)!=='0'&&s!=='')?s:'\u2014'};
 
 // Effective direction: considers active holds
@@ -202,8 +202,8 @@ function gde(r){
   return 'neut';
 }
 
-function enrichActiveSignals(){
-  // For each NEUT ticker, check history for recent BULL/BEAR within horizon
+function enrichActiveMomentum Readings(){
+  // For each NEUT ticker, check history for recent POSITIVE/NEGATIVE within horizon
   if(!H.length)return;
   var today=M.date||'';
   if(!today)return;
@@ -270,10 +270,10 @@ function init(){
   Promise.all([mp,dp,hp]).then(function(){
     var dt=document.getElementById('hDate');
     dt.textContent=(M.date||'\u2014')+' \u00b7 '+(M.regime||'');
-    if((M.regime||'').indexOf('BULL')>=0)dt.style.color='var(--bull)';
-    else if((M.regime||'').indexOf('BEAR')>=0)dt.style.color='var(--bear)';
+    if((M.regime||'').indexOf('POSITIVE')>=0)dt.style.color='var(--bull)';
+    else if((M.regime||'').indexOf('NEGATIVE')>=0)dt.style.color='var(--bear)';
     else dt.style.color='var(--neut)';
-    enrichActiveSignals();
+    enrichActiveMomentum Readings();
     buildList();showDashboard();
   });
 }
@@ -299,7 +299,7 @@ function buildList(){
   if(s)items=items.filter(function(r){return String(r.Ticker).toLowerCase().indexOf(s)>=0});
 
   if(sort==='comp')items.sort(function(a,b){return pf(b.Composite_Score)-pf(a.Composite_Score)});
-  else if(sort==='accuracy')items.sort(function(a,b){return pf(b.BT_6M||b.BT_Accuracy)-pf(a.BT_6M||a.BT_Accuracy)});
+  else if(sort==='accuracy')items.sort(function(a,b){return pf(b.BT_6M||b.BT_Hist. Alignment)-pf(a.BT_6M||a.BT_Hist. Alignment)});
   else if(sort==='pf')items.sort(function(a,b){return pf(b.TR_profit_factor||b.BT_PF)-pf(a.TR_profit_factor||a.BT_PF)});
   else if(sort==='winrate')items.sort(function(a,b){return pf(b.TR_win_rate)-pf(a.TR_win_rate)});
   else if(sort==='return')items.sort(function(a,b){return pf(b.TR_total_return_pct)-pf(a.TR_total_return_pct)});
@@ -320,10 +320,10 @@ function buildList(){
     el.className='ti'+(tk===selTk?' active':'');
 
     var badgeClass,badgeText;
-    if(ed==='bull'){badgeClass='b-bull';badgeText='BULL'}
-    else if(ed==='bear'){badgeClass='b-bear';badgeText='BEAR'}
-    else if(ed==='hold_bull'){badgeClass='b-hbull';badgeText='H-BULL'}
-    else if(ed==='hold_bear'){badgeClass='b-hbear';badgeText='H-BEAR'}
+    if(ed==='bull'){badgeClass='b-bull';badgeText='POSITIVE'}
+    else if(ed==='bear'){badgeClass='b-bear';badgeText='NEGATIVE'}
+    else if(ed==='hold_bull'){badgeClass='b-hbull';badgeText='H-POSITIVE'}
+    else if(ed==='hold_bear'){badgeClass='b-hbear';badgeText='H-NEGATIVE'}
     else{badgeClass='b-neut';badgeText='NEUT'}
 
     var holdInfo='';
@@ -367,16 +367,16 @@ function showDashboard(){
     if(!it.length)return;
     var ap=it.reduce(function(s,r){return s+pf(r.TR_profit_factor||r.BT_PF)},0)/it.length;
     var aw=it.reduce(function(s,r){return s+pf(r.TR_win_rate)},0)/it.length;
-    var aa=it.reduce(function(s,r){return s+pf(r.BT_6M||r.BT_Accuracy)},0)/it.length;
+    var aa=it.reduce(function(s,r){return s+pf(r.BT_6M||r.BT_Hist. Alignment)},0)/it.length;
     catRows+='<tr><td style="font-weight:600">'+c+'</td><td>'+it.length+'</td><td>'+aa.toFixed(1)+'%</td><td>'+aw.toFixed(1)+'%</td><td style="color:'+(ap>=1.1?'var(--bull)':ap<0.95?'var(--bear)':'var(--white)')+'">'+ap.toFixed(2)+'</td></tr>';
   });
-  var mkRow=function(r){var tk=String(r.Ticker).trim();return'<tr><td class="tk" onclick="selTk=\''+tk+'\';buildList();showTicker(D.find(function(x){return String(x.Ticker).trim()===\''+tk+'\'}))">'+tk+'</td><td>'+gCat(r)+'</td><td style="color:'+sC(pf(r.Composite_Score))+'">'+(pf(r.Composite_Score)>0?'+':'')+sc(r.Composite_Score,1)+'</td><td>'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</td><td style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':pf(r.TR_profit_factor||r.BT_PF)<0.9?'var(--bear)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</td></tr>'};
-  var regimeColor=(M.regime||'').indexOf('BULL')>=0?'var(--bull)':(M.regime||'').indexOf('BEAR')>=0?'var(--bear)':'var(--neut)';
+  var mkRow=function(r){var tk=String(r.Ticker).trim();return'<tr><td class="tk" onclick="selTk=\''+tk+'\';buildList();showTicker(D.find(function(x){return String(x.Ticker).trim()===\''+tk+'\'}))">'+tk+'</td><td>'+gCat(r)+'</td><td style="color:'+sC(pf(r.Composite_Score))+'">'+(pf(r.Composite_Score)>0?'+':'')+sc(r.Composite_Score,1)+'</td><td>'+sc(r.BT_6M||r.BT_Hist. Alignment,0)+'%</td><td style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':pf(r.TR_profit_factor||r.BT_PF)<0.9?'var(--bear)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</td></tr>'};
+  var regimeColor=(M.regime||'').indexOf('POSITIVE')>=0?'var(--bull)':(M.regime||'').indexOf('NEGATIVE')>=0?'var(--bear)':'var(--neut)';
   var holdStr='';
   if(hBulls.length||hBears.length)holdStr=' \u00b7 Hold: <span style="color:var(--bull)">'+hBulls.length+'\u25B2</span> <span style="color:var(--bear)">'+hBears.length+'\u25BC</span>';
   document.getElementById('mainContent').innerHTML='<div class="grid">'+
     '<div class="card"><div class="card-t">\uD83D\uDCCA Signal Summary</div><div style="display:flex;gap:14px;margin-bottom:8px"><div><div class="big" style="color:var(--bull)">'+bulls.length+'</div><div class="sub">Bullish</div></div><div><div class="big" style="color:var(--bear)">'+bears.length+'</div><div class="sub">Bearish</div></div><div><div class="big" style="color:var(--neut)">'+neuts.length+'</div><div class="sub">Neutral</div></div></div><div class="prog"><div class="prog-f" style="width:'+(D.length?bulls.length/D.length*100:0)+'%;background:var(--bull)"></div></div><div style="font-size:9px;color:var(--text2);margin-top:3px">Bull '+(D.length?(bulls.length/D.length*100).toFixed(0):0)+'% \u00b7 Bear '+(D.length?(bears.length/D.length*100).toFixed(0):0)+'% \u00b7 Neut '+(D.length?(neuts.length/D.length*100).toFixed(0):0)+'%'+holdStr+'</div></div>'+
-    '<div class="card"><div class="card-t">\uD83C\uDF0D Market Regime</div><div class="big" style="color:'+regimeColor+'">'+(M.regime||'\u2014')+'</div><div class="sub">breadth='+(M.breadth||50)+'% nifty='+(M.nifty_5d||0)+'%</div><div style="margin-top:8px"><div class="row"><span class="l">Dir Accuracy</span><span class="v">'+(M.avg_accuracy||M.direction_accuracy||0)+'%</span></div><div class="row"><span class="l">Avg Trade PF</span><span class="v">'+(M.avg_profit_factor||M.avg_pf||0)+'</span></div><div class="row"><span class="l">Tickers</span><span class="v">'+(M.tickers||M.total_tickers||D.length)+'</span></div></div></div>'+
+    '<div class="card"><div class="card-t">\uD83C\uDF0D Market Regime</div><div class="big" style="color:'+regimeColor+'">'+(M.regime||'\u2014')+'</div><div class="sub">breadth='+(M.breadth||50)+'% nifty='+(M.nifty_5d||0)+'%</div><div style="margin-top:8px"><div class="row"><span class="l">Dir Hist. Alignment</span><span class="v">'+(M.avg_accuracy||M.direction_accuracy||0)+'%</span></div><div class="row"><span class="l">Avg Trade PF</span><span class="v">'+(M.avg_profit_factor||M.avg_pf||0)+'</span></div><div class="row"><span class="l">Tickers</span><span class="v">'+(M.tickers||M.total_tickers||D.length)+'</span></div></div></div>'+
     '<div class="card" style="grid-column:span 2"><div class="card-t">\uD83D\uDCC8 Category Performance</div><table class="tbl"><tr><th>Cat</th><th>N</th><th>Acc</th><th>WR</th><th>PF</th></tr>'+catRows+'</table></div>'+
     '<div class="card"><div class="card-t">\uD83D\uDFE2 Top Bullish Stocks</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+topBull.map(mkRow).join('')+'</table></div>'+
     '<div class="card"><div class="card-t">\uD83D\uDD34 Top Bearish Stocks</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+topBear.map(mkRow).join('')+'</table></div>'+
@@ -401,13 +401,13 @@ function showTicker(r){
   var mom=pf(r.Actual_Return_Pct);
   var momStr=mom!==0?(mom>0?'+':'')+mom.toFixed(2)+'%':'\u2014';
   var catStr=nCat>0?parseInt(nCat)+' catalyst'+(nCat>1?'s':'')+' ('+newsDir+')':'None';
-  var btAcc=pf(r.BT_6M||r.BT_Accuracy);
+  var btAcc=pf(r.BT_6M||r.BT_Hist. Alignment);
   var trPF=pf(r.TR_profit_factor||r.BT_PF);
 
   // Position info
   var posInfo='';
   if(r._holdDir){
-    var posLabel=r._holdDir==='hold_bull'?'\uD83D\uDFE2 H-BULL':'\uD83D\uDD34 H-BEAR';
+    var posLabel=r._holdDir==='hold_bull'?'\uD83D\uDFE2 H-POSITIVE':'\uD83D\uDD34 H-NEGATIVE';
     posInfo='<div class="row"><span class="l">Position</span><span class="v" style="color:'+(r._holdDir==='hold_bull'?'var(--bull)':'var(--bear)')+'">'+posLabel+' ('+r._holdDays+'d ago, score: '+(r._holdScore>0?'+':'')+r._holdScore.toFixed(1)+')</span></div>';
   }
 
@@ -424,8 +424,8 @@ function showTicker(r){
     '</div>'+
     '<div class="grid">'+
       '<div class="card"><div class="card-t">\uD83D\uDCCA Score Breakdown</div><div class="big" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(1)+'</div><div class="sub">Composite</div><div style="margin-top:8px"><div class="row"><span class="l">Technical</span><span class="v" style="color:'+sC(tech)+'">'+sn(tech.toFixed(0))+'</span></div><div class="row"><span class="l">Macro/Sector</span><span class="v" style="color:'+sC(macro)+'">'+sn(macro.toFixed(0))+'</span></div><div class="row"><span class="l">Fundamental</span><span class="v" style="color:'+sC(fund)+'">'+sn(fund.toFixed(0))+'</span></div><div class="row"><span class="l">News</span><span class="v" style="color:'+sC(news)+'">'+newsStr+'</span></div><div class="row"><span class="l">Severity</span><span class="v">'+severity+'</span></div></div></div>'+
-      '<div class="card"><div class="card-t">\uD83C\uDFAF Backtest</div><div class="big">'+btAcc.toFixed(0)+'%</div><div class="sub">All-Time Accuracy</div><div style="margin-top:8px"><div class="row"><span class="l">1M</span><span class="v">'+sc(r.BT_1M,0)+'%</span></div><div class="row"><span class="l">3M</span><span class="v">'+sc(r.BT_3M,0)+'%</span></div><div class="row"><span class="l">Horizon</span><span class="v">'+(r.BT_Forward_Days||r.Horizon||'\u2014')+'d</span></div><div class="row"><span class="l">Band</span><span class="v">\u00b1'+sc(r.BT_Threshold,2)+'%</span></div><div class="row"><span class="l">ATR</span><span class="v">'+sc(r.BT_ATR_Pct,1)+'%</span></div></div></div>'+
-      '<div class="card"><div class="card-t">\uD83D\uDCB0 Trade Sim</div><div class="big" style="color:'+(trPF>=1.1?'var(--bull)':trPF<0.9?'var(--bear)':'var(--white)')+'">'+trPF.toFixed(2)+'</div><div class="sub">Profit Factor</div><div style="margin-top:8px"><div class="row"><span class="l">Trades</span><span class="v">'+sc(r.TR_total_trades||r.BT_Trades,0)+'</span></div><div class="row"><span class="l">Win Rate</span><span class="v">'+sc(r.TR_win_rate,0)+'%</span></div><div class="row"><span class="l">Avg Win</span><span class="v" style="color:var(--bull)">+'+sc(r.TR_avg_win_pct,1)+'%</span></div><div class="row"><span class="l">Avg Loss</span><span class="v" style="color:var(--bear)">-'+sc(r.TR_avg_loss_pct,1)+'%</span></div><div class="row"><span class="l">Return</span><span class="v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</span></div><div class="row"><span class="l">Hold</span><span class="v">'+sc(r.TR_avg_holding_days,0)+'d</span></div><div class="row"><span class="l">SL</span><span class="v">'+sc(r.BT_SL_Level,1)+'%</span></div></div></div>'+
+      '<div class="card"><div class="card-t">\uD83C\uDFAF Backtest</div><div class="big">'+btAcc.toFixed(0)+'%</div><div class="sub">All-Time Hist. Alignment</div><div style="margin-top:8px"><div class="row"><span class="l">1M</span><span class="v">'+sc(r.BT_1M,0)+'%</span></div><div class="row"><span class="l">3M</span><span class="v">'+sc(r.BT_3M,0)+'%</span></div><div class="row"><span class="l">Horizon</span><span class="v">'+(r.BT_Forward_Days||r.Horizon||'\u2014')+'d</span></div><div class="row"><span class="l">Band</span><span class="v">\u00b1'+sc(r.BT_Threshold,2)+'%</span></div><div class="row"><span class="l">ATR</span><span class="v">'+sc(r.BT_ATR_Pct,1)+'%</span></div></div></div>'+
+      '<div class="card"><div class="card-t">\uD83D\uDCB0 Trade Sim</div><div class="big" style="color:'+(trPF>=1.1?'var(--bull)':trPF<0.9?'var(--bear)':'var(--white)')+'">'+trPF.toFixed(2)+'</div><div class="sub">Profit Factor</div><div style="margin-top:8px"><div class="row"><span class="l">Trades</span><span class="v">'+sc(r.TR_total_trades||r.BT_Trades,0)+'</span></div><div class="row"><span class="l">Favorable Rate</span><span class="v">'+sc(r.TR_win_rate,0)+'%</span></div><div class="row"><span class="l">Avg Win</span><span class="v" style="color:var(--bull)">+'+sc(r.TR_avg_win_pct,1)+'%</span></div><div class="row"><span class="l">Avg Loss</span><span class="v" style="color:var(--bear)">-'+sc(r.TR_avg_loss_pct,1)+'%</span></div><div class="row"><span class="l">Return</span><span class="v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</span></div><div class="row"><span class="l">Hold</span><span class="v">'+sc(r.TR_avg_holding_days,0)+'d</span></div><div class="row"><span class="l">SL</span><span class="v">'+sc(r.BT_SL_Level,1)+'%</span></div></div></div>'+
       '<div class="card"><div class="card-t">\uD83D\uDCC8 Context</div>'+posInfo+'<div class="row"><span class="l">Sector</span><span class="v">'+sector+'</span></div><div class="row"><span class="l">Streak</span><span class="v">'+streak+'</span></div><div class="row"><span class="l">Momentum</span><span class="v" style="color:'+sC(mom)+'">'+momStr+'</span></div><div class="row"><span class="l">Long WR</span><span class="v">'+sc(r.TR_long_win_rate,0)+'%</span></div><div class="row"><span class="l">Short WR</span><span class="v">'+sc(r.TR_short_win_rate,0)+'%</span></div><div class="row"><span class="l">Catalysts</span><span class="v">'+catStr+'</span></div></div>'+
     '</div>';
 }
@@ -473,13 +473,13 @@ function openChart(tk){
   document.getElementById('mSub').textContent=gCat(r)+' \u00b7 '+cleanSector(r.Sector)+' \u00b7 '+dl(ed)+' \u00b7 Comp: '+sn(sc(r.Composite_Score,1));
   document.getElementById('mKpis').innerHTML=
     '<div class="mk"><div class="mk-v" style="color:var(--'+(ed.indexOf('bull')>=0?'bull':ed.indexOf('bear')>=0?'bear':'neut')+')">'+dl(ed)+'</div><div class="mk-l">Signal</div></div>'+
-    '<div class="mk"><div class="mk-v">'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</div><div class="mk-l">Acc</div></div>'+
+    '<div class="mk"><div class="mk-v">'+sc(r.BT_6M||r.BT_Hist. Alignment,0)+'%</div><div class="mk-l">Acc</div></div>'+
     '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</div><div class="mk-l">PF</div></div>'+
     '<div class="mk"><div class="mk-v">'+sc(r.TR_win_rate,0)+'%</div><div class="mk-l">WR</div></div>'+
     '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</div><div class="mk-l">Ret</div></div>'+
     '<div class="mk"><div class="mk-v">'+sc(r.BT_ATR_Pct,1)+'%</div><div class="mk-l">ATR</div></div>';
   document.querySelectorAll('#indBar .ib').forEach(function(b){
-    var i=b.dataset.i;b.classList.toggle('active',i==='signals'||i==='volume');
+    var i=b.dataset.i;b.classList.toggle('active',i==='momentum readings'||i==='volume');
   });
   document.getElementById('chartModal').classList.add('show');
   destroyAllCharts();
@@ -551,7 +551,7 @@ function hideAdx(){if(adxChart)try{adxChart.remove()}catch(e){}adxChart=null;adx
 
 function toggleInd(ind){
   if(!mainChart||!CD)return;
-  if(ind==='signals'){var on=document.querySelector('[data-i="signals"]').classList.toggle('active');CS&&CS.setMarkers(on&&CD.markers?CD.markers:[]);return}
+  if(ind==='momentum readings'){var on=document.querySelector('[data-i="momentum readings"]').classList.toggle('active');CS&&CS.setMarkers(on&&CD.markers?CD.markers:[]);return}
   if(ind==='volume'){var on2=document.querySelector('[data-i="volume"]').classList.toggle('active');if(on2&&CD.volume&&CD.volume.length){var v=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});v.setData(CD.volume);S['volume']=v}else{remS('volume')}return}
   var lines={sma9:{k:'sma9',c:'#f59e0b'},sma22:{k:'sma22',c:'#8b5cf6'},sma200:{k:'sma200',c:'#ec4899'},ema9:{k:'ema9',c:'#06b6d4'},ema21:{k:'ema21',c:'#14b8a6'},vwap:{k:'vwap',c:'#fbbf24'}};
   if(lines[ind]){var cfg=lines[ind];var on3=document.querySelector('[data-i="'+ind+'"]').classList.toggle('active');on3?addL(ind,CD[cfg.k],cfg.c,1):remS(ind);return}
@@ -574,5 +574,13 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal()
 init();
 
 </script>
+
+<div style="background:#151823;border-top:1px solid #2a2e3d;padding:12px 20px;font-size:10px;color:#8b949e;text-align:center;line-height:1.8">
+  <strong>⚠️ Disclaimer:</strong> xchart.in is an analytical tool for educational and research purposes only.
+  All results are based on historical data and mathematical models. Past performance does not guarantee future results.
+  This platform does not provide investment advice, stock recommendations, or trading signals as defined by SEBI.
+  Users are solely responsible for their investment decisions. Consult a SEBI-registered advisor before making investment decisions.
+  Not SEBI registered. Charts by <a href="https://www.tradingview.com/" target="_blank" style="color:#3b82f6">TradingView</a>.
+</div>
 </body>
 </html>
