@@ -1,20 +1,20 @@
 name: Deploy GitHub Pages
 
 on:
-  # Only after engine or ML workflows complete
   workflow_run:
     workflows:
-      - "Run Prediction Engine"
-      - "ML Model Training"
+      - "Run Trading Engine"
+      - "Nifty 500 OHLCV (Daily)"
+      - "Nifty 500 Fundamentals (Weekly)"
+      - "SEBI Compliance Migration (One-Time)"
+      - "Run Migration (One-Time)"
     types:
       - completed
     branches:
       - master
 
-  # Manual trigger
   workflow_dispatch:
 
-# Prevent concurrent deployments
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -27,7 +27,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Only deploy if the triggering workflow succeeded
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
