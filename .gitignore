@@ -1,0 +1,5 @@
+# Screener pipeline
+screener_data/ohlcv/
+news_cache.json
+__pycache__/
+*.pyc
