@@ -119,12 +119,19 @@ def load_tickers():
 # ── FinBERT ───────────────────────────────────────────────────────────────
 
 def init_finbert():
+   
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    print("Initializing FinBERT...")
-    tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
-    model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
-    model.eval()
-    return tokenizer, model
+        print("Initializing FinBERT...")
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
+            model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+            model.eval()
+            return tokenizer, model
+        except Exception as e:
+            print(f"  WARNING: FinBERT load failed: {e}")
+            print(f"  -> News scoring will be skipped this run")
+            return None, None
+
 
 
 def score_headlines(headlines, tokenizer, model):
@@ -145,8 +152,12 @@ def score_headlines(headlines, tokenizer, model):
 
 
 def run_finbert_phase(ticker_articles, tickers, stock_df, history_df):
-    if not ticker_articles: return {}
+
+ if not ticker_articles: return {}
     tokenizer, model = init_finbert()
+    if tokenizer is None or model is None:
+        print("  -> Skipping FinBERT phase (model unavailable)")
+        return {}
     results = {}; idx = 0
     for tk in tickers:
         if tk not in ticker_articles: continue
@@ -173,6 +184,7 @@ def run_finbert_phase(ticker_articles, tickers, stock_df, history_df):
     n_scored = sum(1 for v in results.values() if v["N_Catalysts"] > 0)
     print(f"\n  Catalysts: {n_scored} scored")
     return results
+
 
 
 # ── Technical Scoring ─────────────────────────────────────────────────────
