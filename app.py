@@ -332,7 +332,7 @@ def add_composite_scores(stock_df):
     bb_l   = _col_df(stock_df, "BB_Lower")
     macd   = _col_df(stock_df, "MACD_Line", "MACD")
     macd_s = _col_df(stock_df, "MACD_Signal")
-    st     = _col_df(stock_df, "ST_Value"
+    st     = _col_df(stock_df, "ST_Value")
     ema9   = _col_df(stock_df, "EMA_9")
     ema21  = _col_df(stock_df, "EMA_21")
     adx    = _col_df(stock_df, "ADX_14", "ADX")
