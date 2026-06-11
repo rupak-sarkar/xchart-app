@@ -113,14 +113,38 @@ def compute_supertrend(high, low, close, period=10, multiplier=3):
     lower_arr = lower_basic.values
     atr_arr = atr.values
 
-    if n > 0:
-        final_upper[0] = upper_arr[0]
-        final_lower[0] = lower_arr[0]
+    # -- FIX: Find first valid ATR index and initialize bands there --
+    # Without this, NaN propagates forever through final_upper/final_lower
+    # because comparisons like `lower_arr[i] > final_lower[i-1]` return
+    # False when final_lower[i-1] is NaN, so the else branch copies NaN.
+    first_valid = None
+    for i in range(n):
+        if not np.isnan(atr_arr[i]):
+            first_valid = i
+            break
 
-    for i in range(1, n):
+    if first_valid is None:
+        # No valid ATR at all — return empty
+        return (pd.Series(direction, index=close.index),
+                pd.Series(st_value, index=close.index))
+
+    # Initialize at first valid index
+    final_upper[first_valid] = upper_arr[first_valid]
+    final_lower[first_valid] = lower_arr[first_valid]
+
+    # Set initial direction based on price vs bands
+    if close_arr[first_valid] > final_upper[first_valid]:
+        direction[first_valid] = -1  # Bullish
+    elif close_arr[first_valid] < final_lower[first_valid]:
+        direction[first_valid] = 1   # Bearish
+    else:
+        direction[first_valid] = -1  # Default bullish if between bands
+
+    # Main loop starts from first_valid + 1
+    for i in range(first_valid + 1, n):
         if np.isnan(atr_arr[i]):
-            final_upper[i] = upper_arr[i] if not np.isnan(upper_arr[i]) else final_upper[i - 1]
-            final_lower[i] = lower_arr[i] if not np.isnan(lower_arr[i]) else final_lower[i - 1]
+            final_upper[i] = final_upper[i - 1]
+            final_lower[i] = final_lower[i - 1]
             direction[i] = direction[i - 1]
             continue
 
@@ -137,19 +161,20 @@ def compute_supertrend(high, low, close, period=10, multiplier=3):
             final_upper[i] = final_upper[i - 1]
 
         # Direction
-        if direction[i - 1] <= 0 and close_arr[i] > final_upper[i - 1]:
+        if direction[i - 1] <= 0 and close_arr[i] > final_upper[i]:
             direction[i] = -1  # Bullish
-        elif direction[i - 1] >= 0 and close_arr[i] < final_lower[i - 1]:
+        elif direction[i - 1] >= 0 and close_arr[i] < final_lower[i]:
             direction[i] = 1   # Bearish
         else:
             direction[i] = direction[i - 1]
 
     # Compute ST value line (lower band when bullish, upper when bearish)
     for i in range(n):
-        if direction[i] == -1:  # Bullish -> ST line is the lower band (support)
+        if direction[i] == -1:  # Bullish -> support line
             st_value[i] = final_lower[i]
-        else:  # Bearish -> ST line is the upper band (resistance)
+        elif direction[i] == 1:  # Bearish -> resistance line
             st_value[i] = final_upper[i]
+        # direction == 0 (before first_valid) stays NaN
 
     return (pd.Series(direction, index=close.index),
             pd.Series(st_value, index=close.index))
@@ -225,6 +250,8 @@ def recompute_all_indicators(df):
 
         # -- SuperTrend (returns both direction AND value) --
         tk['ST_Direction'], tk['ST_Value'] = compute_supertrend(high, low, close)
+        # Ensure ST_Value is clean numeric (NaN -> 0 for early rows)
+        tk['ST_Value'] = pd.to_numeric(tk['ST_Value'], errors='coerce').fillna(0)
 
         # -- Ichimoku --
         tk['Ichi_Tenkan'], tk['Ichi_Kijun'] = compute_ichimoku(high, low)
@@ -275,12 +302,10 @@ def refresh_fundamentals(df, force=False):
         last_mcap = pd.to_numeric(last_mcap, errors='coerce').fillna(0)
         filled = (last_mcap > 0).sum()
 
-        # Also check if sector is mostly empty
         last_sector = df.groupby('Ticker')['Sector'].last().fillna('')
         sector_filled = (last_sector.str.strip() != '').sum()
         sector_missing = sector_filled < total * 0.5
 
-        # Check if PE is mostly empty
         last_pe = df.groupby('Ticker')['PE_Ratio'].last()
         last_pe = pd.to_numeric(last_pe, errors='coerce').fillna(0)
         pe_filled = (last_pe > 0).sum()
@@ -322,7 +347,6 @@ def refresh_fundamentals(df, force=False):
                     info = yf.Ticker(f"{ticker}{suffix}").info
                     mcap = info.get('marketCap', 0) or 0
                     if mcap > 0:
-                        # Try multiple field names for sector
                         sector = (
                             info.get('sector', '') or
                             info.get('sectorDisp', '') or
@@ -335,7 +359,6 @@ def refresh_fundamentals(df, force=False):
                             ''
                         )
 
-                        # Fetch valuation ratios
                         pe = info.get('trailingPE', 0) or info.get('forwardPE', 0) or 0
                         pb = info.get('priceToBook', 0) or 0
                         roe = info.get('returnOnEquity', 0) or 0
@@ -343,7 +366,7 @@ def refresh_fundamentals(df, force=False):
                         de = info.get('debtToEquity', 0) or 0
 
                         fund_data[ticker] = {
-                            'Market_Cap': round(mcap / 1e7, 2),  # raw INR -> Crores
+                            'Market_Cap': round(mcap / 1e7, 2),
                             'Sector': str(sector),
                             'Industry': str(industry),
                             'Sub_Industry': str(industry),
@@ -366,7 +389,7 @@ def refresh_fundamentals(df, force=False):
                 }
 
         if i + batch_size < len(tickers_to_fetch):
-            time.sleep(1.5)  # Rate limit
+            time.sleep(1.5)
 
     # Cast numeric columns to float before assignment (avoids int64 vs float TypeError)
     for col in FUND_COLS_NUM:
@@ -406,7 +429,6 @@ def validate_indicators(df):
     tickers = df['Ticker'].unique()
     issues = 0
 
-    # Sample 5 tickers
     sample = np.random.choice(tickers, min(5, len(tickers)), replace=False)
 
     for ticker in sample:
@@ -435,7 +457,6 @@ def validate_indicators(df):
     else:
         print(f"  {issues} issues found -- check data pipeline")
 
-    # Summary stats
     last_rows = df.groupby('Ticker').last()
     mcap_filled = pd.to_numeric(last_rows.get('Market_Cap', 0), errors='coerce').gt(0).sum()
     rsi_valid = last_rows['RSI_14'].between(1, 99).sum() if 'RSI_14' in last_rows.columns else 0
@@ -479,7 +500,7 @@ def recompute_indicators(force_fundamentals=False):
     # Step 1: Recompute all technical indicators
     df = recompute_all_indicators(df)
 
-    # Step 2: Refresh fundamentals (Market_Cap, Sector, PE, PB, ROE, etc.)
+    # Step 2: Refresh fundamentals
     df = refresh_fundamentals(df, force=force_fundamentals)
 
     # Step 3: Validate
