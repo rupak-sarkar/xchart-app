@@ -136,7 +136,10 @@ def check_premium_criteria(row, industry_pe_map, cfg=None):
 
     # 12. (DII + Promoter) > 50%
     prom_dii = promoter + dii
-    criteria['promoter_dii'] = (prom_dii > cfg['min_promoter_dii_holding'], prom_dii, cfg['min_promoter_dii_holding'])
+    if promoter > 0 or dii > 0:
+        criteria['promoter_dii'] = (prom_dii > cfg['min_promoter_dii_holding'], prom_dii, cfg['min_promoter_dii_holding'])
+    else:
+        criteria['promoter_dii'] = (True, 0, "N/A (no holding data)")
 
     # 13. (FII + DII) > Public * 0.25
     inst = fii + dii
