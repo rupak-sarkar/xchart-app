@@ -118,19 +118,20 @@ def load_tickers():
 
 # ── FinBERT ───────────────────────────────────────────────────────────────
 
+
 def init_finbert():
-   
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
-        print("Initializing FinBERT...")
-        try:
-            tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
-            model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
-            model.eval()
-            return tokenizer, model
-        except Exception as e:
-            print(f"  WARNING: FinBERT load failed: {e}")
-            print(f"  -> News scoring will be skipped this run")
-            return None, None
+    print("Initializing FinBERT...")
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(FINBERT_MODEL)
+        model = AutoModelForSequenceClassification.from_pretrained(FINBERT_MODEL)
+        model.eval()
+        return tokenizer, model
+    except Exception as e:
+        print(f"  WARNING: FinBERT load failed: {e}")
+        print(f"  -> News scoring will be skipped this run")
+        return None, None
+
 
 
 
@@ -151,22 +152,27 @@ def score_headlines(headlines, tokenizer, model):
     return round(avg, 1), direction
 
 
-def run_finbert_phase(ticker_articles, tickers, stock_df, history_df):
 
- if not ticker_articles: return {}
+def run_finbert_phase(ticker_articles, tickers, stock_df, history_df):
+    if not ticker_articles:
+        return {}
     tokenizer, model = init_finbert()
     if tokenizer is None or model is None:
         print("  -> Skipping FinBERT phase (model unavailable)")
         return {}
-    results = {}; idx = 0
+    results = {}
+    idx = 0
     for tk in tickers:
-        if tk not in ticker_articles: continue
+        if tk not in ticker_articles:
+            continue
         articles = ticker_articles[tk]
-        if not articles: continue
+        if not articles:
+            continue
         idx += 1
         headlines = [a["title"] for a in articles]
         score, direction = score_headlines(headlines, tokenizer, model)
-        ret_str = ""; hit_str = ""
+        ret_str = ""
+        hit_str = ""
         if history_df is not None and len(history_df) > 0:
             hrows = history_df[history_df["Ticker"].astype(str).str.strip() == tk]
             if not hrows.empty:
@@ -179,11 +185,16 @@ def run_finbert_phase(ticker_articles, tickers, stock_df, history_df):
                     hit_str = f" {was_hit}"
         dir_label = "BULL" if direction == 1 else ("BEAR" if direction == -1 else "NEUT")
         print(f"[{idx:>3d}] {tk:<18s} {dir_label} Score: {score:+.1f}{ret_str}{hit_str} [{len(headlines)}cat/{len(headlines)}h]")
-        results[tk] = {"News_Score": score, "News_Direction": dir_label,
-                       "N_Catalysts": len(headlines), "headlines": headlines[:5]}
+        results[tk] = {
+            "News_Score": score,
+            "News_Direction": dir_label,
+            "N_Catalysts": len(headlines),
+            "headlines": headlines[:5],
+        }
     n_scored = sum(1 for v in results.values() if v["N_Catalysts"] > 0)
     print(f"\n  Catalysts: {n_scored} scored")
     return results
+
 
 
 
