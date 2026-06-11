@@ -192,7 +192,7 @@ def compute_tech_score(row, cat, prev_row=None):
     adx    = _col(row, "ADX_14", "ADX")
     bb_u   = _col(row, "BB_Upper")
     bb_l   = _col(row, "BB_Lower")
-    st     = _col(row, "ST_Value", "SuperTrend")
+    st     = _col(row, "ST_Value")
     sma9_prev = _col(prev_row, "SMA_9") if prev_row is not None else None
     if close == 0: return 0
 
@@ -332,7 +332,7 @@ def add_composite_scores(stock_df):
     bb_l   = _col_df(stock_df, "BB_Lower")
     macd   = _col_df(stock_df, "MACD_Line", "MACD")
     macd_s = _col_df(stock_df, "MACD_Signal")
-    st     = _col_df(stock_df, "ST_Value", "SuperTrend")
+    st     = _col_df(stock_df, "ST_Value"
     ema9   = _col_df(stock_df, "EMA_9")
     ema21  = _col_df(stock_df, "EMA_21")
     adx    = _col_df(stock_df, "ADX_14", "ADX")
@@ -392,7 +392,7 @@ def generate_chart_data(ticker, stock_df, history_df, output_dir):
             val = _col(row, *cols)
             if val > 0: data[key].append({"time": d, "value": round(val, 2)})
 
-        st = _col(row, "ST_Value", "SuperTrend")
+        st = _col(row, "ST_Value")
         if st > 0:
             if c > st: data["st_bull"].append({"time": d, "value": round(st, 2)})
             else: data["st_bear"].append({"time": d, "value": round(st, 2)})
