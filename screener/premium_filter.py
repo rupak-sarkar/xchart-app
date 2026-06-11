@@ -263,8 +263,24 @@ def run_premium_filter(fundamentals_df=None):
 def save_premium_tickers(tickers, results_df=None):
     """Save premium tickers to tickers.csv (feeds existing engine)."""
     if not tickers:
-        print("  WARNING: No premium tickers to save!")
-        return
+        print("  WARNING: No premium tickers passed all criteria!")
+        print("  -> Falling back to top tickers by criteria_met count")
+        if results_df is not None and len(results_df) > 0:
+            # Select tickers that met at least 12/14 criteria
+            near_pass = results_df[results_df['Criteria_Met'] >= 12].sort_values(
+                ['Criteria_Met', 'Market_Cap'], ascending=[False, False]
+            )
+            if len(near_pass) > 0:
+                tickers = near_pass['Ticker'].tolist()[:200]
+                print(f"  -> Selected {len(tickers)} near-pass tickers (>=12/14 criteria)")
+            else:
+                # Last resort: top 150 by market cap
+                top_mcap = results_df[results_df['Market_Cap'] > 0].nlargest(150, 'Market_Cap')
+                tickers = top_mcap['Ticker'].tolist()
+                print(f"  -> Fallback: top {len(tickers)} by market cap")
+        if not tickers:
+            print("  -> CRITICAL: No tickers to save at all!")
+            return
 
     out_df = pd.DataFrame({'Ticker': tickers})
 
