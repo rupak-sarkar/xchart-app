@@ -1,0 +1,46 @@
+name: Run Migration (One-Time)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run migration
+        run: python migrate.py
+
+      - name: Show result
+        run: |
+          echo "=== Root files ==="
+          ls -la *.py *.html *.js *.txt 2>/dev/null || true
+          echo ""
+          echo "=== output/ ==="
+          ls -la output/ 2>/dev/null || echo "No output/"
+          echo ""
+          echo "=== output/charts/ count ==="
+          ls output/charts/*.json 2>/dev/null | wc -l || echo "0"
+          echo ""
+          echo "=== engine/ ==="
+          ls -la engine/ 2>/dev/null || echo "No engine/"
+
+      - name: Commit restructure
+        run: |
+          git config --global user.name "GitHub Actions Automation"
+          git config --global user.email "actions@github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Restructure: output/ for data, engine/ for Python modules"
+          git push
