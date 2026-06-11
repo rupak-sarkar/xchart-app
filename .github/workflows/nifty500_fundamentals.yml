@@ -2,8 +2,14 @@ name: Nifty 500 Fundamentals (Weekly)
 
 on:
   schedule:
-    - cron: '    - cron: '0 18 * * 0'  # Every Sunday 6PM UTC (11:30 PM IST)
-workflow_dispatch:
+    - cron: '0 18 * * 0'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force re-fetch all data'
+        required: false
+        default: 'false'
+
 permissions:
   contents: write
 
@@ -33,6 +39,9 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Ensure output dirs
+        run: mkdir -p output screener_data
+
       - name: Run fundamental screening
         run: |
           if [ "${{ github.event.inputs.force }}" = "true" ]; then
@@ -49,30 +58,13 @@ jobs:
           ls -la screener_data/ 2>/dev/null || echo "No screener_data/"
           echo ""
           echo "=== Premium tickers ==="
-          head -20 tickers.csv 2>/dev/null || echo "No tickers.csv"
-          echo ""
-          echo "=== Score distribution ==="
-          if [ -f screener_data/nifty500_scores.csv ]; then
-            python -c "
-          import pandas as pd
-          df = pd.read_csv('screener_data/nifty500_scores.csv')
-          print(f'Total: {len(df)}')
-          for t in [80,70,60,50,40]:
-              n = (df['Quality_Score'] >= t).sum()
-              print(f'>={t}: {n}')
-          "
-          fi
+          head -20 output/tickers.csv 2>/dev/null || echo "No tickers.csv"
 
       - name: Commit results
         run: |
           git config --global user.name "GitHub Actions Automation"
           git config --global user.email "actions@github.com"
-          git add screener_data/ tickers.csv 2>/dev/null || true
+          git add screener_data/ output/tickers.csv 2>/dev/null || true
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
           git diff --cached --quiet || git commit -m "Fundamentals screening ${TIMESTAMP}"
           git push || echo "Nothing to push"
-  workflow_dispatch:
-    inputs:
-      force:
-        description: 'Force re-fetch all data'
-        required: false
