@@ -3,55 +3,128 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>xchart.in | Disclaimer & Terms</title>
+<title>Disclaimer | xchart.in</title>
+https://fonts.googleapis.com
+800&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0a0b10;color:#c9d1d9;min-height:100vh;padding:40px 20px}
-.wrap{max-width:800px;margin:0 auto}
-h1{font-size:28px;font-weight:800;color:#eef0f6;margin-bottom:8px}
-h2{font-size:18px;font-weight:700;color:#eef0f6;margin-top:28px;margin-bottom:10px}
-p{font-size:14px;line-height:1.8;margin-bottom:12px;color:#8b949e}
-.highlight{background:#12141d;border:1px solid #252a3a;border-radius:10px;padding:20px;margin:20px 0}
-.highlight p{color:#c9d1d9}
-a{color:#3b82f6}
-.back{display:inline-block;margin-top:20px;padding:10px 20px;background:#3b82f6;color:#fff;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px}
+body{font-family:'Inter',system-ui,sans-serif;background:#F8F9FB;color:#1F2937;-webkit-font-smoothing:antialiased}
+a{color:#2563EB;text-decoration:none}a:hover{text-decoration:underline}
+.hdr{background:#fff;border-bottom:1px solid #E5E7EB;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.logo{font-size:22px;font-weight:800;color:#1F2937;text-decoration:none}.logo span{color:#2563EB}
+.badge{font-size:8px;background:#2563EB;color:#fff;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700;letter-spacing:0.5px}
+.nav{display:flex;gap:20px;font-size:13px;font-weight:500}.nav a{color:#6B7280;transition:color 0.2s}.nav a:hover,.nav a.active{color:#2563EB}
+.container{max-width:800px;margin:0 auto;padding:40px 24px 60px}
+h1{font-size:28px;font-weight:800;margin-bottom:8px;color:#1F2937}
+.subtitle{font-size:14px;color:#6B7280;margin-bottom:32px}
+.card{background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:28px 32px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.card h2{font-size:16px;font-weight:700;color:#1F2937;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card p,.card li{font-size:13px;color:#4B5563;line-height:1.8}
+.card ul{padding-left:20px;margin-top:8px}
+.card li{margin-bottom:4px}
+.highlight{background:rgba(220,38,38,0.05);border:1px solid rgba(220,38,38,0.15);border-radius:10px;padding:20px 24px;margin-bottom:16px}
+.highlight h2{color:#DC2626}
+.highlight p{color:#4B5563}
+.info-box{background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.12);border-radius:10px;padding:20px 24px;margin-bottom:16px}
+.info-box h2{color:#2563EB}
+.ftr{background:#fff;border-top:1px solid #E5E7EB;padding:16px 24px;font-size:10px;color:#9CA3AF;text-align:center;line-height:1.8;margin-top:30px}
+@media(max-width:600px){.container{padding:24px 16px 40px}.card{padding:20px}.nav{gap:12px;font-size:11px}}
 </style>
 </head>
 <body>
-<div class="wrap">
-<h1>Disclaimer & Terms of Use</h1>
-<p>Last updated: June 2026</p>
+<div class="hdr">
+  <a href="/" class="logo">x<span>chart</span>.in<span class="badge">ANALYTICS</span></a>
+  <div class="nav"><a href="/">Backtest</a><a href="dashboard.html">Premium Analytics</a><a href="disclaimer.html" class="active">Disclaimer</a></div>
+</div>
+<div class="container">
+  <h1>⚖️ Disclaimer & Terms of Use</h1>
+  <p class="subtitle">Last updated: June 2026 · Please read carefully before using xchart.in</p>
 
-<div class="highlight">
-<p><strong>xchart.in is an analytical tool for educational and research purposes only.</strong></p>
-<p>This platform does not provide investment advice, stock recommendations, or trading signals as defined by the Securities and Exchange Board of India (SEBI). xchart.in is not registered with SEBI as a Research Analyst (RA) or Investment Adviser (IA).</p>
+  <div class="highlight">
+    <h2>🚫 Not Investment Advice</h2>
+    <p>xchart.in is an <strong>analytical and educational tool</strong>. It does <strong>not</strong> provide investment advice, stock recommendations, buy/sell signals, portfolio management, or any financial advisory services as defined by the Securities and Exchange Board of India (SEBI).</p>
+    <p style="margin-top:8px">All outputs — including scores, directions, composite values, momentum readings, and backtest results — are <strong>mathematical computations</strong> based on publicly available historical data and standard technical indicators. They are presented for informational and educational purposes only.</p>
+  </div>
+
+  <div class="card">
+    <h2>📊 Nature of the Platform</h2>
+    <ul>
+      <li>xchart.in is an <strong>analytical tool</strong> that applies mathematical models (moving averages, RSI, Bollinger Bands, MACD, and other standard technical indicators) to publicly available stock price data.</li>
+      <li>The platform performs <strong>backtesting</strong> — testing user-configured rules against historical data to show how those rules would have performed in the past.</li>
+      <li>Premium analytics uses multi-layer composite scoring (technical, fundamental, macro, and sentiment analysis) to generate analytical readings.</li>
+      <li>All computations are <strong>deterministic and rule-based</strong>. No proprietary predictions or forecasts are made.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>⚠️ Risk Disclosure</h2>
+    <ul>
+      <li><strong>Past performance does not guarantee future results.</strong> Historical backtest results reflect how a set of rules would have performed in the past and do not predict future outcomes.</li>
+      <li>Stock markets involve inherent risk. Prices can move against expectations at any time due to factors not captured by technical or fundamental analysis.</li>
+      <li>Users should consult a <strong>SEBI-registered investment advisor</strong> before making any investment decisions.</li>
+      <li>Never invest money you cannot afford to lose. Always perform your own due diligence.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>🏛️ SEBI Compliance</h2>
+    <ul>
+      <li>xchart.in is <strong>not registered</strong> with SEBI as a Research Analyst (RA), Investment Advisor (IA), or any other intermediary category.</li>
+      <li>The platform does not charge for investment advice or stock recommendations.</li>
+      <li>No "buy", "sell", or "hold" recommendations are made. Terms like "Positive", "Negative", and "Neutral" represent mathematical scoring outputs, not investment recommendations.</li>
+      <li>The backtest feature allows users to configure and test their own rules. The platform does not suggest or recommend any specific trading strategy.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>📰 News & Sentiment Analysis</h2>
+    <ul>
+      <li>The sentiment analysis feature uses publicly available news headlines processed through the FinBERT natural language model.</li>
+      <li>Sentiment scores represent <strong>mathematical text classification</strong> — they are not editorial opinions or recommendations.</li>
+      <li>News headlines are sourced from publicly available RSS feeds and financial portals. xchart.in does not create, edit, or endorse any news content.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>📐 Data Sources & Accuracy</h2>
+    <ul>
+      <li>Market data is sourced from <strong>Yahoo Finance (yfinance)</strong> and other publicly available APIs.</li>
+      <li>Fundamental screening criteria are sourced from <strong>Screener.in</strong> public screens.</li>
+      <li>While we strive for accuracy, data may contain errors, delays, or discrepancies. xchart.in makes <strong>no warranty</strong> regarding data accuracy or completeness.</li>
+      <li>Users should verify all data independently before making any decisions.</li>
+    </ul>
+  </div>
+
+  <div class="info-box">
+    <h2>🔒 Your Responsibility</h2>
+    <p>By using xchart.in, you acknowledge and agree that:</p>
+    <ul>
+      <li>You are solely responsible for your investment decisions.</li>
+      <li>You will not treat any output from this platform as investment advice.</li>
+      <li>You understand the risks associated with stock market participation.</li>
+      <li>You will consult qualified professionals before making financial decisions.</li>
+      <li>xchart.in, its creators, and contributors are not liable for any losses resulting from the use of this platform.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>📬 Contact</h2>
+    <p>For questions or concerns about this disclaimer, please reach out via the <a href="https://github.com/rupak-sarkar/xchart-app" target="_blank">GitHub repository</a>.</p>
+  </div>
+
+  <div class="card">
+    <h2>📜 Attribution</h2>
+    <ul>
+      <li>Charts powered by <a href="https://www.tradingview.com/" target="_blank">TradingView Lightweight Charts</a>.</li>
+      <li>Sentiment analysis powered by <a href="https://huggingface.co/ProsusAI/finbert" target="_blank">FinBERT (ProsusAI)</a>.</li>
+      <li>Market data from <a href="https://finance.yahoo.com/" target="_blank">Yahoo Finance</a>.</li>
+      <li>Stock screening from <a href="https://www.screener.in/" target="_blank">Screener.in</a>.</li>
+    </ul>
+  </div>
 </div>
 
-<h2>No Investment Advice</h2>
-<p>All content on xchart.in — including but not limited to momentum readings, analytical scores, backtest results, fundamental data, and charts — is provided for informational and educational purposes only. Nothing on this platform constitutes a recommendation to buy, sell, or hold any security.</p>
-
-<h2>Historical Data & Past Performance</h2>
-<p>All backtest results, alignment rates, profit factors, and other metrics displayed on this platform are based on historical data and mathematical models. Past performance does not guarantee or indicate future results. Markets are inherently unpredictable and involve substantial risk of loss.</p>
-
-<h2>User Responsibility</h2>
-<p>Users are solely responsible for their investment decisions. By using xchart.in, you acknowledge that you understand the risks involved in trading and investing. You should consult a SEBI-registered investment adviser or research analyst before making any investment decisions.</p>
-
-<h2>Data Sources</h2>
-<p>Market data is sourced from publicly available sources including NSE, BSE, and third-party data providers. Fundamental data is derived from public filings. While we strive for accuracy, we do not guarantee the completeness or correctness of any data displayed.</p>
-
-<h2>No Warranty</h2>
-<p>xchart.in is provided "as is" without any warranty of any kind, express or implied. We do not warrant that the platform will be error-free, uninterrupted, or that the results obtained will be accurate or reliable.</p>
-
-<h2>Limitation of Liability</h2>
-<p>In no event shall xchart.in, its creators, or contributors be liable for any direct, indirect, incidental, special, or consequential damages arising from the use of this platform or reliance on any information provided herein.</p>
-
-<h2>Third-Party Attribution</h2>
-<p>Charts powered by <a href="https://www.tradingview.com/" target="_blank">TradingView</a>. Market data from Yahoo Finance and NSE India. Sentiment analysis uses FinBERT model.</p>
-
-<h2>Contact</h2>
-<p>For questions or concerns, please reach out via the repository at <a href="https://github.com/rupak-sarkar/xchart-app" target="_blank">github.com/rupak-sarkar/xchart-app</a>.</p>
-
-<a href="/" class="back">← Back to Dashboard</a>
+<div class="ftr">
+  © 2026 xchart.in · Analytical tool for educational purposes · Not SEBI registered · Not investment advice
 </div>
 </body>
 </html>
