@@ -1556,20 +1556,33 @@ function setStatus(dotClass, text) {
 function loadOHLCV(ticker) {
   setStatus('dot-load', 'Loading ' + ticker + ' data...');
 
-  // Try charts/ JSON first (has OHLCV from engine)
-  fetch('charts/' + ticker + '.json')
-    .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then(function(chartData) {
-      if (chartData.ohlc && chartData.ohlc.length > 50) {
-        parseChartJSON(ticker, chartData);
-        return;
-      }
-      throw new Error('insufficient data');
-    })
-    .catch(function() {
-      // Fallback: parse from stock_data.csv
+  var paths = [
+    'screener_data/backtest_data/' + ticker + '.json',
+    'charts/' + ticker + '.json',
+    'output/charts/' + ticker + '.json'
+  ];
+
+  function tryPath(idx) {
+    if (idx >= paths.length) {
+      setStatus('dot-load', 'Loading ' + ticker + ' from CSV...');
       loadFromCSV(ticker);
-    });
+      return;
+    }
+    fetch(paths[idx])
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(chartData) {
+        if (chartData.ohlc && chartData.ohlc.length > 20) {
+          parseChartJSON(ticker, chartData);
+        } else {
+          throw new Error('insufficient data');
+        }
+      })
+      .catch(function() { tryPath(idx + 1); });
+  }
+  tryPath(0);
 }
 
 function parseChartJSON(ticker, chartData) {
