@@ -1574,35 +1574,61 @@ function loadOHLCV(ticker) {
         return r.json();
       })
       .then(function(chartData) {
-        if (chartData.ohlc && chartData.ohlc.length > 20) {
+        // Support both formats: ohlcv (screener) and ohlc (engine)
+        var rows = chartData.ohlcv || chartData.ohlc || [];
+        if (rows.length > 20) {
           parseChartJSON(ticker, chartData);
         } else {
-          throw new Error('insufficient data');
+          throw new Error('insufficient data: ' + rows.length);
         }
       })
       .catch(function() { tryPath(idx + 1); });
   }
   tryPath(0);
 }
-
 function parseChartJSON(ticker, chartData) {
-  var ohlc = chartData.ohlc;
-  var period = document.getElementById('period').value;
-  var cutoff = getPeriodCutoff(period, ohlc[ohlc.length - 1].time);
-  ohlc = ohlc.filter(function(d) { return d.time >= cutoff; });
+  // Support both formats
+  var raw = chartData.ohlcv || chartData.ohlc || [];
+  
+  // Detect format: short keys (d,o,h,l,c,v) vs long keys (time,open,high,low,close)
+  var isShort = raw.length > 0 && raw[0].d !== undefined;
+  
+  // Normalize to standard format
+  var ohlc = raw.map(function(r) {
+    if (isShort) {
+      return { time: r.d, open: r.o, high: r.h, low: r.l, close: r.c, volume: r.v || 0 };
+    } else {
+      return { time: r.time, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume || 0 };
+    }
+  });
 
+  // Apply period filter
+  var period = document.getElementById('period').value;
+  var lastDate = ohlc[ohlc.length - 1].time;
+  var cutoff = getPeriodCutoff(period, lastDate);
+  var filtered = ohlc.filter(function(d) { return d.time >= cutoff; });
+
+  // If filter removes too much, use all data
+  if (filtered.length < 20) {
+    filtered = ohlc;
+  }
+
+  // Build volume map from separate array if exists (engine format)
   var volMap = {};
-  if (chartData.volume) {
+  if (chartData.volume && !isShort) {
     chartData.volume.forEach(function(v) { volMap[v.time] = v.value; });
   }
 
   BT.ohlcv = {
-    dates: ohlc.map(function(d) { return d.time; }),
-    open: ohlc.map(function(d) { return d.open; }),
-    high: ohlc.map(function(d) { return d.high; }),
-    low: ohlc.map(function(d) { return d.low; }),
-    close: ohlc.map(function(d) { return d.close; }),
-    volume: ohlc.map(function(d) { return volMap[d.time] || 0; }),
+    dates: filtered.map(function(d) { return d.time; }),
+    open: filtered.map(function(d) { return d.open || 0; }),
+    high: filtered.map(function(d) { return d.high || 0; }),
+    low: filtered.map(function(d) { return d.low || 0; }),
+    close: filtered.map(function(d) { return d.close || 0; }),
+    volume: filtered.map(function(d) {
+      // Short format has volume inline, long format may have separate array
+      return d.volume || volMap[d.time] || 0;
+    }),
     computed: {}
   };
   BT.ticker = ticker;
@@ -1611,7 +1637,12 @@ function parseChartJSON(ticker, chartData) {
   document.getElementById('tkName').textContent = ticker;
   document.getElementById('tkSector').textContent = info.sector || 'Unknown';
   document.getElementById('tickerInfo').style.display = 'block';
-  setStatus('dot-ok', ticker + ': ' + BT.ohlcv.dates.length + ' trading days loaded');
+
+  var msg = ticker + ': ' + BT.ohlcv.dates.length + ' trading days';
+  if (BT.ohlcv.dates.length > 0) {
+    msg += ' (' + BT.ohlcv.dates[0] + ' to ' + BT.ohlcv.dates[BT.ohlcv.dates.length - 1] + ')';
+  }
+  setStatus('dot-ok', msg);
   updateRunButton();
 }
 
