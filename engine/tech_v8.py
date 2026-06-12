@@ -34,7 +34,7 @@ def classify_cap(mcap, threshold=10000):
 
 
 def score_tech_row(close, sma9, sma22, sma200, sma9_prev,
-                   bb_lower, bb_mid, category):
+                   bb_lower, bb_mid, category, rsi=50):
     """Compute tech score for a single row."""
     close = _safe(close)
     sma9 = _safe(sma9)
@@ -43,6 +43,7 @@ def score_tech_row(close, sma9, sma22, sma200, sma9_prev,
     sma9_prev = _safe(sma9_prev, sma9)
     bb_lower = _safe(bb_lower)
     bb_mid = _safe(bb_mid)
+    rsi = _safe(rsi, 50)
 
     if close <= 0 or sma9 <= 0 or sma22 <= 0:
         return 0
@@ -65,8 +66,8 @@ def score_tech_row(close, sma9, sma22, sma200, sma9_prev,
     else:  # MID / SMALL
         if bb_lower <= 0 or bb_mid <= 0:
             return 0
-        # ENTRY: Price below lower BB + SMA9 recovering
-        if close < bb_lower and sma9_rising:
+        # ENTRY: Price below lower BB + (SMA9 recovering OR RSI oversold)
+        if close < bb_lower and (sma9_rising or rsi < 35):
             return 40
         # EXIT: Price above BB midline + SMA9 turning down
         elif close > bb_mid and sma9_falling:
@@ -146,11 +147,15 @@ def compute_tech_scores(stock_df):
     bb_mid = _col(df, bb_mid_col)
     cats = df["Category"].fillna("MID").values
 
+    rsi = _col(df, "RSI_14")
+    if rsi.sum() == 0:
+        rsi = _col(df, "RSI")
+
     scores = np.zeros(len(df), dtype=int)
     for i in range(len(df)):
         scores[i] = score_tech_row(
             close[i], sma9[i], sma22[i], sma200[i], sma9_prev[i],
-            bb_lower[i], bb_mid[i], str(cats[i])
+            bb_lower[i], bb_mid[i], str(cats[i]), rsi[i]
         )
 
     entry = (scores > 0).sum()

@@ -14,7 +14,7 @@ EXIT_THRESHOLD_SC   = 20
 
 HORIZONS   = {"MEGA": 28, "LARGE": 21, "MID": 14, "SMALL": 7}
 HOLD_DAYS  = {"MEGA": 14, "LARGE": 10, "MID": 7,  "SMALL": 5}
-SL_FIXED   = 0.05          # 5 % fixed SL for MID / SMALL
+SL_FIXED = 0.03          # 5 % fixed SL for MID / SMALL
 ATR_MULT   = {"MEGA": 2.5, "LARGE": 2.0}
 ATR_FLOOR  = 0.03
 ATR_CAP    = 0.10
