@@ -17,12 +17,12 @@ from engine.create_stock_data import recompute_indicators
 from engine.news import build_news_cache
 
 from engine.accuracy import (
-from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers
     compute_per_ticker_accuracy, print_accuracy_report,
     ENTRY_THRESHOLD_LC, ENTRY_THRESHOLD_SC,
     EXIT_THRESHOLD_LC, EXIT_THRESHOLD_SC,
     HORIZONS, HOLD_DAYS, SL_FIXED,
 )
+from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers
 
 STOP_LOSS_PCT = SL_FIXED
 
