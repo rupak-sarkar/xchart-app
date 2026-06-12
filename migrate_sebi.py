@@ -1,6 +1,6 @@
-"""migrate_sebi.py V2 — Tech logic + tickers + markers + weighting."""
+"""migrate_sebi.py V3 — Fix v8 tech scoring (Category, BB exit, output override)."""
 
-import os, re, subprocess
+import re, subprocess
 from pathlib import Path
 
 
@@ -10,463 +10,327 @@ def write_file(fp, content):
     print(f"  WROTE {fp}")
 
 
-def replace_in_file(fp, replacements):
-    p = Path(fp)
-    if not p.exists():
-        print(f"  SKIP (not found): {fp}")
-        return 0
-    content = p.read_text(encoding="utf-8")
-    orig = content
-    n = 0
-    for old, new in replacements:
-        if old in content:
-            content = content.replace(old, new)
-            n += 1
-    if content != orig:
-        p.write_text(content, encoding="utf-8")
-        print(f"  PATCHED {fp} ({n} replacements)")
-    return n
-
-
 def main():
     print("=" * 60)
-    print("  MIGRATION V2: Tech Logic + Tickers + Markers")
+    print("  MIGRATION V3: Fix v8 Tech Scoring")
     print("=" * 60)
 
-    print("\n[1/7] Creating engine/tech_v8.py...")
+    print("\n[1/3] Rewriting engine/tech_v8.py...")
     write_tech_v8()
 
-    print("\n[2/7] Patching app.py...")
+    print("\n[2/3] Patching app.py...")
     patch_app_py()
 
-    print("\n[3/7] Writing engine/tickers.py...")
-    write_tickers_py()
-
-    print("\n[4/7] Skipping update_tickers.yml (already exists)...")
-    # write_update_tickers_yml()
-    
-    print("\n[5/7] Patching screener files...")
-    patch_screener_files()
-
-    print("\n[6/7] Patching dashboard.html...")
-    patch_dashboard()
-
-    print("\n[7/7] Staging changes...")
+    print("\n[3/3] Staging changes...")
     subprocess.run(["git", "add", "-A"], capture_output=True)
 
     print("\n" + "=" * 60)
-    print("  MIGRATION V2 COMPLETE")
+    print("  MIGRATION V3 COMPLETE")
     print("=" * 60)
     print("""
-  Next steps:
-    1. Workflow commits automatically
-    2. Trigger "Update Tickers" to scrape screener.in
-    3. Trigger "Run Trading Engine" to verify
-    4. Delete migrate_sebi.py after success
+  Fixes:
+    1. Category column added to stock_df before v8 scoring
+    2. MID/SMALL exit now requires SMA9 falling (not just Close > BB_Mid)
+    3. v8 scores feed back into output (LUPIN will be NEUTRAL)
+    4. get_v8_latest_scores added to import + output override
+
+  Next: Trigger "Run Trading Engine"
 """)
 
 
-# ══════════════════════════════════════════════════════════════
-# FILE WRITERS
-# ══════════════════════════════════════════════════════════════
-
 def write_tech_v8():
-    code = [
-        '"""engine/tech_v8.py -- Corrected technical scoring logic v8.',
-        '',
-        'MEGA/LARGE (Hard Gate):',
-        '  Entry: Close < SMA9 < SMA22 < SMA200 AND SMA9 rising',
-        '  Exit:  Close > SMA9 > SMA22 > SMA200 AND SMA9 falling',
-        '  Gate:  If neither -> tech=0 -> composite=0 (news/fund/macro CANNOT override)',
-        '',
-        'MID/SMALL (BB + SMA9 Reversal):',
-        '  Entry: Close < BB_Lower AND SMA9 rising',
-        '  Exit:  Close > BB_Mid',
-        '  Weight: 75% tech + 25% (macro+fund+news)/3',
-        '"""',
-        '',
-        'import numpy as np',
-        'import pandas as pd',
-        '',
-        '',
-        'def _safe(v, default=0.0):',
-        '    try:',
-        '        f = float(v)',
-        '        return default if (f != f) else f',
-        '    except (TypeError, ValueError):',
-        '        return default',
-        '',
-        '',
-        'def score_tech_row(close, sma9, sma22, sma200, sma9_prev,',
-        '                   bb_lower, bb_mid, category):',
-        '    """Compute tech score for a single row."""',
-        '    close = _safe(close)',
-        '    sma9 = _safe(sma9)',
-        '    sma22 = _safe(sma22)',
-        '    sma200 = _safe(sma200)',
-        '    sma9_prev = _safe(sma9_prev, sma9)',
-        '    bb_lower = _safe(bb_lower)',
-        '    bb_mid = _safe(bb_mid)',
-        '',
-        '    if close <= 0 or sma9 <= 0 or sma22 <= 0:',
-        '        return 0',
-        '',
-        '    sma9_rising = sma9 > sma9_prev',
-        '    sma9_falling = sma9 < sma9_prev',
-        '',
-        '    if category in ("MEGA", "LARGE"):',
-        '        # ENTRY: Bearish stack + SMA9 just turned up',
-        '        if (close < sma9 and sma9 < sma22 and sma22 < sma200',
-        '                and sma200 > 0 and sma9_rising):',
-        '            return 40',
-        '        # EXIT: Bullish stack + SMA9 just turned down',
-        '        elif (close > sma9 and sma9 > sma22 and sma22 > sma200',
-        '              and sma200 > 0 and sma9_falling):',
-        '            return -40',
-        '        else:',
-        '            return 0  # Hard gate: no signal',
-        '',
-        '    else:  # MID / SMALL',
-        '        if bb_lower <= 0 or bb_mid <= 0:',
-        '            return 0',
-        '        # ENTRY: Price below lower BB + SMA9 recovering',
-        '        if close < bb_lower and sma9_rising:',
-        '            return 40',
-        '        # EXIT: Price crosses above BB midline',
-        '        elif close > bb_mid:',
-        '            return -40',
-        '        else:',
-        '            return 0',
-        '',
-        '',
-        'def _col(df, name):',
-        '    """Safely get column as array, zeros if missing."""',
-        '    if name in df.columns:',
-        '        return pd.to_numeric(df[name], errors="coerce").fillna(0).values',
-        '    return np.zeros(len(df))',
-        '',
-        '',
-        'def compute_tech_scores(stock_df):',
-        '    """Recompute Tech_Score for entire DataFrame using v8 logic."""',
-        '    df = stock_df.copy()',
-        '',
-        '    # Ensure SMA_9_prev exists',
-        '    if "SMA_9_prev" not in df.columns:',
-        '        df["SMA_9_prev"] = df.groupby("Ticker")["SMA_9"].shift(1)',
-        '',
-        '    cat_col = "Category" if "Category" in df.columns else "BT_Category"',
-        '    if cat_col not in df.columns:',
-        '        df[cat_col] = "MID"',
-        '',
-        '    # Detect BB column names',
-        '    bb_mid_col = None',
-        '    bb_lower_col = None',
-        '    for c in df.columns:',
-        '        cl = c.lower()',
-        '        if "bb" in cl and "mid" in cl:',
-        '            bb_mid_col = c',
-        '        elif "bb" in cl and ("lower" in cl or "low" in cl):',
-        '            bb_lower_col = c',
-        '        elif cl == "bb_middle":',
-        '            bb_mid_col = c',
-        '',
-        '    # Also check SMA_22 as BB mid proxy if no BB columns',
-        '    if bb_mid_col is None:',
-        '        bb_mid_col = "SMA_22"',
-        '    if bb_lower_col is None:',
-        '        bb_lower_col = "BB_Lower"',
-        '',
-        '    close = _col(df, "Close")',
-        '    sma9 = _col(df, "SMA_9")',
-        '    sma22 = _col(df, "SMA_22")',
-        '    sma200 = _col(df, "SMA_200")',
-        '    sma9_prev = _col(df, "SMA_9_prev")',
-        '    bb_lower = _col(df, bb_lower_col)',
-        '    bb_mid = _col(df, bb_mid_col)',
-        '    cats = df[cat_col].fillna("MID").values',
-        '',
-        '    scores = np.zeros(len(df), dtype=int)',
-        '    for i in range(len(df)):',
-        '        scores[i] = score_tech_row(',
-        '            close[i], sma9[i], sma22[i], sma200[i], sma9_prev[i],',
-        '            bb_lower[i], bb_mid[i], str(cats[i])',
-        '        )',
-        '',
-        '    # Count stats',
-        '    entry = (scores > 0).sum()',
-        '    exit_ = (scores < 0).sum()',
-        '    neutral = (scores == 0).sum()',
-        '    print(f"  [v8] Tech scores: Entry={entry} Exit={exit_} Neutral={neutral}")',
-        '',
-        '    df["Tech_Score"] = scores',
-        '    if "Technical_Score" in df.columns:',
-        '        df["Technical_Score"] = scores',
-        '',
-        '    return df',
-        '',
-        '',
-        'def compute_composites(stock_df):',
-        '    """Recompute Composite_Score with hard gate (LC) and 75/25 weighting (SC)."""',
-        '    df = stock_df.copy()',
-        '',
-        '    tech = _col(df, "Tech_Score")',
-        '    macro = _col(df, "Macro_Score")',
-        '    fund = _col(df, "Fund_Score")',
-        '    if fund.sum() == 0:',
-        '        fund = _col(df, "Fundamental_Score")',
-        '    news = _col(df, "News_Score")',
-        '    if news.sum() == 0:',
-        '        news = _col(df, "Forecast_Score")',
-        '',
-        '    cat_col = "Category" if "Category" in df.columns else "BT_Category"',
-        '    cats = df[cat_col].fillna("MID").values if cat_col in df.columns else np.full(len(df), "MID")',
-        '',
-        '    composites = np.zeros(len(df))',
-        '    directions = np.zeros(len(df), dtype=int)',
-        '',
-        '    for i in range(len(df)):',
-        '        t = tech[i]',
-        '        m = macro[i]',
-        '        f = fund[i]',
-        '        n = news[i]',
-        '        cat = str(cats[i])',
-        '',
-        '        if cat in ("MEGA", "LARGE"):',
-        '            # HARD GATE: tech must be non-zero',
-        '            if t == 0:',
-        '                composites[i] = 0.0',
-        '                directions[i] = 0',
-        '            else:',
-        '                # Tech is the signal, others add conviction',
-        '                composites[i] = t + m + f + n',
-        '                directions[i] = 1 if composites[i] > 20 else (-1 if composites[i] < -20 else 0)',
-        '        else:  # MID / SMALL',
-        '            # 75% tech + 25% average of others',
-        '            if t == 0:',
-        '                others_avg = (m + f + n) / 3.0',
-        '                composites[i] = 0.25 * others_avg',
-        '            else:',
-        '                others_avg = (m + f + n) / 3.0',
-        '                composites[i] = 0.75 * t + 0.25 * others_avg',
-        '            directions[i] = 1 if composites[i] > 20 else (-1 if composites[i] < -20 else 0)',
-        '',
-        '    n_dir = (directions != 0).sum()',
-        '    n_pos = (directions == 1).sum()',
-        '    n_neg = (directions == -1).sum()',
-        '    print(f"  [v8] Composites: {n_dir} directional (pos={n_pos}, neg={n_neg})")',
-        '',
-        '    df["Composite_Score"] = np.round(composites, 1)',
-        '    col_dir = "Momentum_Direction" if "Momentum_Direction" in df.columns else "Composite_Direction"',
-        '    df[col_dir] = directions',
-        '',
-        '    return df',
-        '',
-        '',
-        'def fix_chart_markers(markers):',
-        '    """Filter chart markers to show only transitions + use neutral symbols."""',
-        '    if not markers:',
-        '        return markers',
-        '',
-        '    # Sort by time',
-        '    markers = sorted(markers, key=lambda m: m.get("time", ""))',
-        '',
-        '    # Keep only transitions (direction changed from previous marker)',
-        '    filtered = []',
-        '    prev_dir = None',
-        '    for m in markers:',
-        '        text = m.get("text", "")',
-        '        shape = m.get("shape", "")',
-        '        # Determine direction from shape',
-        '        if "Up" in shape or "up" in shape:',
-        '            cur_dir = "up"',
-        '        elif "Down" in shape or "down" in shape:',
-        '            cur_dir = "down"',
-        '        else:',
-        '            cur_dir = "none"',
-        '',
-        '        if cur_dir != prev_dir:',
-        '            # Clean text: remove BULL/BEAR/POSITIVE/NEGATIVE',
-        '            import re as _re',
-        '            clean = _re.sub(r"(?i)(BULL|BEAR|POSITIVE|NEGATIVE)\\s*", "", text).strip()',
-        '            if not clean:',
-        '                clean = "entry" if cur_dir == "up" else "exit"',
-        '            m_copy = dict(m)',
-        '            m_copy["text"] = clean',
-        '            filtered.append(m_copy)',
-        '            prev_dir = cur_dir',
-        '',
-        '    return filtered',
-    ]
-    write_file("engine/tech_v8.py", "\n".join(code) + "\n")
+    lines = []
+    lines.append('"""engine/tech_v8.py -- Corrected technical scoring logic v8.')
+    lines.append('')
+    lines.append('MEGA/LARGE (Hard Gate):')
+    lines.append('  Entry: Close < SMA9 < SMA22 < SMA200 AND SMA9 rising')
+    lines.append('  Exit:  Close > SMA9 > SMA22 > SMA200 AND SMA9 falling')
+    lines.append('  Gate:  If neither -> tech=0 -> composite=0')
+    lines.append('')
+    lines.append('MID/SMALL (BB + SMA9 Reversal):')
+    lines.append('  Entry: Close < BB_Lower AND SMA9 rising')
+    lines.append('  Exit:  Close > BB_Mid AND SMA9 falling')
+    lines.append('  Weight: 75% tech + 25% (macro+fund+news)/3')
+    lines.append('"""')
+    lines.append('')
+    lines.append('import numpy as np')
+    lines.append('import pandas as pd')
+    lines.append('')
+    lines.append('')
+    lines.append('def _safe(v, default=0.0):')
+    lines.append('    try:')
+    lines.append('        f = float(v)')
+    lines.append('        return default if (f != f) else f')
+    lines.append('    except (TypeError, ValueError):')
+    lines.append('        return default')
+    lines.append('')
+    lines.append('')
+    lines.append('def classify_cap(mcap, threshold=10000):')
+    lines.append('    if mcap >= threshold * 10:')
+    lines.append('        return "MEGA"')
+    lines.append('    elif mcap >= threshold * 2:')
+    lines.append('        return "LARGE"')
+    lines.append('    elif mcap >= threshold * 0.5:')
+    lines.append('        return "MID"')
+    lines.append('    return "SMALL"')
+    lines.append('')
+    lines.append('')
+    lines.append('def score_tech_row(close, sma9, sma22, sma200, sma9_prev,')
+    lines.append('                   bb_lower, bb_mid, category):')
+    lines.append('    """Compute tech score for a single row."""')
+    lines.append('    close = _safe(close)')
+    lines.append('    sma9 = _safe(sma9)')
+    lines.append('    sma22 = _safe(sma22)')
+    lines.append('    sma200 = _safe(sma200)')
+    lines.append('    sma9_prev = _safe(sma9_prev, sma9)')
+    lines.append('    bb_lower = _safe(bb_lower)')
+    lines.append('    bb_mid = _safe(bb_mid)')
+    lines.append('')
+    lines.append('    if close <= 0 or sma9 <= 0 or sma22 <= 0:')
+    lines.append('        return 0')
+    lines.append('')
+    lines.append('    sma9_rising = sma9 > sma9_prev')
+    lines.append('    sma9_falling = sma9 < sma9_prev')
+    lines.append('')
+    lines.append('    if category in ("MEGA", "LARGE"):')
+    lines.append('        # ENTRY: Bearish stack + SMA9 just turned up')
+    lines.append('        if (close < sma9 and sma9 < sma22 and sma22 < sma200')
+    lines.append('                and sma200 > 0 and sma9_rising):')
+    lines.append('            return 40')
+    lines.append('        # EXIT: Bullish stack + SMA9 just turned down')
+    lines.append('        elif (close > sma9 and sma9 > sma22 and sma22 > sma200')
+    lines.append('              and sma200 > 0 and sma9_falling):')
+    lines.append('            return -40')
+    lines.append('        else:')
+    lines.append('            return 0  # Hard gate')
+    lines.append('')
+    lines.append('    else:  # MID / SMALL')
+    lines.append('        if bb_lower <= 0 or bb_mid <= 0:')
+    lines.append('            return 0')
+    lines.append('        # ENTRY: Price below lower BB + SMA9 recovering')
+    lines.append('        if close < bb_lower and sma9_rising:')
+    lines.append('            return 40')
+    lines.append('        # EXIT: Price above BB midline + SMA9 turning down')
+    lines.append('        elif close > bb_mid and sma9_falling:')
+    lines.append('            return -40')
+    lines.append('        else:')
+    lines.append('            return 0')
+    lines.append('')
+    lines.append('')
+    lines.append('def _col(df, name):')
+    lines.append('    """Safely get column as array, zeros if missing."""')
+    lines.append('    if name in df.columns:')
+    lines.append('        return pd.to_numeric(df[name], errors="coerce").fillna(0).values')
+    lines.append('    return np.zeros(len(df))')
+    lines.append('')
+    lines.append('')
+    lines.append('def _ensure_category(stock_df):')
+    lines.append('    """Add Category column to stock_df if missing, based on Market_Cap."""')
+    lines.append('    if "Category" in stock_df.columns:')
+    lines.append('        # Verify it is not all MID (might be default)')
+    lines.append('        cats = stock_df["Category"].unique()')
+    lines.append('        if len(cats) > 1 or (len(cats) == 1 and cats[0] != "MID"):')
+    lines.append('            return stock_df')
+    lines.append('')
+    lines.append('    df = stock_df.copy()')
+    lines.append('')
+    lines.append('    if "Market_Cap" in df.columns:')
+    lines.append('        mcap = pd.to_numeric(df["Market_Cap"], errors="coerce").fillna(0)')
+    lines.append('        # Forward-fill MCap per ticker so latest rows have values')
+    lines.append('        mcap = df.groupby("Ticker")["Market_Cap"].transform(')
+    lines.append('            lambda x: pd.to_numeric(x, errors="coerce").ffill().bfill().fillna(0)')
+    lines.append('        )')
+    lines.append('        # Auto-detect scale')
+    lines.append('        med = mcap[mcap > 0].median()')
+    lines.append('        if med > 1e10:')
+    lines.append('            mcap = mcap / 1e7')
+    lines.append('        df["Category"] = mcap.apply(classify_cap)')
+    lines.append('        vc = df.groupby("Ticker")["Category"].last().value_counts()')
+    lines.append('        print(f"  [v8] Category assigned: {dict(vc)}")')
+    lines.append('    else:')
+    lines.append('        df["Category"] = "MID"')
+    lines.append('        print("  [v8] WARNING: No Market_Cap column, defaulting all to MID")')
+    lines.append('')
+    lines.append('    return df')
+    lines.append('')
+    lines.append('')
+    lines.append('def compute_tech_scores(stock_df):')
+    lines.append('    """Recompute Tech_Score for entire DataFrame using v8 logic."""')
+    lines.append('    df = _ensure_category(stock_df)')
+    lines.append('')
+    lines.append('    # Ensure SMA_9_prev exists')
+    lines.append('    if "SMA_9_prev" not in df.columns:')
+    lines.append('        df["SMA_9_prev"] = df.groupby("Ticker")["SMA_9"].shift(1)')
+    lines.append('')
+    lines.append('    # Detect BB column names')
+    lines.append('    bb_mid_col = None')
+    lines.append('    bb_lower_col = None')
+    lines.append('    for c in df.columns:')
+    lines.append('        cl = c.lower()')
+    lines.append('        if "bb" in cl and "mid" in cl:')
+    lines.append('            bb_mid_col = c')
+    lines.append('        elif "bb" in cl and ("lower" in cl or "low" in cl):')
+    lines.append('            bb_lower_col = c')
+    lines.append('        elif cl == "bb_middle":')
+    lines.append('            bb_mid_col = c')
+    lines.append('')
+    lines.append('    if bb_mid_col is None:')
+    lines.append('        bb_mid_col = "SMA_22"')
+    lines.append('    if bb_lower_col is None:')
+    lines.append('        bb_lower_col = "BB_Lower"')
+    lines.append('')
+    lines.append('    close = _col(df, "Close")')
+    lines.append('    sma9 = _col(df, "SMA_9")')
+    lines.append('    sma22 = _col(df, "SMA_22")')
+    lines.append('    sma200 = _col(df, "SMA_200")')
+    lines.append('    sma9_prev = _col(df, "SMA_9_prev")')
+    lines.append('    bb_lower = _col(df, bb_lower_col)')
+    lines.append('    bb_mid = _col(df, bb_mid_col)')
+    lines.append('    cats = df["Category"].fillna("MID").values')
+    lines.append('')
+    lines.append('    scores = np.zeros(len(df), dtype=int)')
+    lines.append('    for i in range(len(df)):')
+    lines.append('        scores[i] = score_tech_row(')
+    lines.append('            close[i], sma9[i], sma22[i], sma200[i], sma9_prev[i],')
+    lines.append('            bb_lower[i], bb_mid[i], str(cats[i])')
+    lines.append('        )')
+    lines.append('')
+    lines.append('    entry = (scores > 0).sum()')
+    lines.append('    exit_ = (scores < 0).sum()')
+    lines.append('    neutral = (scores == 0).sum()')
+    lines.append('    print(f"  [v8] Tech scores: Entry={entry} Exit={exit_} Neutral={neutral}")')
+    lines.append('')
+    lines.append('    for cat in ["MEGA", "LARGE", "MID", "SMALL"]:')
+    lines.append('        mask = np.array([str(c) == cat for c in cats])')
+    lines.append('        if mask.sum() > 0:')
+    lines.append('            e = (scores[mask] > 0).sum()')
+    lines.append('            x = (scores[mask] < 0).sum()')
+    lines.append('            n = (scores[mask] == 0).sum()')
+    lines.append('            print(f"  [v8]   {cat}: Entry={e} Exit={x} Neutral={n} ({mask.sum()} rows)")')
+    lines.append('')
+    lines.append('    df["Tech_Score"] = scores')
+    lines.append('    if "Technical_Score" in df.columns:')
+    lines.append('        df["Technical_Score"] = scores')
+    lines.append('')
+    lines.append('    # Write back to original df')
+    lines.append('    stock_df["Tech_Score"] = df["Tech_Score"].values')
+    lines.append('    if "Technical_Score" in stock_df.columns:')
+    lines.append('        stock_df["Technical_Score"] = df["Technical_Score"].values')
+    lines.append('    if "Category" not in stock_df.columns or stock_df["Category"].nunique() <= 1:')
+    lines.append('        stock_df["Category"] = df["Category"].values')
+    lines.append('    if "SMA_9_prev" not in stock_df.columns:')
+    lines.append('        stock_df["SMA_9_prev"] = df["SMA_9_prev"].values')
+    lines.append('')
+    lines.append('    return stock_df')
+    lines.append('')
+    lines.append('')
+    lines.append('def compute_composites(stock_df):')
+    lines.append('    """Recompute Composite_Score with hard gate (LC) and 75/25 weighting (SC)."""')
+    lines.append('    df = _ensure_category(stock_df)')
+    lines.append('')
+    lines.append('    tech = _col(df, "Tech_Score")')
+    lines.append('    macro = _col(df, "Macro_Score")')
+    lines.append('    fund = _col(df, "Fund_Score")')
+    lines.append('    if fund.sum() == 0:')
+    lines.append('        fund = _col(df, "Fundamental_Score")')
+    lines.append('    news = _col(df, "News_Score")')
+    lines.append('    if news.sum() == 0:')
+    lines.append('        news = _col(df, "Forecast_Score")')
+    lines.append('')
+    lines.append('    cats = df["Category"].fillna("MID").values')
+    lines.append('')
+    lines.append('    composites = np.zeros(len(df))')
+    lines.append('    directions = np.zeros(len(df), dtype=int)')
+    lines.append('')
+    lines.append('    for i in range(len(df)):')
+    lines.append('        t = tech[i]')
+    lines.append('        m = macro[i]')
+    lines.append('        f = fund[i]')
+    lines.append('        n = news[i]')
+    lines.append('        cat = str(cats[i])')
+    lines.append('')
+    lines.append('        if cat in ("MEGA", "LARGE"):')
+    lines.append('            if t == 0:')
+    lines.append('                composites[i] = 0.0')
+    lines.append('                directions[i] = 0')
+    lines.append('            else:')
+    lines.append('                composites[i] = t + m + f + n')
+    lines.append('                directions[i] = 1 if composites[i] > 20 else (-1 if composites[i] < -20 else 0)')
+    lines.append('        else:')
+    lines.append('            if t == 0:')
+    lines.append('                others_avg = (m + f + n) / 3.0')
+    lines.append('                composites[i] = 0.25 * others_avg')
+    lines.append('            else:')
+    lines.append('                others_avg = (m + f + n) / 3.0')
+    lines.append('                composites[i] = 0.75 * t + 0.25 * others_avg')
+    lines.append('            directions[i] = 1 if composites[i] > 20 else (-1 if composites[i] < -20 else 0)')
+    lines.append('')
+    lines.append('    n_dir = (directions != 0).sum()')
+    lines.append('    n_pos = (directions == 1).sum()')
+    lines.append('    n_neg = (directions == -1).sum()')
+    lines.append('    print(f"  [v8] Composites: {n_dir} directional (pos={n_pos}, neg={n_neg})")')
+    lines.append('')
+    lines.append('    for cat in ["MEGA", "LARGE", "MID", "SMALL"]:')
+    lines.append('        mask = np.array([str(c) == cat for c in cats])')
+    lines.append('        if mask.sum() > 0:')
+    lines.append('            d = directions[mask]')
+    lines.append('            print(f"  [v8]   {cat}: pos={(d == 1).sum()} neg={(d == -1).sum()} neut={(d == 0).sum()}")')
+    lines.append('')
+    lines.append('    stock_df["Composite_Score"] = np.round(composites, 1)')
+    lines.append('    col_dir = "Momentum_Direction" if "Momentum_Direction" in stock_df.columns else "Composite_Direction"')
+    lines.append('    stock_df[col_dir] = directions')
+    lines.append('')
+    lines.append('    return stock_df')
+    lines.append('')
+    lines.append('')
+    lines.append('def get_v8_latest_scores(stock_df, tickers):')
+    lines.append('    """Get the LATEST v8 tech scores per ticker for output override."""')
+    lines.append('    results = {}')
+    lines.append('    for tk in tickers:')
+    lines.append('        tdf = stock_df[stock_df["Ticker"].astype(str).str.strip() == tk]')
+    lines.append('        if tdf.empty:')
+    lines.append('            continue')
+    lines.append('        last = tdf.iloc[-1]')
+    lines.append('        results[tk] = {')
+    lines.append('            "Tech_Score": int(last.get("Tech_Score", 0)),')
+    lines.append('            "Category": str(last.get("Category", "MID")),')
+    lines.append('        }')
+    lines.append('    return results')
+    lines.append('')
+    lines.append('')
+    lines.append('def fix_chart_markers(markers):')
+    lines.append('    """Filter chart markers to show only transitions + use neutral symbols."""')
+    lines.append('    if not markers:')
+    lines.append('        return markers')
+    lines.append('')
+    lines.append('    markers = sorted(markers, key=lambda m: m.get("time", ""))')
+    lines.append('')
+    lines.append('    filtered = []')
+    lines.append('    prev_dir = None')
+    lines.append('    for m in markers:')
+    lines.append('        text = m.get("text", "")')
+    lines.append('        shape = m.get("shape", "")')
+    lines.append('        if "Up" in shape or "up" in shape:')
+    lines.append('            cur_dir = "up"')
+    lines.append('        elif "Down" in shape or "down" in shape:')
+    lines.append('            cur_dir = "down"')
+    lines.append('        else:')
+    lines.append('            cur_dir = "none"')
+    lines.append('')
+    lines.append('        if cur_dir != prev_dir:')
+    lines.append('            import re as _re')
+    lines.append('            clean = _re.sub(r"(?i)(BULL|BEAR|POSITIVE|NEGATIVE)\\s*", "", text).strip()')
+    lines.append('            if not clean:')
+    lines.append('                clean = "entry" if cur_dir == "up" else "exit"')
+    lines.append('            m_copy = dict(m)')
+    lines.append('            m_copy["text"] = clean')
+    lines.append('            filtered.append(m_copy)')
+    lines.append('            prev_dir = cur_dir')
+    lines.append('')
+    lines.append('    return filtered')
 
+    write_file("engine/tech_v8.py", "\n".join(lines) + "\n")
 
-def write_tickers_py():
-    code = [
-        '"""engine/tickers.py -- Ticker loading + screener.in scraper."""',
-        '',
-        'import os',
-        'import time',
-        'import pandas as pd',
-        'from pathlib import Path',
-        '',
-        'TICKERS_FILE = Path("output/tickers.csv")',
-        '',
-        '',
-        'def is_bad_str(s):',
-        '    s = str(s).strip().lower()',
-        '    return s in ("", "nan", "none", "0", "other")',
-        '',
-        '',
-        'def load_tickers():',
-        '    """Load tickers from output/tickers.csv."""',
-        '    if TICKERS_FILE.exists():',
-        '        try:',
-        '            df = pd.read_csv(TICKERS_FILE)',
-        '            df.columns = df.columns.str.strip()',
-        '            if "Ticker" not in df.columns:',
-        '                df.rename(columns={df.columns[0]: "Ticker"}, inplace=True)',
-        '            tks = [t.replace(".NS", "") for t in df["Ticker"].dropna().str.strip().str.upper().tolist() if t]',
-        '            s = set()',
-        '            u = []',
-        '            for t in tks:',
-        '                if t not in s:',
-        '                    s.add(t)',
-        '                    u.append(t)',
-        '            sm = {}',
-        '            if "Sector" in df.columns:',
-        '                for _, r in df.iterrows():',
-        '                    tk = str(r["Ticker"]).strip().upper().replace(".NS", "")',
-        '                    sc = str(r.get("Sector", "")).strip()',
-        '                    if tk and sc and not is_bad_str(sc):',
-        '                        sm[tk] = sc',
-        '            print(f"Loaded {len(u)} tickers from {TICKERS_FILE} (sector map: {len(sm)} entries)")',
-        '            return u, sm',
-        '        except Exception as e:',
-        '            print(f"Error loading tickers: {e}")',
-        '    return ["RELIANCE", "TCS", "INFY", "HDFCBANK", "SBIN", "ICICIBANK", "ITC"], {}',
-        '',
-        '',
-        'def update_tickers():',
-        '    """Scrape screener.in public screen and write output/tickers.csv."""',
-        '    try:',
-        '        import requests',
-        '        from bs4 import BeautifulSoup',
-        '    except ImportError:',
-        '        print("ERROR: requests/beautifulsoup4 not installed")',
-        '        return',
-        '',
-        '    print("=" * 70)',
-        '    print("  Screener.in Ticker Scraper -> output/tickers.csv")',
-        '    print("=" * 70)',
-        '',
-        '    base_url = "https://www.screener.in/screens/2650136/good-stocks/?page="',
-        '    hrefs = []',
-        '    headers = {',
-        '        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",',
-        '        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",',
-        '        "Accept-Language": "en-IN,en;q=0.9",',
-        '    }',
-        '',
-        '    for page_num in range(1, 15):',
-        '        url = base_url + str(page_num)',
-        '        try:',
-        '            response = requests.get(url, headers=headers, timeout=15)',
-        '            response.raise_for_status()',
-        '            soup = BeautifulSoup(response.content, "html.parser")',
-        '            page_links = []',
-        '            for a_tag in soup.find_all("a", href=True):',
-        '                href = a_tag["href"]',
-        '                if "/company/" in href:',
-        '                    page_links.append(href)',
-        '            hrefs.extend(page_links)',
-        '            print(f"  Page {page_num}: {len(page_links)} company links")',
-        '            if len(page_links) == 0:',
-        '                print("  No more results — stopping.")',
-        '                break',
-        '            time.sleep(1.5)',
-        '        except Exception as e:',
-        '            print(f"  Page {page_num}: Error - {e}")',
-        '            break',
-        '',
-        '    print(f"  Total raw links: {len(hrefs)}")',
-        '',
-        '    if not hrefs:',
-        '        print("  ERROR: No tickers scraped! Keeping existing tickers.csv.")',
-        '        return',
-        '',
-        '    df_scraped = pd.DataFrame(hrefs, columns=["Column1"])',
-        '    df_scraped["Company Name"] = df_scraped["Column1"].str.split("/").str[2]',
-        '    df_scraped = df_scraped.drop_duplicates(subset="Company Name")',
-        '    df_scraped["Ticker"] = df_scraped["Company Name"].str.upper()',
-        '    df_scraped["Ticker"] = df_scraped["Ticker"].str.replace(".NS", "", regex=False).str.strip()',
-        '    df_scraped = df_scraped[df_scraped["Ticker"].str.len() > 0]',
-        '',
-        '    df_final = pd.DataFrame({"Ticker": df_scraped["Ticker"].values, "Sector": ""})',
-        '    df_final = df_final.sort_values("Ticker").reset_index(drop=True)',
-        '',
-        '    # Safety: dont overwrite with fewer tickers than existing',
-        '    if TICKERS_FILE.exists():',
-        '        existing = pd.read_csv(TICKERS_FILE)',
-        '        if len(df_final) < len(existing) * 0.5:',
-        '            print(f"  WARNING: Scraped {len(df_final)} but existing has {len(existing)}. Keeping existing.")',
-        '            return',
-        '',
-        '    TICKERS_FILE.parent.mkdir(parents=True, exist_ok=True)',
-        '    df_final.to_csv(TICKERS_FILE, index=False)',
-        '',
-        '    print(f"  output/tickers.csv written — {len(df_final)} unique tickers")',
-        '    print(f"  First 10: {df_final[\'Ticker\'].head(10).tolist()}")',
-        '    print(f"  Last 10:  {df_final[\'Ticker\'].tail(10).tolist()}")',
-    ]
-    write_file("engine/tickers.py", "\n".join(code) + "\n")
-
-
-def write_update_tickers_yml():
-    yml = """name: Update Tickers
-
-on:
-  schedule:
-    - cron: '0 5 * * 0'
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  update-tickers:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install pandas requests beautifulsoup4
-
-      - name: Update tickers
-        run: python -c "from engine.tickers import update_tickers; update_tickers()"
-
-      - name: Commit and push
-        run: |
-          git config user.name "GitHub Actions Automation"
-          git config user.email "actions@github.com"
-          git add output/tickers.csv
-          git diff --staged --quiet || git commit -m "Tickers update $(date -u +%Y-%m-%d)"
-          git pull --rebase origin master
-          git push
-"""
-    write_file(".github/workflows/update_tickers.yml", yml)
-
-
-# ══════════════════════════════════════════════════════════════
-# PATCH FUNCTIONS
-# ══════════════════════════════════════════════════════════════
 
 def patch_app_py():
     fp = Path("app.py")
@@ -478,125 +342,77 @@ def patch_app_py():
     original = content
     changes = 0
 
-    # 1. Add import
-    if "from engine.tech_v8" not in content:
-        import_line = "from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers\n"
-        last_engine = -1
-        for m in re.finditer(r'from engine\.\w+ import [^\n]+\n', content):
-            last_engine = m.end()
-        if last_engine > 0:
-            content = content[:last_engine] + import_line + content[last_engine:]
-        else:
-            content = import_line + content
+    # Fix 1: Add get_v8_latest_scores to import
+    old_import = "from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers"
+    new_import = "from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers, get_v8_latest_scores"
+
+    if old_import in content and "get_v8_latest_scores" not in content:
+        content = content.replace(old_import, new_import)
         changes += 1
-        print("  Added tech_v8 import")
+        print("  Fixed: Added get_v8_latest_scores to import")
+    elif "get_v8_latest_scores" in content:
+        print("  OK: get_v8_latest_scores already imported")
+    else:
+        print("  WARNING: Could not find tech_v8 import line!")
 
-    # 2. Inject v8 tech scoring BEFORE backtest
-    v8_tech = '\n    # ── v8 Tech Scoring Override ──\n    print("  [v8] Applying corrected tech scoring...")\n    stock_df = compute_tech_scores(stock_df)\n    # ─────────────────────────────\n'
-    if "[v8] Applying corrected tech" not in content:
-        for marker in ["PHASE 3b", "Backtest (ATR", "Backtest(ATR", "Per-category accuracy"]:
-            idx = content.find(marker)
-            if idx >= 0:
-                line_start = content.rfind('\n', 0, idx) + 1
-                prev_line_start = content.rfind('\n', 0, line_start - 1) + 1
-                content = content[:prev_line_start] + v8_tech + content[prev_line_start:]
-                changes += 1
-                print(f"  Injected v8 tech scoring before '{marker}'")
-                break
-        else:
-            print("  WARNING: Could not find backtest section!")
+    # Fix 2: Add v8 score override before output loop
+    # Find the line after regime print and before the scored_rows output loop
+    marker_line = "bull_damp={bull_damp} bear_damp={bear_damp}"
+    v8_override = """
+    # ── v8 Override: Feed corrected tech scores into output ──
+    v8_scores = get_v8_latest_scores(stock_df, tickers)
+    v8_applied = 0
+    for sr in scored_rows:
+        tk = sr["Ticker"]
+        if tk in v8_scores:
+            sr["Tech_Score"] = v8_scores[tk]["Tech_Score"]
+            sr["Category"] = v8_scores[tk]["Category"]
+            v8_applied += 1
+    print(f"  [v8] Overrode {v8_applied}/{len(scored_rows)} ticker scores with v8 logic")
+    # ─────────────────────────────────────────────────────────
+"""
 
-    # 3. Inject v8 composite scoring AFTER old composite
-    v8_comp = '\n    # ── v8 Composite Override ──\n    print("  [v8] Applying corrected composite scoring...")\n    stock_df = compute_composites(stock_df)\n    # ─────────────────────────────\n'
-    if "[v8] Applying corrected composite" not in content:
-        for marker in ["non-zero Composite_Score", "Adding Composite_Score", "Composite_Score to stock_df"]:
-            idx = content.find(marker)
-            if idx >= 0:
-                line_end = content.find('\n', idx) + 1
-                content = content[:line_end] + v8_comp + content[line_end:]
-                changes += 1
-                print(f"  Injected v8 composite after '{marker}'")
-                break
+    if "v8_scores = get_v8_latest_scores" not in content:
+        idx = content.find(marker_line)
+        if idx >= 0:
+            line_end = content.find('\n', idx) + 1
+            content = content[:line_end] + v8_override + content[line_end:]
+            changes += 1
+            print("  Fixed: Added v8 score override before output loop")
         else:
-            print("  WARNING: Could not find composite section!")
+            print("  WARNING: Could not find regime print line for v8 override!")
+    else:
+        print("  OK: v8 score override already present")
 
-    # 4. Fix chart marker generation
-    if "fix_chart_markers(markers)" not in content:
-        patterns = ["'markers': markers", '"markers": markers',
-                    "'markers':markers", '"markers":markers']
-        for pat in patterns:
-            idx = content.find(pat)
-            if idx >= 0:
-                line_start = content.rfind('\n', 0, idx) + 1
-                indent = " " * (len(content[line_start:idx]) - len(content[line_start:idx].lstrip()) + 8)
-                inject = indent + "markers = fix_chart_markers(markers)\n"
-                content = content[:line_start] + inject + content[line_start:]
-                changes += 1
-                print("  Injected marker fix")
-                break
-        else:
-            print("  WARNING: Could not find markers dict!")
+    # Fix 3: Make compute_composite respect v8 hard gate
+    # After composite is computed per ticker, check if tech is 0 for LC
+    # Find the line: "if comp >= entry: direction = 1"
+    old_comp_block = """        if comp >= entry: direction = 1; dir_label = "POSITIVE"; tech_bull += 1
+        elif comp <= -entry: direction = -1; dir_label = "NEGATIVE"; tech_bear += 1
+        else: direction = 0; dir_label = "NEUTRAL"; tech_neut += 1"""
+
+    new_comp_block = """        # v8 hard gate: if tech=0 for MEGA/LARGE, force NEUTRAL
+        if cat in ("MEGA", "LARGE") and tech == 0:
+            direction = 0; dir_label = "NEUTRAL"; tech_neut += 1
+            comp = 0.0
+        elif comp >= entry: direction = 1; dir_label = "POSITIVE"; tech_bull += 1
+        elif comp <= -entry: direction = -1; dir_label = "NEGATIVE"; tech_bear += 1
+        else: direction = 0; dir_label = "NEUTRAL"; tech_neut += 1"""
+
+    if "v8 hard gate" not in content and old_comp_block in content:
+        content = content.replace(old_comp_block, new_comp_block)
+        changes += 1
+        print("  Fixed: Added hard gate check in output composite logic")
+    elif "v8 hard gate" in content:
+        print("  OK: Hard gate already present in output logic")
+    else:
+        print("  WARNING: Could not find composite direction block for hard gate!")
 
     if content != original:
         fp.write_text(content, encoding="utf-8")
         print(f"  app.py patched ({changes} changes)")
-
-
-def patch_screener_files():
-    # run_fundamentals.py — stop writing to output/tickers.csv
-    rf = Path("screener/run_fundamentals.py")
-    if rf.exists():
-        content = rf.read_text(encoding="utf-8")
-        if "save_premium_tickers(premium_tickers" in content and "# v8:" not in content:
-            content = content.replace(
-                "save_premium_tickers(premium_tickers",
-                "# v8: Screener.in scraper handles output/tickers.csv now\n    # save_premium_tickers(premium_tickers"
-            )
-            rf.write_text(content, encoding="utf-8")
-            print("  Patched run_fundamentals.py (disabled tickers.csv write)")
-        else:
-            print("  run_fundamentals.py: already patched or pattern not found")
-
-    # premium_filter.py — change output path to screener_data/
-    pf_path = Path("screener/premium_filter.py")
-    if pf_path.exists():
-        content = pf_path.read_text(encoding="utf-8")
-        if 'output/tickers.csv' in content:
-            content = content.replace('output/tickers.csv', 'screener_data/premium_tickers.csv')
-            pf_path.write_text(content, encoding="utf-8")
-            print("  Patched premium_filter.py (writes to screener_data/ now)")
-        else:
-            print("  premium_filter.py: already patched")
-
-
-def patch_dashboard():
-    fp = Path("dashboard.html")
-    if not fp.exists():
-        print("  dashboard.html not found!")
-        return
-
-    content = fp.read_text(encoding="utf-8")
-    original = content
-
-    # Fix marker display
-    old = "if(CD.markers&&CD.markers.length)CS.setMarkers(CD.markers)"
-    new = "if(CD.markers&&CD.markers.length){var sm=CD.markers.map(function(m){var n=Object.assign({},m);n.text=(n.text||'').replace(/BULL/gi,'\\u25B2').replace(/BEAR/gi,'\\u25BC').replace(/POSITIVE/gi,'\\u25B2').replace(/NEGATIVE/gi,'\\u25BC');return n});CS.setMarkers(sm)}"
-
-    if old in content:
-        content = content.replace(old, new)
-        print("  Fixed marker display (symbols)")
-    elif "replace(/BULL/" not in content:
-        # Try alternate
-        alt = "CS.setMarkers(CD.markers)"
-        alt_new = "CS.setMarkers((CD.markers||[]).map(function(m){var n=Object.assign({},m);n.text=(n.text||'').replace(/BULL|POSITIVE/gi,'\\u25B2').replace(/BEAR|NEGATIVE/gi,'\\u25BC');return n}))"
-        if alt in content:
-            content = content.replace(alt, alt_new, 1)
-            print("  Fixed marker display (alternate)")
     else:
-        print("  Markers already fixed")
-
-    if content != original:
-        fp.write_text(content, encoding="utf-8")
+        print("  app.py: no changes needed")
 
 
 if __name__ == "__main__":
