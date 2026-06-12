@@ -100,37 +100,39 @@ a{color:var(--accent);text-decoration:none}
   .md-chart{min-height:250px}
   .md-rsi,.md-macd,.md-adx{height:80px}
 }
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 </style>
 </head>
 <body>
+<a href="#mainContent" class="sr-only" style="position:absolute;top:-40px;left:0;background:#2563EB;color:#fff;padding:8px 16px;z-index:999" onfocus="this.style.top='0'" onblur="this.style.top='-40px'">Skip to main content</a>
 
 <div class="hdr" style="background:#fff;border-bottom:1px solid #E5E7EB;box-shadow:0 1px 3px rgba(0,0,0,0.06)">
   <div style="display:flex;align-items:center;gap:8px">
-    <button class="ham" id="hamBtn">☰</button>
+    <button class="ham" id="hamBtn" aria-label="Open navigation menu" aria-expanded="false">☰</button>
     <a href="/" style="font-size:22px;font-weight:800;color:#1F2937;text-decoration:none">x<span style="color:#2563EB">chart</span>.in<span style="font-size:8px;background:#2563EB;color:#fff;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700">PREMIUM</span></a>
   </div>
-  <div class="hdr-right"><a href="/" style="color:#6B7280;font-size:12px;font-weight:500">Backtest</a><a href="dashboard.html" style="color:#2563EB;font-size:12px;font-weight:500;margin-left:12px">Premium Analytics</a><a href="disclaimer.html" style="color:#6B7280;font-size:12px;font-weight:500;margin-left:12px">Disclaimer</a><span class="hdr-date" id="hDate" style="margin-left:12px;color:#6B7280">&mdash;</span></div>
+  <div class="hdr-right"><a href="/" style="color:#6B7280;font-size:12px;font-weight:500">Backtest</a><a href="dashboard.html" style="color:#2563EB;font-size:12px;font-weight:500;margin-left:12px">Premium Analytics</a><a href="disclaimer.html" style="color:#6B7280;font-size:12px;font-weight:500;margin-left:12px">Disclaimer</a><span class="hdr-date" id="hDate" aria-label="Last updated date" style="margin-left:12px;color:#6B7280">&mdash;</span></div>
 </div>
-<div class="sb-overlay" id="sbOverlay"></div>
+<div class="sb-overlay" id="sbOverlay" aria-hidden="true"></div>
 <div class="wrap">
-  <div class="sb" id="sidebar">
-    <div class="sb-search"><input type="text" id="sInput" placeholder="Search ticker..."></div>
-    <div class="sb-filters" id="filterBar">
-      <button class="fb active" data-f="all">All</button>
-      <button class="fb fb-bull" data-f="bull">Bull</button>
-      <button class="fb fb-bear" data-f="bear">Bear</button>
-      <button class="fb" data-f="neut">Neut</button>
-      <button class="fb" data-f="hold">Hold</button>
-      <button class="fb" data-f="mega">Mega</button>
-      <button class="fb" data-f="large">Large</button>
-      <button class="fb" data-f="mid">Mid</button>
-      <button class="fb" data-f="small">Small</button>
-      <button class="fb" data-f="bbh">BBH</button>
-      <button class="fb" data-f="bbl">BBL</button>
-      <button class="fb" data-f="news">&#x1F4F0; News</button>
+  <nav class="sb" id="sidebar" aria-label="Stock list navigation">
+    <div class="sb-search"><input type="text" id="sInput" aria-label="Search ticker" placeholder="Search ticker..."></div>
+    <div class="sb-filters" id="filterBar" role="toolbar" aria-label="Stock filters">
+      <button class="fb active" data-f="all" aria-label="Show all stocks">All</button>
+      <button class="fb fb-bull" data-f="bull" aria-label="Show positive momentum">Bull</button>
+      <button class="fb fb-bear" data-f="bear" aria-label="Show negative momentum">Bear</button>
+      <button class="fb" data-f="neut" aria-label="Show neutral stocks">Neut</button>
+      <button class="fb" data-f="hold" aria-label="Show hold stocks">Hold</button>
+      <button class="fb" data-f="mega" aria-label="Show mega cap">Mega</button>
+      <button class="fb" data-f="large" aria-label="Show large cap">Large</button>
+      <button class="fb" data-f="mid" aria-label="Show mid cap">Mid</button>
+      <button class="fb" data-f="small" aria-label="Show small cap">Small</button>
+      <button class="fb" data-f="bbh" aria-label="Show BB high">BBH</button>
+      <button class="fb" data-f="bbl" aria-label="Show BB low">BBL</button>
+      <button class="fb" data-f="news" aria-label="Show news stocks">&#x1F4F0; News</button>
     </div>
     <div class="sb-sort">
-      <select id="sortBy">
+      <select id="sortBy" aria-label="Sort stocks by">
         <option value="signal">Sort: Signal</option>
         <option value="comp">Composite Score</option>
         <option value="accuracy">Hist. Alignment</option>
@@ -140,41 +142,41 @@ a{color:var(--accent);text-decoration:none}
         <option value="alpha">Alphabetical</option>
       </select>
     </div>
-    <div class="sb-list" id="sList"></div>
+    <div class="sb-list" id="sList" role="listbox" aria-label="Stock list"></div>
   </div>
-  <div class="main" id="mainContent"></div>
+  <main class="main" id="mainContent"></div>
 </div>
 
-<div class="mo" id="chartModal">
+<div class="mo" id="chartModal" role="dialog" aria-modal="true" aria-label="Stock chart and indicators">
   <div class="md">
     <div class="md-hdr">
       <div><span class="md-title" id="mTitle">&mdash;</span><span class="md-sub" id="mSub"></span></div>
-      <button class="md-x" id="mClose">&#10005;</button>
+      <button class="md-x" id="mClose" aria-label="Close chart modal">&#10005;</button>
     </div>
-    <div class="ind-bar" id="indBar">
-      <button class="ib active" data-i="momentum">Momentum Readings</button>
-      <button class="ib active" data-i="volume">Vol</button>
+    <div class="ind-bar" id="indBar" role="toolbar" aria-label="Chart indicator toggles">
+      <button class="ib active" data-i="momentum" aria-label="Toggle momentum readings">Momentum Readings</button>
+      <button class="ib active" data-i="volume" aria-label="Toggle volume">Vol</button>
       <div class="i-sep"></div>
-      <button class="ib" data-i="sma9">SMA9</button>
-      <button class="ib" data-i="sma22">SMA22</button>
-      <button class="ib" data-i="sma200">SMA200</button>
-      <button class="ib" data-i="ema9">EMA9</button>
-      <button class="ib" data-i="ema21">EMA21</button>
+      <button class="ib" data-i="sma9" aria-label="Toggle SMA 9">SMA9</button>
+      <button class="ib" data-i="sma22" aria-label="Toggle SMA 22">SMA22</button>
+      <button class="ib" data-i="sma200" aria-label="Toggle SMA 200">SMA200</button>
+      <button class="ib" data-i="ema9" aria-label="Toggle EMA 9">EMA9</button>
+      <button class="ib" data-i="ema21" aria-label="Toggle EMA 21">EMA21</button>
       <div class="i-sep"></div>
-      <button class="ib" data-i="bb">Bollinger</button>
-      <button class="ib" data-i="supertrend">SuperTrend</button>
-      <button class="ib" data-i="ichimoku">Ichimoku</button>
-      <button class="ib" data-i="vwap">VWAP</button>
+      <button class="ib" data-i="bb" aria-label="Toggle Bollinger Bands">Bollinger</button>
+      <button class="ib" data-i="supertrend" aria-label="Toggle SuperTrend">SuperTrend</button>
+      <button class="ib" data-i="ichimoku" aria-label="Toggle Ichimoku Cloud">Ichimoku</button>
+      <button class="ib" data-i="vwap" aria-label="Toggle VWAP">VWAP</button>
       <div class="i-sep"></div>
-      <button class="ib" data-i="rsi">RSI</button>
-      <button class="ib" data-i="macd">MACD</button>
-      <button class="ib" data-i="adx">ADX</button>
+      <button class="ib" data-i="rsi" aria-label="Toggle RSI panel">RSI</button>
+      <button class="ib" data-i="macd" aria-label="Toggle MACD panel">MACD</button>
+      <button class="ib" data-i="adx" aria-label="Toggle ADX panel">ADX</button>
     </div>
     <div class="md-body">
-      <div class="md-chart" id="mChart"></div>
-      <div class="md-rsi" id="mRsi" style="display:none"></div>
-      <div class="md-macd" id="mMacd" style="display:none"></div>
-      <div class="md-adx" id="mAdx" style="display:none"></div>
+      <div class="md-chart" id="mChart" role="img" aria-label="Stock price chart"></div>
+      <div class="md-rsi" id="mRsi" role="img" aria-label="RSI indicator chart" style="display:none"></div>
+      <div class="md-macd" id="mMacd" role="img" aria-label="MACD indicator chart" style="display:none"></div>
+      <div class="md-adx" id="mAdx" role="img" aria-label="ADX indicator chart" style="display:none"></div>
     </div>
     <div class="md-kpis" id="mKpis"></div>
   </div>
@@ -556,16 +558,16 @@ function hideAdx(){if(adxChart)try{adxChart.remove()}catch(e){}adxChart=null;adx
 
 function toggleInd(ind){
   if(!mainChart||!CD)return;
-  if(ind==='momentum'){var on=document.querySelector('[data-i="momentum"]').classList.toggle('active');CS&&CS.setMarkers(on&&CD.markers?CD.markers:[]);return}
-  if(ind==='volume'){var on2=document.querySelector('[data-i="volume"]').classList.toggle('active');if(on2&&CD.volume&&CD.volume.length){var v=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});v.setData(CD.volume);S['volume']=v}else{remS('volume')}return}
+  if(ind==='momentum'){var on=document.querySelector('[data-i="momentum" aria-label="Toggle momentum readings"]').classList.toggle('active');CS&&CS.setMarkers(on&&CD.markers?CD.markers:[]);return}
+  if(ind==='volume'){var on2=document.querySelector('[data-i="volume" aria-label="Toggle volume"]').classList.toggle('active');if(on2&&CD.volume&&CD.volume.length){var v=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});v.setData(CD.volume);S['volume']=v}else{remS('volume')}return}
   var lines={sma9:{k:'sma9',c:'#f59e0b'},sma22:{k:'sma22',c:'#8b5cf6'},sma200:{k:'sma200',c:'#ec4899'},ema9:{k:'ema9',c:'#06b6d4'},ema21:{k:'ema21',c:'#14b8a6'},vwap:{k:'vwap',c:'#fbbf24'}};
   if(lines[ind]){var cfg=lines[ind];var on3=document.querySelector('[data-i="'+ind+'"]').classList.toggle('active');on3?addL(ind,CD[cfg.k],cfg.c,1):remS(ind);return}
-  if(ind==='bb'){var on4=document.querySelector('[data-i="bb"]').classList.toggle('active');if(on4){addL('bb_u',CD.bb_upper,'rgba(167,139,250,0.6)',1,2);addL('bb_l',CD.bb_lower,'rgba(167,139,250,0.6)',1,2)}else{remS('bb_u');remS('bb_l')}return}
-  if(ind==='supertrend'){var on5=document.querySelector('[data-i="supertrend"]').classList.toggle('active');if(on5){addL('st_b',CD.st_bull,'#22c55e',2);addL('st_r',CD.st_bear,'#ef4444',2)}else{remS('st_b');remS('st_r')}return}
-  if(ind==='ichimoku'){var on6=document.querySelector('[data-i="ichimoku"]').classList.toggle('active');if(on6){addL('i_t',CD.ichi_tenkan,'#2563eb',1);addL('i_k',CD.ichi_kijun,'#dc2626',1);addL('i_a',CD.ichi_spanA,'rgba(34,197,94,0.4)',1);addL('i_b',CD.ichi_spanB,'rgba(239,68,68,0.4)',1)}else{remS('i_t');remS('i_k');remS('i_a');remS('i_b')}return}
-  if(ind==='rsi'){var on7=document.querySelector('[data-i="rsi"]').classList.toggle('active');on7&&CD.rsi&&CD.rsi.length?showRsi():hideRsi();return}
-  if(ind==='macd'){var on8=document.querySelector('[data-i="macd"]').classList.toggle('active');on8?showMacd():hideMacd();return}
-  if(ind==='adx'){var on9=document.querySelector('[data-i="adx"]').classList.toggle('active');on9&&CD.adx&&CD.adx.length?showAdx():hideAdx();return}
+  if(ind==='bb'){var on4=document.querySelector('[data-i="bb" aria-label="Toggle Bollinger Bands"]').classList.toggle('active');if(on4){addL('bb_u',CD.bb_upper,'rgba(167,139,250,0.6)',1,2);addL('bb_l',CD.bb_lower,'rgba(167,139,250,0.6)',1,2)}else{remS('bb_u');remS('bb_l')}return}
+  if(ind==='supertrend'){var on5=document.querySelector('[data-i="supertrend" aria-label="Toggle SuperTrend"]').classList.toggle('active');if(on5){addL('st_b',CD.st_bull,'#22c55e',2);addL('st_r',CD.st_bear,'#ef4444',2)}else{remS('st_b');remS('st_r')}return}
+  if(ind==='ichimoku'){var on6=document.querySelector('[data-i="ichimoku" aria-label="Toggle Ichimoku Cloud"]').classList.toggle('active');if(on6){addL('i_t',CD.ichi_tenkan,'#2563eb',1);addL('i_k',CD.ichi_kijun,'#dc2626',1);addL('i_a',CD.ichi_spanA,'rgba(34,197,94,0.4)',1);addL('i_b',CD.ichi_spanB,'rgba(239,68,68,0.4)',1)}else{remS('i_t');remS('i_k');remS('i_a');remS('i_b')}return}
+  if(ind==='rsi'){var on7=document.querySelector('[data-i="rsi" aria-label="Toggle RSI panel"]').classList.toggle('active');on7&&CD.rsi&&CD.rsi.length?showRsi():hideRsi();return}
+  if(ind==='macd'){var on8=document.querySelector('[data-i="macd" aria-label="Toggle MACD panel"]').classList.toggle('active');on8?showMacd():hideMacd();return}
+  if(ind==='adx'){var on9=document.querySelector('[data-i="adx" aria-label="Toggle ADX panel"]').classList.toggle('active');on9&&CD.adx&&CD.adx.length?showAdx():hideAdx();return}
 }
 
 document.getElementById('indBar').addEventListener('click',function(e){

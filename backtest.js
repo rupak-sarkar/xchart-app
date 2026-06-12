@@ -1291,8 +1291,8 @@ function buildSlotHTML(slot, idx) {
 
   var html = '<div class="ind-slot-hdr">';
   html += '<div class="ind-slot-num ' + (slot.indId ? '' : 'empty') + '">' + (idx + 1) + '</div>';
-  html += '<select class="ind-select" onchange="onIndChange(' + idx + ',this.value)">' + optionsHTML + '</select>';
-  html += '<button class="ind-remove" onclick="removeIndicatorSlot(' + idx + ')" title="Remove">✕</button>';
+  html += '<select class="ind-select" onchange="onIndChange(' + idx + ',this.value)" aria-label="Select indicator ' + (idx + 1) + '">' + optionsHTML + '</select>';
+  html += '<button class="ind-remove" onclick="removeIndicatorSlot(' + idx + ')" title="Remove indicator" aria-label="Remove indicator ' + (idx + 1) + '">✕</button>';
   html += '</div>';
 
   if (slot.indId) {
@@ -1307,7 +1307,7 @@ function buildSlotHTML(slot, idx) {
         html += '<div class="ind-param"><label>' + p.label + '</label>';
         html += '<input type="number" value="' + val + '" min="' + p.min + '" max="' + p.max + '" ';
         html += 'step="' + (p.max <= 6 ? '0.5' : '1') + '" ';
-        html += 'onchange="onParamChange(' + idx + ',\'' + p.id + '\',this.value)"></div>';
+        html += 'onchange="onParamChange(' + idx + ',\'' + p.id + '\',this.value)" aria-label="' + p.label + '"></div>';
       });
       html += '</div>';
     } else {
@@ -1316,7 +1316,7 @@ function buildSlotHTML(slot, idx) {
 
     // Entry condition
     html += '<div class="ind-conditions">';
-    html += '<div class="cond-row"><label>Entry</label><select onchange="onCondChange(' + idx + ',\'entry\',this.value)">';
+    html += '<div class="cond-row"><label>Entry</label><select onchange="onCondChange(' + idx + ',\'entry\',this.value)" aria-label="Entry condition">';
     ind.entry.forEach(function(e, ei) {
       var sel = (slot.entryCond === e.id || (!slot.entryCond && ei === 0)) ? ' selected' : '';
       html += '<option value="' + e.id + '"' + sel + '>' + e.label + '</option>';
@@ -1324,7 +1324,7 @@ function buildSlotHTML(slot, idx) {
     html += '</select></div>';
 
     // Exit condition
-    html += '<div class="cond-row"><label>Exit</label><select onchange="onCondChange(' + idx + ',\'exit\',this.value)">';
+    html += '<div class="cond-row"><label>Exit</label><select onchange="onCondChange(' + idx + ',\'exit\',this.value)" aria-label="Exit condition">';
     ind.exit.forEach(function(e, ei) {
       var sel = (slot.exitCond === e.id || (!slot.exitCond && ei === 0)) ? ' selected' : '';
       html += '<option value="' + e.id + '"' + sel + '>' + e.label + '</option>';
@@ -1333,7 +1333,7 @@ function buildSlotHTML(slot, idx) {
 
     // Weight slider
     html += '<div class="weight-wrap"><label>Weight</label>';
-    html += '<input type="range" class="weight-slider" min="0" max="100" value="' + slot.weight + '" ';
+    html += '<input type="range" class="weight-slider" min="0" max="100" value="' + slot.weight + '" aria-label="Weight for ' + (INDICATORS[slot.indId] ? INDICATORS[slot.indId].name : 'indicator') + '" ';
     html += 'oninput="onWeightChange(' + idx + ',this.value)">';
     html += '<span class="weight-val">' + slot.weight + '%</span></div>';
 
@@ -1403,6 +1403,7 @@ function setMode(mode) {
   BT.mode = mode;
   document.querySelectorAll('.mode-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.mode === mode);
+      b.setAttribute('aria-pressed', b.dataset.mode === mode);
   });
   var desc = document.getElementById('modeDesc');
   var majCfg = document.getElementById('majorityConfig');
