@@ -1817,7 +1817,7 @@ function renderResults(kpis, btResult, sigResult, indContrib) {
 
   // Trade table
   renderTradeTable(btResult.trades);
-
+  addDownloadButton(kpis, btResult, sigResult, indContrib);
   // Scroll to results
   document.getElementById('kpiCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -2065,7 +2065,316 @@ document.addEventListener('keydown', function(e) {
     }
   }
 });
+// ═══════════════════════════════════════════════════════════
+// BACKTEST REPORT — Single HTML download
+// ═══════════════════════════════════════════════════════════
 
+function addDownloadButton(kpis, btResult, sigResult, indContrib) {
+  var existing = document.getElementById('downloadWrap');
+  if (existing) existing.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id = 'downloadWrap';
+  wrap.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center';
+
+  var btn = document.createElement('button');
+  btn.textContent = '📄 Download Backtest Report';
+  btn.style.cssText = 'padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(37,99,235,0.25)';
+  btn.onmouseenter = function() { btn.style.transform = 'translateY(-1px)'; };
+  btn.onmouseleave = function() { btn.style.transform = 'none'; };
+  btn.onclick = function() { generateReport(kpis, btResult, sigResult, indContrib); };
+  wrap.appendChild(btn);
+
+  var hint = document.createElement('span');
+  hint.style.cssText = 'font-size:10px;color:var(--text3)';
+  hint.textContent = 'Self-contained HTML — works offline, printable, shareable';
+  wrap.appendChild(hint);
+
+  document.getElementById('kpiCard').appendChild(wrap);
+}
+
+function generateReport(kpis, btResult, sigResult, indContrib) {
+  var tk = BT.ticker;
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+  var timeStr = now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+
+  // Gather config
+  var activeSlots = BT.slots.filter(function(s) { return s.indId; });
+  var threshold = parseInt(document.getElementById('entryThreshold').value) || 20;
+  var periodLabel = document.getElementById('period').value.toUpperCase();
+  var dataRange = BT.ohlcv.dates[0] + ' to ' + BT.ohlcv.dates[BT.ohlcv.dates.length - 1];
+  var info = BT.tickerMap[tk] || {};
+
+  // Build signal activity per bar (for validation table)
+  var signalBars = [];
+  for (var i = 0; i < BT.ohlcv.dates.length; i++) {
+    var barInfo = { date: BT.ohlcv.dates[i], close: BT.ohlcv.close[i], signal: sigResult.signals[i], indSignals: {} };
+    var hasActivity = sigResult.signals[i] !== 0;
+    Object.keys(sigResult.perInd).forEach(function(indId) {
+      var pInd = sigResult.perInd[indId];
+      var eF = pInd.entryBars.indexOf(i) >= 0;
+      var xF = pInd.exitBars.indexOf(i) >= 0;
+      barInfo.indSignals[indId] = { entry: eF, exit: xF };
+      if (eF || xF) hasActivity = true;
+    });
+    if (hasActivity) signalBars.push(barInfo);
+  }
+
+  // Count signals
+  var totalEntry = sigResult.signals.filter(function(s) { return s === 1; }).length;
+  var totalExit = sigResult.signals.filter(function(s) { return s === -1; }).length;
+
+  // Color helpers
+  function pnlColor(v) { return v > 0 ? '#16A34A' : v < 0 ? '#DC2626' : '#6B7280'; }
+  function pnlSign(v) { return v > 0 ? '+' : ''; }
+
+  // ── Build HTML ──
+  var h = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">';
+  h += '<title>Backtest Report — ' + tk + ' | xchart.in</title>';
+  h += '<style>';
+  h += '*{margin:0;padding:0;box-sizing:border-box}';
+  h += 'body{font-family:system-ui,-apple-system,sans-serif;background:#F8F9FB;color:#1F2937;padding:24px;max-width:1100px;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+  h += 'a{color:#2563EB;text-decoration:none}';
+  h += '.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #2563EB;padding-bottom:16px;margin-bottom:24px}';
+  h += '.hdr h1{font-size:24px;font-weight:800;color:#1F2937}.hdr h1 em{font-style:normal;color:#2563EB}';
+  h += '.hdr-right{text-align:right;font-size:11px;color:#6B7280;line-height:1.8}';
+  h += '.section{margin-bottom:24px}.section h2{font-size:14px;font-weight:700;color:#1F2937;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #E5E7EB;display:flex;align-items:center;gap:6px}';
+  h += '.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}';
+  h += '.kpi{background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:12px;text-align:center}';
+  h += '.kpi-v{font-size:18px;font-weight:700}.kpi-l{font-size:9px;color:#6B7280;text-transform:uppercase;margin-top:2px;font-weight:600}';
+  h += '.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}';
+  h += '.config-card{background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:14px}';
+  h += '.config-card h3{font-size:12px;font-weight:700;color:#2563EB;margin-bottom:8px}';
+  h += '.config-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #F3F4F6}';
+  h += '.config-row:last-child{border:none}.config-label{color:#6B7280}.config-val{font-weight:600;color:#1F2937}';
+  h += '.ind-card{background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:14px;margin-bottom:8px}';
+  h += '.ind-hdr{display:flex;align-items:center;gap:8px;margin-bottom:6px}';
+  h += '.ind-num{width:22px;height:22px;border-radius:50%;background:#2563EB;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}';
+  h += '.ind-name{font-size:13px;font-weight:700;color:#1F2937}.ind-cat{font-size:9px;color:#6B7280;background:#F3F4F6;padding:2px 6px;border-radius:4px}';
+  h += '.ind-detail{font-size:11px;color:#4B5563;line-height:1.8}';
+  h += '.ind-detail span{font-weight:600;color:#1F2937}';
+  h += 'table{width:100%;border-collapse:collapse;font-size:11px}';
+  h += 'th{background:#F8F9FB;color:#6B7280;font-weight:600;text-align:left;padding:8px;border-bottom:2px solid #E5E7EB;font-size:10px;text-transform:uppercase;letter-spacing:0.3px}';
+  h += 'td{padding:6px 8px;border-bottom:1px solid #F3F4F6;color:#1F2937}';
+  h += 'tr:hover{background:#F8F9FB}.win{color:#16A34A;font-weight:600}.loss{color:#DC2626;font-weight:600}';
+  h += '.bar-wrap{width:60px;height:6px;background:#E5E7EB;border-radius:3px;display:inline-block;vertical-align:middle;margin-left:4px}';
+  h += '.bar-fill{height:100%;border-radius:3px}';
+  h += '.sig-entry{background:#DCFCE7;color:#16A34A;font-weight:700;padding:1px 5px;border-radius:3px;font-size:9px}';
+  h += '.sig-exit{background:#FEE2E2;color:#DC2626;font-weight:700;padding:1px 5px;border-radius:3px;font-size:9px}';
+  h += '.sig-dot{width:8px;height:8px;border-radius:50%;display:inline-block}';
+  h += '.dot-e{background:#16A34A}.dot-x{background:#DC2626}';
+  h += '.summary-box{background:linear-gradient(135deg,rgba(37,99,235,0.04),rgba(79,70,229,0.04));border:1px solid rgba(37,99,235,0.12);border-radius:8px;padding:16px;margin-top:12px;font-size:11px;color:#4B5563;line-height:1.8}';
+  h += '.ftr{margin-top:30px;padding-top:16px;border-top:1px solid #E5E7EB;font-size:9px;color:#9CA3AF;text-align:center;line-height:1.8}';
+  h += '.chip{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;margin:0 2px}';
+  h += '.chip-blue{background:rgba(37,99,235,0.08);color:#2563EB}.chip-green{background:rgba(22,163,74,0.08);color:#16A34A}.chip-red{background:rgba(220,38,38,0.08);color:#DC2626}.chip-gray{background:#F3F4F6;color:#6B7280}';
+  h += '@media print{body{padding:12px;font-size:10px}.kpi-grid{grid-template-columns:repeat(5,1fr)}.section{break-inside:avoid}}';
+  h += '@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.config-grid{grid-template-columns:1fr}}';
+  h += '</style></head><body>';
+
+  // ── Header ──
+  h += '<div class="hdr">';
+  h += '<div><h1>x<em>chart</em>.in — Backtest Report</h1>';
+  h += '<div style="font-size:12px;color:#6B7280;margin-top:4px">Analytical backtest results for <strong>' + tk + '</strong></div></div>';
+  h += '<div class="hdr-right">Generated: ' + dateStr + ' ' + timeStr + '<br>';
+  h += 'Data: ' + dataRange + ' (' + BT.ohlcv.dates.length + ' bars)<br>';
+  h += 'Sector: ' + (info.sector || 'N/A') + '</div></div>';
+
+  // ── KPIs ──
+  h += '<div class="section"><h2>📊 Performance Summary</h2>';
+  h += '<div class="kpi-grid">';
+  h += kpiCell(kpis.totalTrades, 'Total Trades', '#1F2937');
+  h += kpiCell(kpis.winRate.toFixed(1) + '%', 'Win Rate', pnlColor(kpis.winRate - 50));
+  h += kpiCell(kpis.profitFactor.toFixed(2), 'Profit Factor', pnlColor(kpis.profitFactor - 1));
+  h += kpiCell(pnlSign(kpis.totalReturn) + kpis.totalReturn.toFixed(1) + '%', 'Total Return', pnlColor(kpis.totalReturn));
+  h += kpiCell(kpis.maxDrawdown.toFixed(1) + '%', 'Max Drawdown', '#DC2626');
+  h += kpiCell('+' + kpis.avgWin.toFixed(1) + '%', 'Avg Win', '#16A34A');
+  h += kpiCell('-' + kpis.avgLoss.toFixed(1) + '%', 'Avg Loss', '#DC2626');
+  h += kpiCell(kpis.avgHold.toFixed(0) + 'd', 'Avg Hold', '#1F2937');
+  h += kpiCell(kpis.slExits, 'SL Exits', '#1F2937');
+  h += kpiCell(BT.mode.toUpperCase(), 'Signal Mode', '#2563EB');
+  h += '</div>';
+
+  // Verdict
+  var verdict = kpis.profitFactor >= 1.2 ? '✅ Strategy shows positive edge' :
+                kpis.profitFactor >= 0.9 ? '⚠️ Marginal — needs refinement' :
+                '❌ Strategy underperforms — review conditions';
+  h += '<div class="summary-box"><strong>Assessment:</strong> ' + verdict + ' — ';
+  h += 'PF ' + kpis.profitFactor.toFixed(2) + ' with ' + kpis.totalTrades + ' trades over ' + periodLabel + '. ';
+  h += 'Win rate ' + kpis.winRate.toFixed(1) + '% (avg win ' + kpis.avgWin.toFixed(1) + '% vs avg loss ' + kpis.avgLoss.toFixed(1) + '%). ';
+  h += 'Max drawdown ' + kpis.maxDrawdown.toFixed(1) + '%.</div>';
+  h += '</div>';
+
+  // ── Configuration ──
+  h += '<div class="section"><h2>⚙️ Configuration</h2>';
+  h += '<div class="config-grid">';
+
+  // Signal settings
+  h += '<div class="config-card"><h3>Signal Settings</h3>';
+  h += cfgRow('Mode', BT.mode.toUpperCase());
+  if (BT.mode === 'majority') h += cfgRow('Majority Required', BT.majorityN + ' of ' + activeSlots.length);
+  h += cfgRow('Entry Threshold', '±' + threshold);
+  h += cfgRow('Backtest Period', periodLabel);
+  h += cfgRow('Data Points', BT.ohlcv.dates.length + ' bars');
+  h += '</div>';
+
+  // Exit rules
+  h += '<div class="config-card"><h3>Exit Rules</h3>';
+  h += cfgRow('Stop Loss', document.getElementById('x_sl').checked ? document.getElementById('x_sl_val').value + '%' : 'OFF');
+  h += cfgRow('Target', document.getElementById('x_tp').checked ? document.getElementById('x_tp_val').value + '%' : 'OFF');
+  h += cfgRow('Trailing SL', document.getElementById('x_trail').checked ? document.getElementById('x_trail_val').value + '%' : 'OFF');
+  h += cfgRow('Max Hold', document.getElementById('x_maxhold').checked ? document.getElementById('x_maxhold_val').value + ' days' : 'OFF');
+  h += '</div>';
+  h += '</div>';
+
+  // ── Indicators ──
+  h += '<div class="section"><h2>📐 Indicators (' + activeSlots.length + ')</h2>';
+  activeSlots.forEach(function(slot, idx) {
+    var ind = INDICATORS[slot.indId];
+    if (!ind) return;
+    h += '<div class="ind-card"><div class="ind-hdr">';
+    h += '<div class="ind-num">' + (idx + 1) + '</div>';
+    h += '<div class="ind-name">' + ind.name + '</div>';
+    h += '<div class="ind-cat">' + ind.cat + '</div>';
+    h += '<div style="margin-left:auto;font-size:12px;font-weight:700;color:#2563EB">' + slot.weight + '%</div>';
+    h += '</div><div class="ind-detail">';
+
+    // Params
+    if (ind.params.length > 0) {
+      h += '<strong>Parameters:</strong> ';
+      h += ind.params.map(function(p) {
+        var v = slot.params[p.id] !== undefined ? slot.params[p.id] : p.def;
+        return p.label + '=<span>' + v + '</span>';
+      }).join(', ');
+      h += '<br>';
+    }
+
+    // Conditions
+    var entryLabel = ind.entry.find(function(e) { return e.id === slot.entryCond; });
+    var exitLabel = ind.exit.find(function(e) { return e.id === slot.exitCond; });
+    h += '<strong>Entry:</strong> ' + (entryLabel ? entryLabel.label : slot.entryCond) + '<br>';
+    h += '<strong>Exit:</strong> ' + (exitLabel ? exitLabel.label : slot.exitCond);
+    h += '</div></div>';
+  });
+  h += '</div>';
+
+  // ── Per-Indicator Breakdown ──
+  if (indContrib.length > 0) {
+    h += '<div class="section"><h2>🎯 Indicator Contribution Analysis</h2>';
+    h += '<table><thead><tr><th>Indicator</th><th>Entry Triggers</th><th>Led to Wins</th><th>Accuracy</th><th>Impact vs Random</th><th>Visual</th></tr></thead><tbody>';
+    indContrib.forEach(function(c) {
+      var accColor = pnlColor(c.accuracy - 50);
+      h += '<tr><td><strong>' + c.name + '</strong></td>';
+      h += '<td>' + c.triggers + '</td>';
+      h += '<td>' + c.correct + '</td>';
+      h += '<td style="color:' + accColor + ';font-weight:600">' + c.accuracy.toFixed(1) + '%</td>';
+      h += '<td style="color:' + pnlColor(c.impact) + ';font-weight:600">' + pnlSign(c.impact) + c.impact.toFixed(1) + '%</td>';
+      h += '<td><div class="bar-wrap"><div class="bar-fill" style="width:' + Math.min(c.accuracy, 100) + '%;background:' + accColor + '"></div></div></td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    h += '<div style="font-size:10px;color:#9CA3AF;margin-top:6px">💡 Accuracy > 55% = positive contribution. Impact = accuracy minus 50% (random baseline).</div>';
+    h += '</div>';
+  }
+
+  // ── Trade Log ──
+  h += '<div class="section"><h2>📋 Complete Trade Log (' + btResult.trades.length + ' trades)</h2>';
+  if (btResult.trades.length > 0) {
+    h += '<table><thead><tr><th>#</th><th>Entry Date</th><th>Entry ₹</th><th>Exit Date</th><th>Exit ₹</th><th>Days</th><th>Result</th><th>Exit Type</th><th>Cumulative</th></tr></thead><tbody>';
+    var cumReturn = 0;
+    btResult.trades.forEach(function(t, i) {
+      cumReturn += t.result;
+      var cls = t.result >= 0 ? 'win' : 'loss';
+      h += '<tr>';
+      h += '<td>' + (i + 1) + '</td>';
+      h += '<td>' + t.entryDate + '</td>';
+      h += '<td>₹' + t.entryPrice.toFixed(2) + '</td>';
+      h += '<td>' + t.exitDate + '</td>';
+      h += '<td>₹' + t.exitPrice.toFixed(2) + '</td>';
+      h += '<td>' + t.days + 'd</td>';
+      h += '<td class="' + cls + '">' + pnlSign(t.result) + t.result.toFixed(2) + '%</td>';
+      h += '<td><span class="chip ' + (t.exitType === 'Stop Loss' ? 'chip-red' : t.exitType === 'Target' ? 'chip-green' : 'chip-gray') + '">' + t.exitType + '</span></td>';
+      h += '<td style="color:' + pnlColor(cumReturn) + ';font-weight:600">' + pnlSign(cumReturn) + cumReturn.toFixed(1) + '%</td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+  } else {
+    h += '<div style="text-align:center;padding:20px;color:#9CA3AF">No trades generated. Review indicator conditions and signal mode.</div>';
+  }
+  h += '</div>';
+
+  // ── Signal Validation Log ──
+  h += '<div class="section"><h2>🔍 Signal Validation Log</h2>';
+  h += '<div style="font-size:10px;color:#6B7280;margin-bottom:8px">';
+  h += 'Shows every bar where at least one indicator fired. Use this to verify entry/exit logic. ';
+  h += 'Total: <span class="chip chip-green">' + totalEntry + ' entry signals</span> <span class="chip chip-red">' + totalExit + ' exit signals</span>';
+  h += '</div>';
+
+  if (signalBars.length > 0) {
+    var indIds = Object.keys(sigResult.perInd);
+    h += '<div style="overflow-x:auto"><table><thead><tr><th>Date</th><th>Close</th><th>Signal</th>';
+    indIds.forEach(function(id) {
+      var name = INDICATORS[id] ? INDICATORS[id].name : id;
+      h += '<th>' + name + '</th>';
+    });
+    h += '</tr></thead><tbody>';
+
+    // Show max 100 rows to keep file size reasonable
+    var showBars = signalBars.length > 100 ? signalBars.slice(0, 50).concat([null]).concat(signalBars.slice(-50)) : signalBars;
+    showBars.forEach(function(bar) {
+      if (!bar) {
+        h += '<tr><td colspan="' + (3 + indIds.length) + '" style="text-align:center;color:#9CA3AF;font-style:italic">... ' + (signalBars.length - 100) + ' more rows ...</td></tr>';
+        return;
+      }
+      h += '<tr>';
+      h += '<td>' + bar.date + '</td>';
+      h += '<td>₹' + bar.close.toFixed(2) + '</td>';
+      h += '<td>';
+      if (bar.signal === 1) h += '<span class="sig-entry">▲ ENTRY</span>';
+      else if (bar.signal === -1) h += '<span class="sig-exit">▼ EXIT</span>';
+      h += '</td>';
+      indIds.forEach(function(id) {
+        var s = bar.indSignals[id];
+        h += '<td>';
+        if (s.entry) h += '<span class="sig-dot dot-e" title="Entry fired"></span> ';
+        if (s.exit) h += '<span class="sig-dot dot-x" title="Exit fired"></span>';
+        h += '</td>';
+      });
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+  } else {
+    h += '<div style="text-align:center;padding:20px;color:#9CA3AF">No signals generated.</div>';
+  }
+  h += '</div>';
+
+  // ── Footer ──
+  h += '<div class="ftr">';
+  h += '<strong>⚠️ Disclaimer:</strong> This report is generated by xchart.in, an analytical tool for educational purposes. ';
+  h += 'All results are based on historical data and user-configured rules. Past performance does not guarantee future results. ';
+  h += 'This is not investment advice. Not SEBI registered.<br>';
+  h += '© 2026 xchart.in · Generated on ' + dateStr + ' ' + timeStr + ' · <a href="https://xchart.in">xchart.in</a>';
+  h += '</div></body></html>';
+
+  // Download
+  var blob = new Blob([h], { type: 'text/html' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = tk + '_backtest_report_' + now.toISOString().slice(0,10) + '.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function kpiCell(val, label, color) {
+  return '<div class="kpi"><div class="kpi-v" style="color:' + color + '">' + val + '</div><div class="kpi-l">' + label + '</div></div>';
+}
+
+function cfgRow(label, val) {
+  return '<div class="config-row"><span class="config-label">' + label + '</span><span class="config-val">' + val + '</span></div>';
+}
 // Init
 (function() {
   loadTickerList();
