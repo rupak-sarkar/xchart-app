@@ -42,9 +42,9 @@ def main():
     print("\n[3/7] Writing engine/tickers.py...")
     write_tickers_py()
 
-    print("\n[4/7] Writing update_tickers.yml...")
-    write_update_tickers_yml()
-
+    print("\n[4/7] Skipping update_tickers.yml (already exists)...")
+    # write_update_tickers_yml()
+    
     print("\n[5/7] Patching screener files...")
     patch_screener_files()
 
