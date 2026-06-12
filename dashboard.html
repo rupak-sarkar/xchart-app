@@ -115,7 +115,7 @@ a{color:var(--accent);text-decoration:none}
 </div>
 <div class="sb-overlay" id="sbOverlay" aria-hidden="true"></div>
 <div class="wrap">
-  <nav class="sb" id="sidebar" aria-label="Stock list navigation">
+  <div class="sb" id="sidebar" role="navigation" aria-label="Stock list navigation">
     <div class="sb-search"><input type="text" id="sInput" aria-label="Search ticker" placeholder="Search ticker..."></div>
     <div class="sb-filters" id="filterBar" role="toolbar" aria-label="Stock filters">
       <button class="fb active" data-f="all" aria-label="Show all stocks">All</button>
@@ -144,7 +144,7 @@ a{color:var(--accent);text-decoration:none}
     </div>
     <div class="sb-list" id="sList" role="listbox" aria-label="Stock list"></div>
   </div>
-  <main class="main" id="mainContent"></div>
+  <div class="main" id="mainContent" role="main"></div>
 </div>
 
 <div class="mo" id="chartModal" role="dialog" aria-modal="true" aria-label="Stock chart and indicators">
