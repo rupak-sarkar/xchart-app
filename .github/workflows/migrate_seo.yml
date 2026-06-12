@@ -1,0 +1,28 @@
+name: SEO Migration
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run SEO migration
+        run: python migrate_seo.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Actions Automation"
+          git config user.email "actions@github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "SEO: meta tags, schema, canonical, OG, performance"
+          git pull --rebase origin master
+          git push
