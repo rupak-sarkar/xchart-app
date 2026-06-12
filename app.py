@@ -22,7 +22,7 @@ from engine.accuracy import (
     EXIT_THRESHOLD_LC, EXIT_THRESHOLD_SC,
     HORIZONS, HOLD_DAYS, SL_FIXED,
 )
-from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers
+from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers, get_v8_latest_scores
 
 STOP_LOSS_PCT = SL_FIXED
 
@@ -661,6 +661,18 @@ def main():
     bull_damp = 0.7 if regime == "NEGATIVE" else 1.0
     bear_damp = 0.7 if regime == "POSITIVE" else 1.0
     print(f"  Regime: {regime} -> bull_damp={bull_damp} bear_damp={bear_damp}")
+
+    # ── v8 Override: Feed corrected tech scores into output ──
+    v8_scores = get_v8_latest_scores(stock_df, tickers)
+    v8_applied = 0
+    for sr in scored_rows:
+        tk = sr["Ticker"]
+        if tk in v8_scores:
+            sr["Tech_Score"] = v8_scores[tk]["Tech_Score"]
+            sr["Category"] = v8_scores[tk]["Category"]
+            v8_applied += 1
+    print(f"  [v8] Overrode {v8_applied}/{len(scored_rows)} ticker scores with v8 logic")
+    # ─────────────────────────────────────────────────────────
     print("-" * 110)
 
     all_rows = []
@@ -681,7 +693,11 @@ def main():
         is_lc = cat in ("MEGA", "LARGE")
         entry = ENTRY_THRESHOLD_LC if is_lc else ENTRY_THRESHOLD_SC
 
-        if comp >= entry: direction = 1; dir_label = "POSITIVE"; tech_bull += 1
+        # v8 hard gate: if tech=0 for MEGA/LARGE, force NEUTRAL
+        if cat in ("MEGA", "LARGE") and tech == 0:
+            direction = 0; dir_label = "NEUTRAL"; tech_neut += 1
+            comp = 0.0
+        elif comp >= entry: direction = 1; dir_label = "POSITIVE"; tech_bull += 1
         elif comp <= -entry: direction = -1; dir_label = "NEGATIVE"; tech_bear += 1
         else: direction = 0; dir_label = "NEUTRAL"; tech_neut += 1
 

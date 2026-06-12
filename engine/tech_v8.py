@@ -3,11 +3,11 @@
 MEGA/LARGE (Hard Gate):
   Entry: Close < SMA9 < SMA22 < SMA200 AND SMA9 rising
   Exit:  Close > SMA9 > SMA22 > SMA200 AND SMA9 falling
-  Gate:  If neither -> tech=0 -> composite=0 (news/fund/macro CANNOT override)
+  Gate:  If neither -> tech=0 -> composite=0
 
 MID/SMALL (BB + SMA9 Reversal):
   Entry: Close < BB_Lower AND SMA9 rising
-  Exit:  Close > BB_Mid
+  Exit:  Close > BB_Mid AND SMA9 falling
   Weight: 75% tech + 25% (macro+fund+news)/3
 """
 
@@ -21,6 +21,16 @@ def _safe(v, default=0.0):
         return default if (f != f) else f
     except (TypeError, ValueError):
         return default
+
+
+def classify_cap(mcap, threshold=10000):
+    if mcap >= threshold * 10:
+        return "MEGA"
+    elif mcap >= threshold * 2:
+        return "LARGE"
+    elif mcap >= threshold * 0.5:
+        return "MID"
+    return "SMALL"
 
 
 def score_tech_row(close, sma9, sma22, sma200, sma9_prev,
@@ -50,7 +60,7 @@ def score_tech_row(close, sma9, sma22, sma200, sma9_prev,
               and sma200 > 0 and sma9_falling):
             return -40
         else:
-            return 0  # Hard gate: no signal
+            return 0  # Hard gate
 
     else:  # MID / SMALL
         if bb_lower <= 0 or bb_mid <= 0:
@@ -58,8 +68,8 @@ def score_tech_row(close, sma9, sma22, sma200, sma9_prev,
         # ENTRY: Price below lower BB + SMA9 recovering
         if close < bb_lower and sma9_rising:
             return 40
-        # EXIT: Price crosses above BB midline
-        elif close > bb_mid:
+        # EXIT: Price above BB midline + SMA9 turning down
+        elif close > bb_mid and sma9_falling:
             return -40
         else:
             return 0
@@ -72,17 +82,43 @@ def _col(df, name):
     return np.zeros(len(df))
 
 
+def _ensure_category(stock_df):
+    """Add Category column to stock_df if missing, based on Market_Cap."""
+    if "Category" in stock_df.columns:
+        # Verify it is not all MID (might be default)
+        cats = stock_df["Category"].unique()
+        if len(cats) > 1 or (len(cats) == 1 and cats[0] != "MID"):
+            return stock_df
+
+    df = stock_df.copy()
+
+    if "Market_Cap" in df.columns:
+        mcap = pd.to_numeric(df["Market_Cap"], errors="coerce").fillna(0)
+        # Forward-fill MCap per ticker so latest rows have values
+        mcap = df.groupby("Ticker")["Market_Cap"].transform(
+            lambda x: pd.to_numeric(x, errors="coerce").ffill().bfill().fillna(0)
+        )
+        # Auto-detect scale
+        med = mcap[mcap > 0].median()
+        if med > 1e10:
+            mcap = mcap / 1e7
+        df["Category"] = mcap.apply(classify_cap)
+        vc = df.groupby("Ticker")["Category"].last().value_counts()
+        print(f"  [v8] Category assigned: {dict(vc)}")
+    else:
+        df["Category"] = "MID"
+        print("  [v8] WARNING: No Market_Cap column, defaulting all to MID")
+
+    return df
+
+
 def compute_tech_scores(stock_df):
     """Recompute Tech_Score for entire DataFrame using v8 logic."""
-    df = stock_df.copy()
+    df = _ensure_category(stock_df)
 
     # Ensure SMA_9_prev exists
     if "SMA_9_prev" not in df.columns:
         df["SMA_9_prev"] = df.groupby("Ticker")["SMA_9"].shift(1)
-
-    cat_col = "Category" if "Category" in df.columns else "BT_Category"
-    if cat_col not in df.columns:
-        df[cat_col] = "MID"
 
     # Detect BB column names
     bb_mid_col = None
@@ -96,7 +132,6 @@ def compute_tech_scores(stock_df):
         elif cl == "bb_middle":
             bb_mid_col = c
 
-    # Also check SMA_22 as BB mid proxy if no BB columns
     if bb_mid_col is None:
         bb_mid_col = "SMA_22"
     if bb_lower_col is None:
@@ -109,7 +144,7 @@ def compute_tech_scores(stock_df):
     sma9_prev = _col(df, "SMA_9_prev")
     bb_lower = _col(df, bb_lower_col)
     bb_mid = _col(df, bb_mid_col)
-    cats = df[cat_col].fillna("MID").values
+    cats = df["Category"].fillna("MID").values
 
     scores = np.zeros(len(df), dtype=int)
     for i in range(len(df)):
@@ -118,22 +153,38 @@ def compute_tech_scores(stock_df):
             bb_lower[i], bb_mid[i], str(cats[i])
         )
 
-    # Count stats
     entry = (scores > 0).sum()
     exit_ = (scores < 0).sum()
     neutral = (scores == 0).sum()
     print(f"  [v8] Tech scores: Entry={entry} Exit={exit_} Neutral={neutral}")
 
+    for cat in ["MEGA", "LARGE", "MID", "SMALL"]:
+        mask = np.array([str(c) == cat for c in cats])
+        if mask.sum() > 0:
+            e = (scores[mask] > 0).sum()
+            x = (scores[mask] < 0).sum()
+            n = (scores[mask] == 0).sum()
+            print(f"  [v8]   {cat}: Entry={e} Exit={x} Neutral={n} ({mask.sum()} rows)")
+
     df["Tech_Score"] = scores
     if "Technical_Score" in df.columns:
         df["Technical_Score"] = scores
 
-    return df
+    # Write back to original df
+    stock_df["Tech_Score"] = df["Tech_Score"].values
+    if "Technical_Score" in stock_df.columns:
+        stock_df["Technical_Score"] = df["Technical_Score"].values
+    if "Category" not in stock_df.columns or stock_df["Category"].nunique() <= 1:
+        stock_df["Category"] = df["Category"].values
+    if "SMA_9_prev" not in stock_df.columns:
+        stock_df["SMA_9_prev"] = df["SMA_9_prev"].values
+
+    return stock_df
 
 
 def compute_composites(stock_df):
     """Recompute Composite_Score with hard gate (LC) and 75/25 weighting (SC)."""
-    df = stock_df.copy()
+    df = _ensure_category(stock_df)
 
     tech = _col(df, "Tech_Score")
     macro = _col(df, "Macro_Score")
@@ -144,8 +195,7 @@ def compute_composites(stock_df):
     if news.sum() == 0:
         news = _col(df, "Forecast_Score")
 
-    cat_col = "Category" if "Category" in df.columns else "BT_Category"
-    cats = df[cat_col].fillna("MID").values if cat_col in df.columns else np.full(len(df), "MID")
+    cats = df["Category"].fillna("MID").values
 
     composites = np.zeros(len(df))
     directions = np.zeros(len(df), dtype=int)
@@ -158,16 +208,13 @@ def compute_composites(stock_df):
         cat = str(cats[i])
 
         if cat in ("MEGA", "LARGE"):
-            # HARD GATE: tech must be non-zero
             if t == 0:
                 composites[i] = 0.0
                 directions[i] = 0
             else:
-                # Tech is the signal, others add conviction
                 composites[i] = t + m + f + n
                 directions[i] = 1 if composites[i] > 20 else (-1 if composites[i] < -20 else 0)
-        else:  # MID / SMALL
-            # 75% tech + 25% average of others
+        else:
             if t == 0:
                 others_avg = (m + f + n) / 3.0
                 composites[i] = 0.25 * others_avg
@@ -181,11 +228,32 @@ def compute_composites(stock_df):
     n_neg = (directions == -1).sum()
     print(f"  [v8] Composites: {n_dir} directional (pos={n_pos}, neg={n_neg})")
 
-    df["Composite_Score"] = np.round(composites, 1)
-    col_dir = "Momentum_Direction" if "Momentum_Direction" in df.columns else "Composite_Direction"
-    df[col_dir] = directions
+    for cat in ["MEGA", "LARGE", "MID", "SMALL"]:
+        mask = np.array([str(c) == cat for c in cats])
+        if mask.sum() > 0:
+            d = directions[mask]
+            print(f"  [v8]   {cat}: pos={(d == 1).sum()} neg={(d == -1).sum()} neut={(d == 0).sum()}")
 
-    return df
+    stock_df["Composite_Score"] = np.round(composites, 1)
+    col_dir = "Momentum_Direction" if "Momentum_Direction" in stock_df.columns else "Composite_Direction"
+    stock_df[col_dir] = directions
+
+    return stock_df
+
+
+def get_v8_latest_scores(stock_df, tickers):
+    """Get the LATEST v8 tech scores per ticker for output override."""
+    results = {}
+    for tk in tickers:
+        tdf = stock_df[stock_df["Ticker"].astype(str).str.strip() == tk]
+        if tdf.empty:
+            continue
+        last = tdf.iloc[-1]
+        results[tk] = {
+            "Tech_Score": int(last.get("Tech_Score", 0)),
+            "Category": str(last.get("Category", "MID")),
+        }
+    return results
 
 
 def fix_chart_markers(markers):
@@ -193,16 +261,13 @@ def fix_chart_markers(markers):
     if not markers:
         return markers
 
-    # Sort by time
     markers = sorted(markers, key=lambda m: m.get("time", ""))
 
-    # Keep only transitions (direction changed from previous marker)
     filtered = []
     prev_dir = None
     for m in markers:
         text = m.get("text", "")
         shape = m.get("shape", "")
-        # Determine direction from shape
         if "Up" in shape or "up" in shape:
             cur_dir = "up"
         elif "Down" in shape or "down" in shape:
@@ -211,7 +276,6 @@ def fix_chart_markers(markers):
             cur_dir = "none"
 
         if cur_dir != prev_dir:
-            # Clean text: remove BULL/BEAR/POSITIVE/NEGATIVE
             import re as _re
             clean = _re.sub(r"(?i)(BULL|BEAR|POSITIVE|NEGATIVE)\s*", "", text).strip()
             if not clean:
