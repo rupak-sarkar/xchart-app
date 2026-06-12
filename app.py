@@ -17,6 +17,7 @@ from engine.create_stock_data import recompute_indicators
 from engine.news import build_news_cache
 
 from engine.accuracy import (
+from engine.tech_v8 import compute_tech_scores, compute_composites, fix_chart_markers
     compute_per_ticker_accuracy, print_accuracy_report,
     ENTRY_THRESHOLD_LC, ENTRY_THRESHOLD_SC,
     EXIT_THRESHOLD_LC, EXIT_THRESHOLD_SC,
@@ -619,6 +620,11 @@ def main():
     print(f"\nComputing sector strength...")
     sector_scores = compute_sector_strength(stock_df, sector_map)
 
+    # ── v8 Tech Scoring Override ──
+    print("  [v8] Applying corrected tech scoring...")
+    stock_df = compute_tech_scores(stock_df)
+    # ─────────────────────────────
+
     # ── PHASE 3b: Backtest ──
     print(f"\nPHASE 3b: Backtest (ATR SL for LC, {STOP_LOSS_PCT*100:.1f}% SL for SC)...")
 
@@ -626,6 +632,11 @@ def main():
     stock_df = add_composite_scores(stock_df)
     nz = (stock_df["Composite_Score"] != 0).sum()
     print(f"  -> {nz}/{len(stock_df)} rows with non-zero Composite_Score")
+
+    # ── v8 Composite Override ──
+    print("  [v8] Applying corrected composite scoring...")
+    stock_df = compute_composites(stock_df)
+    # ─────────────────────────────
 
     bt_results = []
     for tk in tickers:

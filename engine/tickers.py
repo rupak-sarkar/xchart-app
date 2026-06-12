@@ -20,8 +20,7 @@ def load_tickers():
             df = pd.read_csv(TICKERS_FILE)
             df.columns = df.columns.str.strip()
             if "Ticker" not in df.columns:
-                first_col = df.columns[0]
-                df.rename(columns={first_col: "Ticker"}, inplace=True)
+                df.rename(columns={df.columns[0]: "Ticker"}, inplace=True)
             tks = [t.replace(".NS", "") for t in df["Ticker"].dropna().str.strip().str.upper().tolist() if t]
             s = set()
             u = []
@@ -78,14 +77,14 @@ def update_tickers():
             hrefs.extend(page_links)
             print(f"  Page {page_num}: {len(page_links)} company links")
             if len(page_links) == 0:
-                print("  No more results - stopping.")
+                print("  No more results — stopping.")
                 break
             time.sleep(1.5)
         except Exception as e:
             print(f"  Page {page_num}: Error - {e}")
             break
 
-    print(f"\n  Total raw links: {len(hrefs)}")
+    print(f"  Total raw links: {len(hrefs)}")
 
     if not hrefs:
         print("  ERROR: No tickers scraped! Keeping existing tickers.csv.")
@@ -101,7 +100,7 @@ def update_tickers():
     df_final = pd.DataFrame({"Ticker": df_scraped["Ticker"].values, "Sector": ""})
     df_final = df_final.sort_values("Ticker").reset_index(drop=True)
 
-    # Safety: dont overwrite with far fewer tickers
+    # Safety: dont overwrite with fewer tickers than existing
     if TICKERS_FILE.exists():
         existing = pd.read_csv(TICKERS_FILE)
         if len(df_final) < len(existing) * 0.5:
@@ -111,8 +110,6 @@ def update_tickers():
     TICKERS_FILE.parent.mkdir(parents=True, exist_ok=True)
     df_final.to_csv(TICKERS_FILE, index=False)
 
-    print(f"\n{'=' * 70}")
-    print(f"  output/tickers.csv written - {len(df_final)} unique tickers")
-    print(f"{'=' * 70}")
+    print(f"  output/tickers.csv written — {len(df_final)} unique tickers")
     print(f"  First 10: {df_final['Ticker'].head(10).tolist()}")
     print(f"  Last 10:  {df_final['Ticker'].tail(10).tolist()}")
