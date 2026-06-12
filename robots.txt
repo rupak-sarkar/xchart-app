@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /output/
+Disallow: /engine/
+Disallow: /.github/
 
 Sitemap: https://xchart.in/sitemap.xml
