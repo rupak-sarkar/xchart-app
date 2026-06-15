@@ -1228,7 +1228,11 @@ function analyzeIndicatorContribution(perInd, trades, data) {
 // ═══════════════════════════════════════════════════════════
 
 function addIndicatorSlot() {
-  if (BT.slots.length >= 5) return;
+  var maxInd = (typeof getMaxIndicators === 'function') ? getMaxIndicators() : 5;
+  if (BT.slots.length >= maxInd) {
+    if (typeof showUpgradeModal === 'function' && maxInd < 10) showUpgradeModal('indicators');
+    return;
+  }
   var idx = BT.slots.length;
   BT.slots.push({ indId: null, params: {}, entryCond: null, exitCond: null, weight: Math.round(100 / (idx + 1)) });
   rebalanceWeights();
@@ -1261,8 +1265,9 @@ function renderSlots() {
     container.appendChild(div);
   });
 
-  document.getElementById('btnAddInd').disabled = BT.slots.length >= 5;
-  document.getElementById('btnAddInd').textContent = BT.slots.length >= 5 ? 'Maximum 5 indicators' : '+ Add Indicator';
+  var maxInd = (typeof getMaxIndicators === 'function') ? getMaxIndicators() : 5;
+  document.getElementById('btnAddInd').disabled = BT.slots.length >= maxInd;
+  document.getElementById('btnAddInd').textContent = BT.slots.length >= maxInd ? (maxInd < 10 ? 'Upgrade for more (max ' + maxInd + ')' : 'Maximum ' + maxInd + ' indicators') : '+ Add Indicator';
   document.getElementById('majorityTotal').textContent = BT.slots.length;
   updateWeightBar();
   updateRunButton();
@@ -1426,17 +1431,17 @@ function setMode(mode) {
 // ═══════════════════════════════════════════════════════════
 
 var PRESETS = {
-  meanReversion: {
-    name: 'RSI Mean Reversion',
+  // ── Momentum ──
+  rsiRecovery: {
+    name: 'RSI Recovery', cat: 'Momentum',
     mode: 'weighted',
     slots: [
-      { indId:'rsi', params:{period:14,oversold:30,overbought:70}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:40 },
-      { indId:'bb', params:{period:20,upperSigma:2,lowerSigma:2}, entryCond:'bounce_from_lower', exitCond:'cross_above_mid', weight:35 },
-      { indId:'volumeSpike', params:{lookback:20,threshold:2}, entryCond:'spike_with_up', exitCond:'volume_dries', weight:25 }
+      { indId:'rsi', params:{period:14,oversold:30,overbought:70}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:60 },
+      { indId:'volumeSpike', params:{lookback:20,threshold:2}, entryCond:'spike_with_up', exitCond:'volume_dries', weight:40 }
     ]
   },
   macdMomentum: {
-    name: 'MACD Momentum',
+    name: 'MACD Momentum', cat: 'Momentum',
     mode: 'weighted',
     slots: [
       { indId:'macd', params:{fast:12,slow:26,signal:9}, entryCond:'cross_above_signal', exitCond:'cross_below_signal', weight:40 },
@@ -1444,37 +1449,139 @@ var PRESETS = {
       { indId:'priceSMA', params:{period:200}, entryCond:'is_above', exitCond:'cross_below', weight:30 }
     ]
   },
-  bbSqueeze: {
-    name: 'BB Squeeze',
+  stochRsiReversal: {
+    name: 'Stoch RSI Reversal', cat: 'Momentum',
     mode: 'weighted',
     slots: [
-      { indId:'bb', params:{period:20,upperSigma:2,lowerSigma:2}, entryCond:'cross_below_lower', exitCond:'cross_above_upper', weight:40 },
-      { indId:'rsi', params:{period:14,oversold:30,overbought:70}, entryCond:'below_os', exitCond:'cross_above_ob', weight:35 },
+      { indId:'stochRsi', params:{rsiPeriod:14,stochPeriod:14,kSmooth:3,dSmooth:3,oversold:20,overbought:80}, entryCond:'k_cross_above_d', exitCond:'k_cross_below_d', weight:55 },
+      { indId:'bb', params:{period:20,upperSigma:2,lowerSigma:2}, entryCond:'bounce_from_lower', exitCond:'cross_above_mid', weight:45 }
+    ]
+  },
+  // ── Trend Following ──
+  goldenCross: {
+    name: 'Golden Cross', cat: 'Trend',
+    mode: 'weighted',
+    slots: [
+      { indId:'smaCross', params:{fast:50,slow:200}, entryCond:'fast_cross_above_slow', exitCond:'fast_cross_below_slow', weight:50 },
+      { indId:'volumeSpike', params:{lookback:20,threshold:1.5}, entryCond:'spike_with_up', exitCond:'volume_dries', weight:25 },
+      { indId:'adx', params:{period:14,threshold:20}, entryCond:'adx_rising', exitCond:'adx_below_threshold', weight:25 }
+    ]
+  },
+  supertrendRider: {
+    name: 'SuperTrend Rider', cat: 'Trend',
+    mode: 'weighted',
+    slots: [
+      { indId:'supertrend', params:{atrPeriod:10,multiplier:3}, entryCond:'turns_bullish', exitCond:'turns_bearish', weight:40 },
+      { indId:'emaCross', params:{fast:9,slow:21}, entryCond:'fast_cross_above_slow', exitCond:'fast_cross_below_slow', weight:35 },
+      { indId:'adx', params:{period:14,threshold:25}, entryCond:'adx_rising', exitCond:'adx_below_threshold', weight:25 }
+    ]
+  },
+  ichimokuBreakout: {
+    name: 'Ichimoku Breakout', cat: 'Trend',
+    mode: 'weighted',
+    slots: [
+      { indId:'ichimoku', params:{tenkan:9,kijun:26,senkou:52}, entryCond:'tenkan_cross_above_kijun', exitCond:'price_below_cloud', weight:50 },
+      { indId:'volumeSpike', params:{lookback:20,threshold:2}, entryCond:'spike_with_up', exitCond:'volume_dries', weight:25 },
+      { indId:'priceSMA', params:{period:200}, entryCond:'is_above', exitCond:'cross_below', weight:25 }
+    ]
+  },
+  // ── Mean Reversion ──
+  bbBounce: {
+    name: 'BB Bounce', cat: 'Mean Reversion',
+    mode: 'weighted',
+    slots: [
+      { indId:'bb', params:{period:20,upperSigma:2,lowerSigma:2}, entryCond:'bounce_from_lower', exitCond:'cross_above_mid', weight:40 },
+      { indId:'rsi', params:{period:14,oversold:35,overbought:65}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:35 },
       { indId:'obv', params:{lookback:20}, entryCond:'obv_above_sma', exitCond:'obv_below_sma', weight:25 }
     ]
   },
-  trendFollowing: {
-    name: 'Trend Following',
-    mode: 'and',
+  keltnerSqueeze: {
+    name: 'Keltner Squeeze', cat: 'Mean Reversion',
+    mode: 'weighted',
     slots: [
-      { indId:'smaCross', params:{fast:50,slow:200}, entryCond:'fast_cross_above_slow', exitCond:'fast_cross_below_slow', weight:35 },
-      { indId:'supertrend', params:{atrPeriod:10,multiplier:3}, entryCond:'turns_bullish', exitCond:'turns_bearish', weight:35 },
-      { indId:'adx', params:{period:14,threshold:20}, entryCond:'adx_rising', exitCond:'adx_below_threshold', weight:30 }
+      { indId:'keltner', params:{emaPeriod:20,atrPeriod:10,multiplier:2}, entryCond:'bounce_from_lower', exitCond:'cross_above_mid', weight:35 },
+      { indId:'bb', params:{period:20,upperSigma:2,lowerSigma:2}, entryCond:'bounce_from_lower', exitCond:'cross_above_upper', weight:35 },
+      { indId:'macd', params:{fast:12,slow:26,signal:9}, entryCond:'hist_positive', exitCond:'hist_negative', weight:30 }
     ]
   },
-  swingTrading: {
-    name: 'Swing Trading',
-    mode: 'majority',
+  cciOversold: {
+    name: 'CCI Oversold', cat: 'Mean Reversion',
+    mode: 'weighted',
     slots: [
-      { indId:'rsi', params:{period:14,oversold:35,overbought:65}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:25 },
-      { indId:'bb', params:{period:20,upperSigma:2,lowerSigma:2}, entryCond:'bounce_from_lower', exitCond:'cross_above_mid', weight:25 },
-      { indId:'macd', params:{fast:12,slow:26,signal:9}, entryCond:'cross_above_signal', exitCond:'cross_below_signal', weight:25 },
-      { indId:'emaCross', params:{fast:9,slow:21}, entryCond:'fast_cross_above_slow', exitCond:'fast_cross_below_slow', weight:25 }
+      { indId:'cci', params:{period:20,oversold:-100,overbought:100}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:40 },
+      { indId:'priceSMA', params:{period:50}, entryCond:'is_above', exitCond:'cross_below', weight:30 },
+      { indId:'volumeSpike', params:{lookback:20,threshold:1.5}, entryCond:'spike_with_up', exitCond:'volume_dries', weight:30 }
+    ]
+  },
+  // ── Breakout ──
+  donchianBreakout: {
+    name: 'Donchian Breakout', cat: 'Breakout',
+    mode: 'weighted',
+    slots: [
+      { indId:'donchian', params:{period:20}, entryCond:'break_above_upper', exitCond:'break_below_lower', weight:40 },
+      { indId:'adx', params:{period:14,threshold:20}, entryCond:'adx_rising', exitCond:'adx_below_threshold', weight:30 },
+      { indId:'volumeSpike', params:{lookback:20,threshold:2}, entryCond:'spike_with_up', exitCond:'volume_dries', weight:30 }
+    ]
+  },
+  atrExpansion: {
+    name: 'ATR Expansion', cat: 'Breakout',
+    mode: 'weighted',
+    slots: [
+      { indId:'atrBreakout', params:{period:14,multiplier:2}, entryCond:'cross_above_upper', exitCond:'returns_to_basis', weight:35 },
+      { indId:'macd', params:{fast:12,slow:26,signal:9}, entryCond:'cross_above_signal', exitCond:'cross_below_signal', weight:35 },
+      { indId:'supertrend', params:{atrPeriod:10,multiplier:3}, entryCond:'price_above', exitCond:'price_below', weight:30 }
+    ]
+  },
+  pivotBounce: {
+    name: 'Pivot Bounce', cat: 'Breakout',
+    mode: 'weighted',
+    slots: [
+      { indId:'pivots', params:{}, entryCond:'bounce_s1', exitCond:'reaches_r1', weight:40 },
+      { indId:'rsi', params:{period:14,oversold:40,overbought:60}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:30 },
+      { indId:'emaCross', params:{fast:9,slow:21}, entryCond:'fast_cross_above_slow', exitCond:'fast_cross_below_slow', weight:30 }
+    ]
+  },
+  // ── Conservative ──
+  tripleConfirmation: {
+    name: 'Triple Confirmation', cat: 'Conservative',
+    mode: 'and',
+    slots: [
+      { indId:'rsi', params:{period:14,oversold:35,overbought:65}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:34 },
+      { indId:'macd', params:{fast:12,slow:26,signal:9}, entryCond:'cross_above_signal', exitCond:'cross_below_signal', weight:33 },
+      { indId:'smaCross', params:{fast:9,slow:22}, entryCond:'fast_cross_above_slow', exitCond:'fast_cross_below_slow', weight:33 }
+    ]
+  },
+  vwapValue: {
+    name: 'VWAP Value', cat: 'Conservative',
+    mode: 'weighted',
+    slots: [
+      { indId:'vwap', params:{}, entryCond:'is_below', exitCond:'is_above', weight:35 },
+      { indId:'rsi', params:{period:14,oversold:35,overbought:65}, entryCond:'cross_above_os', exitCond:'cross_above_ob', weight:35 },
+      { indId:'bb', params:{period:20,upperSigma:2,lowerSigma:2}, entryCond:'bounce_from_lower', exitCond:'cross_above_mid', weight:30 }
+    ]
+  },
+  slowSteady: {
+    name: 'Slow & Steady', cat: 'Conservative',
+    mode: 'weighted',
+    slots: [
+      { indId:'emaCross', params:{fast:50,slow:200}, entryCond:'fast_cross_above_slow', exitCond:'fast_cross_below_slow', weight:40 },
+      { indId:'adx', params:{period:14,threshold:25}, entryCond:'adx_rising', exitCond:'adx_below_threshold', weight:30 },
+      { indId:'obv', params:{lookback:20}, entryCond:'obv_above_sma', exitCond:'obv_below_sma', weight:30 }
     ]
   }
-};
+};};
 
 function loadPreset(presetId) {
+  // Check indicator limit
+  var preset = PRESETS[presetId];
+  if (!preset) return;
+  var maxInd = (typeof getMaxIndicators === 'function') ? getMaxIndicators() : 5;
+  if (preset.slots.length > maxInd) {
+    if (typeof showUpgradeModal === 'function') {
+      showUpgradeModal('indicators');
+      return;
+    }
+  }
   var preset = PRESETS[presetId];
   if (!preset) return;
 
@@ -2076,6 +2183,13 @@ function addDownloadButton(kpis, btResult, sigResult, indContrib) {
 
   var wrap = document.createElement('div');
   wrap.id = 'downloadWrap';
+
+  // Save Strategy button
+  var btnSave = document.createElement('button');
+  btnSave.textContent = '\uD83D\uDCBE Save Strategy';
+  btnSave.style.cssText = 'padding:10px 20px;background:#7C3AED;color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.2s;box-shadow:0 2px 8px rgba(124,58,237,0.25)';
+  btnSave.onclick = function() { if (typeof showSaveModal === 'function') showSaveModal(); };
+  wrap.appendChild(btnSave);
   wrap.style.cssText = 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center';
 
   var btn = document.createElement('button');

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>My Strategies | xchart.in</title>
+<meta name="description" content="Manage your saved backtesting strategies on xchart.in. Load, run, and refine your trading rules.">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://xchart.in/strategies.html" />
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F8F9FB;--white:#FFFFFF;--card:#FFFFFF;--card2:#F3F4F6;
+  --border:#E5E7EB;--text:#1F2937;--text2:#6B7280;--text3:#9CA3AF;
+  --accent:#2563EB;--accent-bg:rgba(37,99,235,0.06);
+  --bull:#16A34A;--bear:#DC2626;
+  --shadow:0 1px 3px rgba(0,0,0,0.06);
+  --radius:10px
+}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent);text-decoration:none}
+
+/* Header */
+.hdr{background:var(--white);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-size:20px;font-weight:800;color:var(--text);cursor:pointer;text-decoration:none}
+.logo span{color:var(--accent)}
+.ver{font-size:8px;background:var(--accent);color:#fff;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700}
+.nav{display:flex;align-items:center;gap:16px;font-size:12px;font-weight:500}
+.nav a{color:var(--text2)}
+.nav a:hover{color:var(--accent)}
+.nav a.active{color:var(--accent);font-weight:700}
+
+/* Auth in header */
+.auth-area{display:flex;align-items:center;gap:10px}
+.login-btn{padding:6px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer}
+.user-menu{display:none;align-items:center;gap:8px;font-size:11px}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+.tier-badge{font-size:8px;padding:2px 6px;border-radius:8px;font-weight:700;text-transform:uppercase}
+.tier-free{background:var(--card2);color:var(--text3)}
+.tier-analyst{background:rgba(37,99,235,0.1);color:var(--accent)}
+.tier-pro{background:rgba(217,119,6,0.1);color:#D97706}
+.logout-btn{color:var(--text3);cursor:pointer;font-size:10px;border:none;background:none}
+.logout-btn:hover{color:var(--bear)}
+
+/* Main */
+.main{max-width:900px;margin:0 auto;padding:24px 20px}
+.page-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:12px;color:var(--text2);margin-bottom:20px}
+
+/* Login prompt */
+.login-prompt{text-align:center;padding:60px 24px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);margin-top:20px}
+.login-prompt h2{font-size:18px;margin-bottom:8px}
+.login-prompt p{font-size:13px;color:var(--text2);margin-bottom:20px;max-width:400px;margin-left:auto;margin-right:auto}
+.google-btn{padding:10px 24px;background:var(--white);border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all 0.2s}
+.google-btn:hover{border-color:var(--accent);background:var(--accent-bg)}
+
+/* Strategy Cards */
+.strat-grid{display:flex;flex-direction:column;gap:10px}
+.strat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);transition:all 0.2s}
+.strat-card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.08)}
+.sc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.sc-name{font-size:15px;font-weight:700;color:var(--text)}
+.sc-ticker{font-size:11px;background:var(--accent-bg);color:var(--accent);padding:2px 8px;border-radius:4px;font-weight:600}
+.sc-meta{font-size:11px;color:var(--text2);line-height:1.8;margin-bottom:10px}
+.sc-meta strong{color:var(--text)}
+.sc-result{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.sc-kpi{font-size:11px;font-weight:600}
+.sc-kpi.good{color:var(--bull)}
+.sc-kpi.bad{color:var(--bear)}
+.sc-kpi.neutral{color:var(--text2)}
+.sc-actions{display:flex;gap:6px}
+.sc-btn{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--white);color:var(--text);transition:all 0.15s}
+.sc-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sc-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sc-btn.primary:hover{background:#1D4ED8}
+.sc-btn.danger{color:var(--bear)}
+.sc-btn.danger:hover{background:rgba(220,38,38,0.06);border-color:var(--bear)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px;color:var(--text2)}
+.empty-state h3{font-size:16px;color:var(--text);margin-bottom:8px}
+.empty-state p{font-size:12px;max-width:350px;margin:0 auto 16px}
+.empty-state a{font-weight:600}
+
+/* Upgrade banner */
+.upgrade-banner{background:linear-gradient(135deg,rgba(37,99,235,0.04),rgba(79,70,229,0.04));border:1px solid rgba(37,99,235,0.15);border-radius:var(--radius);padding:16px 20px;margin-top:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.ub-text{font-size:12px;color:var(--text)}
+.ub-text strong{color:var(--accent)}
+.ub-btn{padding:8px 20px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
+
+/* Slots counter */
+.slots-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:10px 14px;background:var(--white);border:1px solid var(--border);border-radius:8px}
+.slots-label{font-size:12px;color:var(--text2)}
+.slots-count{font-size:14px;font-weight:700;color:var(--accent)}
+
+/* Footer */
+.ftr{background:var(--white);border-top:1px solid var(--border);padding:16px 24px;font-size:10px;color:var(--text2);text-align:center;line-height:1.8;margin-top:40px}
+
+@media(max-width:600px){
+  .main{padding:16px 12px}
+  .sc-result{gap:8px}
+  .sc-actions{flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="hdr">
+  <a href="/" class="logo">x<span>chart</span>.in<span class="ver">BETA</span></a>
+  <div class="nav">
+    <a href="/">Backtest</a>
+    <a href="/strategies.html" class="active">My Strategies</a>
+    <a href="/disclaimer.html">Disclaimer</a>
+    <div class="auth-area">
+      <button class="login-btn" id="authLoginBtn" onclick="showLoginModal()">Login</button>
+      <div class="user-menu" id="authUserMenu">
+        <div class="user-avatar" id="authUserAvatar">?</div>
+        <span id="authUserName"></span>
+        <span class="tier-badge tier-free" id="authTierBadge">FREE</span>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+  <div class="page-title">My Strategies</div>
+  <div class="page-sub">Save, manage, and quickly reload your best backtesting configurations</div>
+
+  <!-- Login required prompt (shown when not logged in) -->
+  <div id="loginPrompt" class="login-prompt">
+    <h2>🔐 Login to View Your Strategies</h2>
+    <p>Sign in to save your backtesting configurations and reload them anytime with one click.</p>
+    <button class="google-btn" onclick="loginWithGoogle()">
+      <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+  </div>
+
+  <!-- Strategies list (shown when logged in) -->
+  <div id="strategiesContent" style="display:none">
+    <div class="slots-bar">
+      <span class="slots-label">Strategy Slots</span>
+      <span class="slots-count"><span id="slotsUsed">0</span> / <span id="slotsMax">0</span></span>
+    </div>
+
+    <div class="strat-grid" id="stratGrid">
+      <!-- Cards rendered by JS -->
+    </div>
+
+    <div id="emptyState" class="empty-state" style="display:none">
+      <h3>No saved strategies yet</h3>
+      <p>Run a backtest on the <a href="/">Backtest page</a>, then click "Save Strategy" to save your configuration here.</p>
+    </div>
+
+    <div id="upgradeBanner" class="upgrade-banner" style="display:none">
+      <div class="ub-text">
+        🔓 Want to save more strategies? <strong>Upgrade to Analyst</strong> for 15 slots, CSV export, and strategy history.
+      </div>
+      <button class="ub-btn" onclick="window.location.href='/#pricing'">Upgrade — ₹149/mo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="ftr">
+  <strong>⚠️ Disclaimer:</strong> xchart.in is an analytical tool for educational purposes.
+  All results are based on historical data and user-configured rules. Past performance does not guarantee future results.
+  This is not investment advice. Not SEBI registered.<br>
+  © 2026 xchart.in · <a href="/disclaimer.html">Full Disclaimer</a>
+</div>
+
+<!-- Login Modal (reused from index) -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-hdr">
+      <span>Login to xchart.in</span>
+      <button class="modal-close" onclick="hideLoginModal()">✕</button>
+    </div>
+    <div style="padding:20px;text-align:center">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px">Sign in to save strategies and access premium features</p>
+      <button class="google-btn" onclick="loginWithGoogle()" style="width:100%;justify-content:center;padding:12px">
+        <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);z-index:500;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--white);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,0.15);border:1px solid var(--border);overflow:hidden}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700}
+.modal-close{background:none;border:1px solid var(--border);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--text2)}
+.modal-close:hover{background:rgba(220,38,38,0.06);border-color:var(--bear);color:var(--bear)}
+</style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="auth.js"></script>
+
+<script>
+function renderStrategiesList() {
+  var prompt = document.getElementById('loginPrompt');
+  var content = document.getElementById('strategiesContent');
+  var grid = document.getElementById('stratGrid');
+  var empty = document.getElementById('emptyState');
+  var banner = document.getElementById('upgradeBanner');
+  var slotsUsed = document.getElementById('slotsUsed');
+  var slotsMax = document.getElementById('slotsMax');
+
+  if (!XAuth.user) {
+    prompt.style.display = '';
+    content.style.display = 'none';
+    return;
+  }
+
+  prompt.style.display = 'none';
+  content.style.display = '';
+
+  var maxS = getMaxStrategies();
+  slotsUsed.textContent = XAuth.strategies.length;
+  slotsMax.textContent = maxS > 0 ? maxS : '0 (upgrade to save)';
+
+  if (maxS <= 0) {
+    banner.style.display = '';
+    banner.querySelector('.ub-text').innerHTML = '🔓 Saving strategies is an <strong>Analyst</strong> feature. Upgrade to save your backtesting configurations.';
+  } else if (XAuth.strategies.length >= maxS * 0.8) {
+    banner.style.display = '';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  if (XAuth.strategies.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  var html = '';
+  XAuth.strategies.forEach(function(s) {
+    var inds = (s.slots || []).map(function(sl) { return sl.indId; }).join(', ');
+    var lr = s.lastResult || {};
+    var retColor = (lr.totalReturn || 0) >= 0 ? 'good' : 'bad';
+    var wrColor = (lr.winRate || 0) >= 50 ? 'good' : (lr.winRate || 0) > 0 ? 'bad' : 'neutral';
+    var pfColor = (lr.profitFactor || 0) >= 1 ? 'good' : (lr.profitFactor || 0) > 0 ? 'bad' : 'neutral';
+
+    html += '<div class="strat-card">';
+    html += '<div class="sc-top"><div class="sc-name">' + (s.name || 'Unnamed') + '</div>';
+    html += '<span class="sc-ticker">' + (s.ticker || '—') + '</span></div>';
+    html += '<div class="sc-meta"><strong>Mode:</strong> ' + (s.mode || 'weighted').toUpperCase();
+    html += ' · <strong>Indicators:</strong> ' + inds;
+    html += ' · <strong>Period:</strong> ' + (s.period || '1y').toUpperCase() + '</div>';
+
+    if (lr.trades !== undefined) {
+      html += '<div class="sc-result">';
+      html += '<span class="sc-kpi neutral">' + (lr.trades || 0) + ' trades</span>';
+      html += '<span class="sc-kpi ' + wrColor + '">Win ' + (lr.winRate || 0).toFixed(1) + '%</span>';
+      html += '<span class="sc-kpi ' + pfColor + '">PF ' + (lr.profitFactor || 0).toFixed(2) + '</span>';
+      html += '<span class="sc-kpi ' + retColor + '">' + ((lr.totalReturn || 0) >= 0 ? '+' : '') + (lr.totalReturn || 0).toFixed(1) + '%</span>';
+      html += '</div>';
+    }
+
+    html += '<div class="sc-actions">';
+    html += '<button class="sc-btn primary" onclick="loadAndRun('' + s.id + '')">▶ Run Now</button>';
+    html += '<button class="sc-btn danger" onclick="confirmDelete('' + s.id + '','' + (s.name || '').replace(/'/g, '') + '')">🗑️ Delete</button>';
+    html += '</div></div>';
+  });
+  grid.innerHTML = html;
+}
+
+function loadAndRun(stratId) {
+  var strat = XAuth.strategies.find(function(s) { return s.id === stratId; });
+  if (!strat) return;
+  // Store in sessionStorage and redirect to backtest page
+  sessionStorage.setItem('xchart_load_strategy', JSON.stringify(strat));
+  window.location.href = '/';
+}
+
+function confirmDelete(stratId, name) {
+  if (confirm('Delete strategy "' + name + '"? This cannot be undone.')) {
+    deleteStrategy(stratId).then(function() {
+      renderStrategiesList();
+      showToast('Strategy deleted');
+    });
+  }
+}
+
+// Update avatar
+function updateAuthUI() {
+  var loginBtn = document.getElementById('authLoginBtn');
+  var userMenu = document.getElementById('authUserMenu');
+  var userName = document.getElementById('authUserName');
+  var tierBadge = document.getElementById('authTierBadge');
+  var avatar = document.getElementById('authUserAvatar');
+
+  if (XAuth.user) {
+    loginBtn.style.display = 'none';
+    userMenu.style.display = 'flex';
+    userName.textContent = XAuth.user.displayName || XAuth.user.email.split('@')[0];
+    tierBadge.textContent = XAuth.tier === 'free' ? 'FREE' : XAuth.tier.toUpperCase();
+    tierBadge.className = 'tier-badge tier-' + XAuth.tier;
+    avatar.textContent = (XAuth.user.displayName || XAuth.user.email)[0].toUpperCase();
+  } else {
+    loginBtn.style.display = '';
+    userMenu.style.display = 'none';
+  }
+  renderStrategiesList();
+}
+</script>
+
+</body>
+</html>
