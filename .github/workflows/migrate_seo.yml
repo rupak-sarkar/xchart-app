@@ -1,4 +1,4 @@
-name: SEO Migration
+name: Phase 1 Migration
 on:
   workflow_dispatch:
 
@@ -15,14 +15,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run SEO migration
-        run: python migrate_seo.py
+      - name: Run Phase 1 migration
+        run: python migrate.py
 
       - name: Commit and push
         run: |
           git config user.name "GitHub Actions Automation"
           git config user.email "actions@github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "SEO: meta tags, schema, canonical, OG, performance"
+          git diff --staged --quiet || git commit -m "Phase 1: Auth + Save Strategies + 15 Presets"
           git pull --rebase origin master
           git push
