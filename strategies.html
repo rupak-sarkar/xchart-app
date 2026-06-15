@@ -216,33 +216,33 @@ function renderStrategiesList() {
   var slotsMax = document.getElementById('slotsMax');
 
   if (!XAuth.user) {
-    prompt.style.display = '';
-    content.style.display = 'none';
+    if (prompt) prompt.style.display = '';
+    if (content) content.style.display = 'none';
     return;
   }
 
-  prompt.style.display = 'none';
-  content.style.display = '';
+  if (prompt) prompt.style.display = 'none';
+  if (content) content.style.display = 'block';
 
   var maxS = getMaxStrategies();
-  slotsUsed.textContent = XAuth.strategies.length;
-  slotsMax.textContent = maxS > 0 ? maxS : '0 (upgrade to save)';
+  if (slotsUsed) slotsUsed.textContent = XAuth.strategies.length;
+  if (slotsMax) slotsMax.textContent = maxS > 0 ? maxS : '0 (upgrade to save)';
 
-  if (maxS <= 0) {
+  if (maxS <= 0 && banner) {
     banner.style.display = '';
     banner.querySelector('.ub-text').innerHTML = '🔓 Saving strategies is an <strong>Analyst</strong> feature. Upgrade to save your backtesting configurations.';
-  } else if (XAuth.strategies.length >= maxS * 0.8) {
+  } else if (XAuth.strategies.length >= maxS * 0.8 && banner) {
     banner.style.display = '';
-  } else {
+  } else if (banner) {
     banner.style.display = 'none';
   }
 
   if (XAuth.strategies.length === 0) {
-    grid.innerHTML = '';
-    empty.style.display = '';
+    if (grid) grid.innerHTML = '';
+    if (empty) empty.style.display = '';
     return;
   }
-  empty.style.display = 'none';
+  if (empty) empty.style.display = 'none';
 
   var html = '';
   XAuth.strategies.forEach(function(s) {
@@ -254,10 +254,10 @@ function renderStrategiesList() {
 
     html += '<div class="strat-card">';
     html += '<div class="sc-top"><div class="sc-name">' + (s.name || 'Unnamed') + '</div>';
-    html += '<span class="sc-ticker">' + (s.ticker || '—') + '</span></div>';
+    html += '<span class="sc-ticker">' + (s.ticker || '-') + '</span></div>';
     html += '<div class="sc-meta"><strong>Mode:</strong> ' + (s.mode || 'weighted').toUpperCase();
-    html += ' · <strong>Indicators:</strong> ' + inds;
-    html += ' · <strong>Period:</strong> ' + (s.period || '1y').toUpperCase() + '</div>';
+    html += ' | <strong>Indicators:</strong> ' + inds;
+    html += ' | <strong>Period:</strong> ' + (s.period || '1y').toUpperCase() + '</div>';
 
     if (lr.trades !== undefined) {
       html += '<div class="sc-result">';
@@ -269,17 +269,16 @@ function renderStrategiesList() {
     }
 
     html += '<div class="sc-actions">';
-    html += '<button class="sc-btn primary" onclick="loadAndRun('' + s.id + '')">▶ Run Now</button>';
-    html += '<button class="sc-btn danger" onclick="confirmDelete('' + s.id + '','' + (s.name || '').replace(/'/g, '') + '')">🗑️ Delete</button>';
+    html += '<button class="sc-btn primary" onclick="loadAndRun(\'' + s.id + '\')">Run Now</button>';
+    html += '<button class="sc-btn danger" onclick="confirmDelete(\'' + s.id + '\',\'' + (s.name || '').replace(/'/g, '') + '\')">Delete</button>';
     html += '</div></div>';
   });
-  grid.innerHTML = html;
+  if (grid) grid.innerHTML = html;
 }
 
 function loadAndRun(stratId) {
   var strat = XAuth.strategies.find(function(s) { return s.id === stratId; });
   if (!strat) return;
-  // Store in sessionStorage and redirect to backtest page
   sessionStorage.setItem('xchart_load_strategy', JSON.stringify(strat));
   window.location.href = '/';
 }
@@ -293,9 +292,7 @@ function confirmDelete(stratId, name) {
   }
 }
 
-// Update avatar
-
-  function updateAuthUI() {
+function updateAuthUI() {
   var loginBtn = document.getElementById('authLoginBtn');
   var userMenu = document.getElementById('authUserMenu');
   var userName = document.getElementById('authUserName');
@@ -323,8 +320,6 @@ function confirmDelete(stratId, name) {
     if (content) content.style.display = 'none';
   }
 }
-  
 </script>
-
 </body>
 </html>
