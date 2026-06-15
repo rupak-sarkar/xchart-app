@@ -189,6 +189,14 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .ftr strong{color:var(--text2)}
 .ftr a{color:var(--accent)}
 
+.ftr-suggest{max-width:600px;margin:0 auto 14px;background:rgba(37,99,235,0.06);border:1px solid rgba(37,99,235,0.15);border-radius:10px;padding:14px 18px;text-align:left}
+.ftr-suggest strong{font-size:12px;color:#2563EB}
+.ftr-suggest p{font-size:11px;color:#4B5563;line-height:1.7;margin-top:4px}
+.ftr-suggest a{font-weight:600;color:#2563EB}
+.ftr-links{font-size:10px;color:var(--text2);line-height:1.8;margin-top:6px}
+.ftr-links a{color:var(--accent);margin:0 2px}
+.ftr-copy{font-size:9px;color:var(--text3);margin-top:8px;line-height:1.6} 
+
 /* ── Responsive ── */
 @media(max-width:960px){.bt-wrap{flex-direction:column}.bt-left{width:100%}.hero h1{font-size:28px}.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:500px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.exit-grid{grid-template-columns:1fr}.chart-wrap{min-height:260px}.hero{padding:30px 16px 20px}.stock-profile{grid-template-columns:repeat(2,1fr)}}
@@ -342,18 +350,23 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 
   </div>
 </div>
+<!-- Footer with Suggestion Box -->
 <div class="ftr">
-  <strong>⚠️ Disclaimer:</strong> xchart.in is an analytical tool for educational and research purposes only. All results are based on historical data and mathematical models. Past performance does not guarantee future results. This platform does not provide investment advice, stock recommendations, or trading signals as defined by SEBI. Users are solely responsible for their investment decisions. Not SEBI registered. Charts by <a href="https://www.tradingview.com/" target="_blank">TradingView</a>. | <a href="strategies.html">My Strategies</a>
-    <a href="disclaimer.html">Full Disclaimer</a>
-    <div class="auth-area">
-      <button class="login-btn" id="authLoginBtn" onclick="showLoginModal()" aria-label="Login">Login</button>
-      <div class="user-menu" id="authUserMenu" style="display:none">
-        <div class="user-avatar" id="authUserAvatar">?</div>
-        <span id="authUserName" style="font-size:11px;font-weight:600"></span>
-        <span class="tier-badge tier-free" id="authTierBadge">FREE</span>
-        <button class="logout-btn" onclick="logout()" style="font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer">Logout</button>
-      </div>
-    </div>
+  <div class="ftr-suggest">
+    <strong>💡 Have a Suggestion?</strong>
+    <p>Got an idea for a new indicator, strategy preset, or feature? We read every suggestion.</p>
+    <p style="margin-top:6px">
+      📧 <a href="mailto:info@xchart.in?subject=Feature%20Request%20%E2%80%94%20xchart.in&body=Hi%20xchart%20team%2C%0A%0AI%20have%20a%20suggestion%3A%0A%0A">info@xchart.in</a> — Subject: <strong>"Feature Request"</strong>
+    </p>
+  </div>
+  <div class="ftr-links">
+    <a href="/">Backtest</a> · <a href="strategies.html">My Strategies</a> · <a href="disclaimer.html">Disclaimer</a> · <a href="mailto:info@xchart.in">Contact</a>
+  </div>
+  <div class="ftr-copy">
+    ⚠️ xchart.in is an analytical tool for educational purposes.
+    Not SEBI registered. Not investment advice. Past performance ≠ future results.<br>
+    © 2026 xchart.in
+  </div>
 </div>
 <script src="backtest.js" defer></script>
 
