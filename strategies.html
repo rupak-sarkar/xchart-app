@@ -294,26 +294,36 @@ function confirmDelete(stratId, name) {
 }
 
 // Update avatar
-function updateAuthUI() {
+
+  function updateAuthUI() {
   var loginBtn = document.getElementById('authLoginBtn');
   var userMenu = document.getElementById('authUserMenu');
   var userName = document.getElementById('authUserName');
   var tierBadge = document.getElementById('authTierBadge');
   var avatar = document.getElementById('authUserAvatar');
+  var prompt = document.getElementById('loginPrompt');
+  var content = document.getElementById('strategiesContent');
 
   if (XAuth.user) {
-    loginBtn.style.display = 'none';
-    userMenu.style.display = 'flex';
-    userName.textContent = XAuth.user.displayName || XAuth.user.email.split('@')[0];
-    tierBadge.textContent = XAuth.tier === 'free' ? 'FREE' : XAuth.tier.toUpperCase();
-    tierBadge.className = 'tier-badge tier-' + XAuth.tier;
-    avatar.textContent = (XAuth.user.displayName || XAuth.user.email)[0].toUpperCase();
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (userMenu) userMenu.style.display = 'flex';
+    if (userName) userName.textContent = XAuth.user.displayName || XAuth.user.email.split('@')[0];
+    if (avatar) avatar.textContent = (XAuth.user.displayName || XAuth.user.email)[0].toUpperCase();
+    if (tierBadge) {
+      tierBadge.textContent = XAuth.tier === 'free' ? 'FREE' : XAuth.tier.toUpperCase();
+      tierBadge.className = 'tier-badge tier-' + XAuth.tier;
+    }
+    if (prompt) prompt.style.display = 'none';
+    if (content) content.style.display = 'block';
+    renderStrategiesList();
   } else {
-    loginBtn.style.display = '';
-    userMenu.style.display = 'none';
+    if (loginBtn) loginBtn.style.display = '';
+    if (userMenu) userMenu.style.display = 'none';
+    if (prompt) prompt.style.display = '';
+    if (content) content.style.display = 'none';
   }
-  renderStrategiesList();
 }
+  
 </script>
 
 </body>
