@@ -1569,7 +1569,7 @@ var PRESETS = {
       { indId:'obv', params:{lookback:20}, entryCond:'obv_above_sma', exitCond:'obv_below_sma', weight:30 }
     ]
   }
-};};
+};
 
 function loadPreset(presetId) {
   // Check indicator limit
