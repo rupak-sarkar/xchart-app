@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blog — Stock Trading Analytics & Backtesting Guides | xchart.in</title>
+<meta name="description" content="Free guides on backtesting trading strategies, technical analysis, and stock market analytics for Indian equities. Learn RSI, MACD, Bollinger Bands, and more.">
+<meta name="keywords" content="backtesting guide india, trading strategy tutorial, technical analysis india, RSI strategy, MACD backtest, stock market education">
+<meta name="author" content="xchart.in">
+<link rel="canonical" href="https://xchart.in/blog/" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="xchart.in Blog — Trading Analytics & Backtesting Guides">
+<meta property="og:description" content="Free guides on backtesting trading strategies on Indian stocks. Learn technical analysis with practical examples.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://xchart.in/blog/">
+<meta property="og:site_name" content="xchart.in">
+<meta property="og:locale" content="en_IN">
+
+<!-- Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "xchart.in Blog",
+  "url": "https://xchart.in/blog/",
+  "description": "Free guides on backtesting trading strategies on Indian stocks",
+  "publisher": {
+    "@type": "Organization",
+    "name": "xchart.in",
+    "url": "https://xchart.in"
+  },
+  "inLanguage": "en",
+  "blogPost": [
+    {
+      "@type": "BlogPosting",
+      "headline": "How to Backtest a Trading Strategy on Indian Stocks — Free Step-by-Step Guide",
+      "url": "https://xchart.in/blog/how-to-backtest-trading-strategy.html",
+      "datePublished": "2026-06-15",
+      "author": {"@type": "Organization", "name": "xchart.in"}
+    }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#F8F9FB;--white:#FFFFFF;--border:#E5E7EB;--text:#1F2937;--text2:#6B7280;--text3:#9CA3AF;--accent:#2563EB;--accent-bg:rgba(37,99,235,0.06);--accent-border:rgba(37,99,235,0.15);--shadow:0 1px 3px rgba(0,0,0,0.06);--radius:10px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.hdr{background:var(--white);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-size:20px;font-weight:800;color:var(--text);text-decoration:none}
+.logo span{color:var(--accent)}
+.ver{font-size:8px;background:var(--accent);color:#fff;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700}
+.nav{display:flex;align-items:center;gap:16px;font-size:12px;font-weight:500}
+.nav a{color:var(--text2)}
+.nav a:hover{color:var(--accent);text-decoration:none}
+.nav a.active{color:var(--accent);font-weight:700}
+
+.main{max-width:800px;margin:0 auto;padding:40px 20px}
+.page-title{font-size:28px;font-weight:800;margin-bottom:6px}
+.page-sub{font-size:13px;color:var(--text2);margin-bottom:32px;line-height:1.6}
+
+.post-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;box-shadow:var(--shadow);transition:all 0.2s}
+.post-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);transform:translateY(-1px)}
+.post-card a{text-decoration:none;color:inherit}
+.post-tag{font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-bg);padding:3px 10px;border-radius:12px;display:inline-block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px}
+.post-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.4}
+.post-excerpt{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px}
+.post-meta{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:12px}
+.post-meta span{display:flex;align-items:center;gap:4px}
+
+.cta-box{background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius);padding:24px;text-align:center;margin-top:32px}
+.cta-box h3{font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.cta-box p{font-size:12px;color:var(--text2);margin-bottom:14px}
+.cta-btn{display:inline-block;padding:10px 28px;background:var(--accent);color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;transition:all 0.2s}
+.cta-btn:hover{background:#1D4ED8;text-decoration:none}
+
+.ftr{background:var(--white);border-top:1px solid var(--border);padding:20px 24px 12px;margin-top:40px;text-align:center}
+.ftr-suggest{max-width:600px;margin:0 auto 14px;background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius);padding:14px 18px;text-align:left}
+.ftr-suggest strong{font-size:12px;color:var(--accent)}
+.ftr-suggest p{font-size:11px;color:#4B5563;line-height:1.7;margin-top:4px}
+.ftr-suggest a{font-weight:600;color:var(--accent)}
+.ftr-links{font-size:10px;color:var(--text2);line-height:1.8;margin-top:6px}
+.ftr-links a{color:var(--accent);margin:0 2px}
+.ftr-copy{font-size:9px;color:var(--text3);margin-top:8px;line-height:1.6}
+
+@media(max-width:600px){.main{padding:24px 14px}.post-title{font-size:17px}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <a href="/" class="logo">x<span>chart</span>.in<span class="ver">BETA</span></a>
+  <div class="nav">
+    <a href="/">Backtest</a>
+    <a href="/strategies.html">My Strategies</a>
+    <a href="/blog/" class="active">Blog</a>
+    <a href="/disclaimer.html">Disclaimer</a>
+  </div>
+</div>
+
+<div class="main">
+  <div class="page-title">📝 Blog</div>
+  <div class="page-sub">Free guides on backtesting, technical analysis, and stock market analytics for Indian equities</div>
+
+  <!-- Post 1 -->
+  <div class="post-card">
+    <a href="/blog/how-to-backtest-trading-strategy.html">
+      <div class="post-tag">📊 Backtesting Guide</div>
+      <div class="post-title">How to Backtest a Trading Strategy on Indian Stocks — Free Step-by-Step Guide</div>
+      <div class="post-excerpt">Learn how to test your trading ideas on 500+ Indian stocks before risking real money. This beginner-friendly guide walks you through RSI, MACD, and Bollinger Bands backtesting with downloadable reports — no coding required.</div>
+      <div class="post-meta">
+        <span>📅 June 15, 2026</span>
+        <span>⏱️ 12 min read</span>
+        <span>🏷️ Beginner</span>
+      </div>
+    </a>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-box">
+    <h3>🚀 Ready to Test Your Strategy?</h3>
+    <p>Backtest any strategy on 500+ Indian stocks with 20 configurable indicators. Free, no login required.</p>
+    <a href="/" class="cta-btn">Start Backtesting — Free</a>
+  </div>
+</div>
+
+<div class="ftr">
+  <div class="ftr-suggest">
+    <strong>💡 Have a Suggestion?</strong>
+    <p>Got an idea for a blog topic, indicator, or feature? We read every suggestion.</p>
+    <p style="margin-top:6px">📧 <a href="mailto:info@xchart.in?subject=Feature%20Request%20%E2%80%94%20xchart.in&body=Hi%20xchart%20team%2C%0A%0AI%20have%20a%20suggestion%3A%0A%0A">info@xchart.in</a> — Subject: <strong>"Feature Request"</strong></p>
+  </div>
+  <div class="ftr-links">
+    <a href="/">Backtest</a> · <a href="/strategies.html">My Strategies</a> · <a href="/blog/">Blog</a> · <a href="/disclaimer.html">Disclaimer</a> · <a href="mailto:info@xchart.in">Contact</a>
+  </div>
+  <div class="ftr-copy">
+    ⚠️ xchart.in is an analytical tool for educational purposes. Not SEBI registered. Not investment advice. Past performance ≠ future results.<br>
+    © 2026 xchart.in
+  </div>
+</div>
+
+<!-- Cloudflare Web Analytics -->
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "da96bc47f0254c1a841a4f10e94b0bdc"}'></script>
+
+</body>
+</html>
