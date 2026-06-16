@@ -1,0 +1,778 @@
+"""migrate_blog.py — Create blog infrastructure + first post"""
+
+import os
+import subprocess
+from pathlib import Path
+
+
+def main():
+    print("=" * 70)
+    print("  BLOG MIGRATION — First Post + Infrastructure")
+    print("=" * 70)
+
+    os.makedirs("blog", exist_ok=True)
+
+    print("\n[1/5] Creating blog/index.html...")
+    create_blog_index()
+
+    print("\n[2/5] Creating first blog post...")
+    create_first_post()
+
+    print("\n[3/5] Updating navigation...")
+    update_nav()
+
+    print("\n[4/5] Updating sitemap.xml...")
+    update_sitemap()
+
+    print("\n[5/5] Updating build.sh...")
+    update_build()
+
+    subprocess.run(["git", "add", "-A"], capture_output=True)
+
+    print("\n" + "=" * 70)
+    print("  BLOG MIGRATION COMPLETE")
+    print("=" * 70)
+    print("""
+  Created:
+    ✅ blog/index.html
+    ✅ blog/how-to-backtest-trading-strategy.html
+
+  Updated:
+    ✅ Navigation in index.html, strategies.html, disclaimer.html
+    ✅ sitemap.xml (2 new URLs)
+    ✅ build.sh (includes blog/)
+""")
+
+
+# ══════════════════════════════════════════════════════════════
+# BLOG INDEX
+# ══════════════════════════════════════════════════════════════
+
+def create_blog_index():
+    content = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Blog — Stock Trading Analytics & Backtesting Guides | xchart.in</title>
+<meta name="description" content="Free guides on backtesting trading strategies, technical analysis, and stock market analytics for Indian equities. Learn RSI, MACD, Bollinger Bands, and more.">
+<meta name="keywords" content="backtesting guide india, trading strategy tutorial, technical analysis india, RSI strategy, MACD backtest, stock market education">
+<meta name="author" content="xchart.in">
+<link rel="canonical" href="https://xchart.in/blog/" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="xchart.in Blog — Trading Analytics & Backtesting Guides">
+<meta property="og:description" content="Free guides on backtesting trading strategies on Indian stocks. Learn technical analysis with practical examples.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://xchart.in/blog/">
+<meta property="og:site_name" content="xchart.in">
+<meta property="og:locale" content="en_IN">
+
+<!-- Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "xchart.in Blog",
+  "url": "https://xchart.in/blog/",
+  "description": "Free guides on backtesting trading strategies on Indian stocks",
+  "publisher": {
+    "@type": "Organization",
+    "name": "xchart.in",
+    "url": "https://xchart.in"
+  },
+  "inLanguage": "en",
+  "blogPost": [
+    {
+      "@type": "BlogPosting",
+      "headline": "How to Backtest a Trading Strategy on Indian Stocks — Free Step-by-Step Guide",
+      "url": "https://xchart.in/blog/how-to-backtest-trading-strategy.html",
+      "datePublished": "2026-06-15",
+      "author": {"@type": "Organization", "name": "xchart.in"}
+    }
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#F8F9FB;--white:#FFFFFF;--border:#E5E7EB;--text:#1F2937;--text2:#6B7280;--text3:#9CA3AF;--accent:#2563EB;--accent-bg:rgba(37,99,235,0.06);--accent-border:rgba(37,99,235,0.15);--shadow:0 1px 3px rgba(0,0,0,0.06);--radius:10px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.hdr{background:var(--white);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-size:20px;font-weight:800;color:var(--text);text-decoration:none}
+.logo span{color:var(--accent)}
+.ver{font-size:8px;background:var(--accent);color:#fff;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700}
+.nav{display:flex;align-items:center;gap:16px;font-size:12px;font-weight:500}
+.nav a{color:var(--text2)}
+.nav a:hover{color:var(--accent);text-decoration:none}
+.nav a.active{color:var(--accent);font-weight:700}
+
+.main{max-width:800px;margin:0 auto;padding:40px 20px}
+.page-title{font-size:28px;font-weight:800;margin-bottom:6px}
+.page-sub{font-size:13px;color:var(--text2);margin-bottom:32px;line-height:1.6}
+
+.post-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;box-shadow:var(--shadow);transition:all 0.2s}
+.post-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.08);transform:translateY(-1px)}
+.post-card a{text-decoration:none;color:inherit}
+.post-tag{font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-bg);padding:3px 10px;border-radius:12px;display:inline-block;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px}
+.post-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px;line-height:1.4}
+.post-excerpt{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px}
+.post-meta{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:12px}
+.post-meta span{display:flex;align-items:center;gap:4px}
+
+.cta-box{background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius);padding:24px;text-align:center;margin-top:32px}
+.cta-box h3{font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.cta-box p{font-size:12px;color:var(--text2);margin-bottom:14px}
+.cta-btn{display:inline-block;padding:10px 28px;background:var(--accent);color:#fff;border-radius:8px;font-size:13px;font-weight:700;text-decoration:none;transition:all 0.2s}
+.cta-btn:hover{background:#1D4ED8;text-decoration:none}
+
+.ftr{background:var(--white);border-top:1px solid var(--border);padding:20px 24px 12px;margin-top:40px;text-align:center}
+.ftr-suggest{max-width:600px;margin:0 auto 14px;background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius);padding:14px 18px;text-align:left}
+.ftr-suggest strong{font-size:12px;color:var(--accent)}
+.ftr-suggest p{font-size:11px;color:#4B5563;line-height:1.7;margin-top:4px}
+.ftr-suggest a{font-weight:600;color:var(--accent)}
+.ftr-links{font-size:10px;color:var(--text2);line-height:1.8;margin-top:6px}
+.ftr-links a{color:var(--accent);margin:0 2px}
+.ftr-copy{font-size:9px;color:var(--text3);margin-top:8px;line-height:1.6}
+
+@media(max-width:600px){.main{padding:24px 14px}.post-title{font-size:17px}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <a href="/" class="logo">x<span>chart</span>.in<span class="ver">BETA</span></a>
+  <div class="nav">
+    <a href="/">Backtest</a>
+    <a href="/strategies.html">My Strategies</a>
+    <a href="/blog/" class="active">Blog</a>
+    <a href="/disclaimer.html">Disclaimer</a>
+  </div>
+</div>
+
+<div class="main">
+  <div class="page-title">📝 Blog</div>
+  <div class="page-sub">Free guides on backtesting, technical analysis, and stock market analytics for Indian equities</div>
+
+  <!-- Post 1 -->
+  <div class="post-card">
+    <a href="/blog/how-to-backtest-trading-strategy.html">
+      <div class="post-tag">📊 Backtesting Guide</div>
+      <div class="post-title">How to Backtest a Trading Strategy on Indian Stocks — Free Step-by-Step Guide</div>
+      <div class="post-excerpt">Learn how to test your trading ideas on 500+ Indian stocks before risking real money. This beginner-friendly guide walks you through RSI, MACD, and Bollinger Bands backtesting with downloadable reports — no coding required.</div>
+      <div class="post-meta">
+        <span>📅 June 15, 2026</span>
+        <span>⏱️ 12 min read</span>
+        <span>🏷️ Beginner</span>
+      </div>
+    </a>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-box">
+    <h3>🚀 Ready to Test Your Strategy?</h3>
+    <p>Backtest any strategy on 500+ Indian stocks with 20 configurable indicators. Free, no login required.</p>
+    <a href="/" class="cta-btn">Start Backtesting — Free</a>
+  </div>
+</div>
+
+<div class="ftr">
+  <div class="ftr-suggest">
+    <strong>💡 Have a Suggestion?</strong>
+    <p>Got an idea for a blog topic, indicator, or feature? We read every suggestion.</p>
+    <p style="margin-top:6px">📧 <a href="mailto:info@xchart.in?subject=Feature%20Request%20%E2%80%94%20xchart.in&body=Hi%20xchart%20team%2C%0A%0AI%20have%20a%20suggestion%3A%0A%0A">info@xchart.in</a> — Subject: <strong>"Feature Request"</strong></p>
+  </div>
+  <div class="ftr-links">
+    <a href="/">Backtest</a> · <a href="/strategies.html">My Strategies</a> · <a href="/blog/">Blog</a> · <a href="/disclaimer.html">Disclaimer</a> · <a href="mailto:info@xchart.in">Contact</a>
+  </div>
+  <div class="ftr-copy">
+    ⚠️ xchart.in is an analytical tool for educational purposes. Not SEBI registered. Not investment advice. Past performance ≠ future results.<br>
+    © 2026 xchart.in
+  </div>
+</div>
+
+<!-- Cloudflare Web Analytics -->
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "da96bc47f0254c1a841a4f10e94b0bdc"}'></script>
+
+</body>
+</html>"""
+    Path("blog/index.html").write_text(content, encoding="utf-8")
+    print("  ✅ blog/index.html created")
+
+# ══════════════════════════════════════════════════════════════
+# FIRST BLOG POST
+# ══════════════════════════════════════════════════════════════
+
+def create_first_post():
+    content = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>How to Backtest a Trading Strategy on Indian Stocks — Free Guide (2026) | xchart.in</title>
+<meta name="description" content="Step-by-step guide to backtest trading strategies on 500+ Indian stocks for free. Learn RSI, MACD, Bollinger Bands backtesting with downloadable reports. No coding needed.">
+<meta name="keywords" content="backtest trading strategy india, how to backtest stocks, RSI backtest india, MACD strategy test, bollinger bands backtest, free backtesting tool india, nifty 500 backtest">
+<meta name="author" content="xchart.in">
+<link rel="canonical" href="https://xchart.in/blog/how-to-backtest-trading-strategy.html" />
+
+<!-- Open Graph -->
+<meta property="og:title" content="How to Backtest a Trading Strategy on Indian Stocks — Free Guide">
+<meta property="og:description" content="Learn how to test your trading strategies on 500+ Indian stocks before risking real money. Free, no coding needed.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://xchart.in/blog/how-to-backtest-trading-strategy.html">
+<meta property="og:site_name" content="xchart.in">
+<meta property="og:locale" content="en_IN">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Backtest Trading Strategies on Indian Stocks — Free Guide">
+<meta name="twitter:description" content="Test your trading ideas on 500+ Indian stocks before risking real money. Step-by-step guide with RSI, MACD, BB.">
+
+<!-- Schema -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to Backtest a Trading Strategy on Indian Stocks",
+  "description": "Step-by-step guide to backtest trading strategies on Indian stocks using free tools",
+  "url": "https://xchart.in/blog/how-to-backtest-trading-strategy.html",
+  "datePublished": "2026-06-15",
+  "author": {"@type": "Organization", "name": "xchart.in", "url": "https://xchart.in"},
+  "publisher": {"@type": "Organization", "name": "xchart.in", "url": "https://xchart.in"},
+  "inLanguage": "en",
+  "totalTime": "PT15M",
+  "supply": [
+    {"@type": "HowToSupply", "name": "Historical stock data (OHLCV)"},
+    {"@type": "HowToSupply", "name": "Technical indicators"},
+    {"@type": "HowToSupply", "name": "Entry and exit rules"}
+  ],
+  "tool": [
+    {"@type": "HowToTool", "name": "xchart.in — Free backtesting tool"}
+  ],
+  "step": [
+    {"@type": "HowToStep", "position": 1, "name": "Select a stock", "text": "Go to xchart.in and search for any Indian stock from the Nifty 500 universe"},
+    {"@type": "HowToStep", "position": 2, "name": "Add indicators", "text": "Choose from 20 technical indicators like RSI, MACD, Bollinger Bands, SuperTrend"},
+    {"@type": "HowToStep", "position": 3, "name": "Configure entry and exit rules", "text": "Set conditions for when to enter and exit trades"},
+    {"@type": "HowToStep", "position": 4, "name": "Set risk management", "text": "Add stop loss, target profit, trailing stop, and max hold period"},
+    {"@type": "HowToStep", "position": 5, "name": "Run backtest", "text": "Click Run to see results with win rate, profit factor, and detailed trade log"},
+    {"@type": "HowToStep", "position": 6, "name": "Download report", "text": "Download a detailed HTML report with per-indicator contribution analysis"},
+    {"@type": "HowToStep", "position": 7, "name": "Refine and repeat", "text": "Adjust parameters and indicators to improve your strategy"}
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#F8F9FB;--white:#FFFFFF;--border:#E5E7EB;--text:#1F2937;--text2:#6B7280;--text3:#9CA3AF;--accent:#2563EB;--accent-bg:rgba(37,99,235,0.06);--accent-border:rgba(37,99,235,0.15);--bull:#16A34A;--bear:#DC2626;--shadow:0 1px 3px rgba(0,0,0,0.06);--radius:10px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+.hdr{background:var(--white);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-size:20px;font-weight:800;color:var(--text);text-decoration:none}
+.logo span{color:var(--accent)}
+.ver{font-size:8px;background:var(--accent);color:#fff;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;font-weight:700}
+.nav{display:flex;align-items:center;gap:16px;font-size:12px;font-weight:500}
+.nav a{color:var(--text2)}
+.nav a:hover{color:var(--accent);text-decoration:none}
+.nav a.active{color:var(--accent);font-weight:700}
+
+article{max-width:720px;margin:0 auto;padding:40px 20px}
+.breadcrumb{font-size:11px;color:var(--text3);margin-bottom:16px}
+.breadcrumb a{color:var(--text3)}
+.breadcrumb a:hover{color:var(--accent)}
+.post-tag{font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-bg);padding:3px 10px;border-radius:12px;display:inline-block;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px}
+h1{font-size:28px;font-weight:800;line-height:1.3;margin-bottom:12px;color:var(--text)}
+.post-meta{font-size:12px;color:var(--text3);margin-bottom:24px;display:flex;gap:16px;flex-wrap:wrap}
+.post-meta span{display:flex;align-items:center;gap:4px}
+.lead{font-size:15px;color:var(--text2);line-height:1.8;margin-bottom:28px;border-left:3px solid var(--accent);padding-left:16px}
+
+h2{font-size:20px;font-weight:800;margin:36px 0 14px;color:var(--text);display:flex;align-items:center;gap:8px}
+h3{font-size:16px;font-weight:700;margin:24px 0 10px;color:var(--text)}
+p{font-size:14px;line-height:1.8;margin-bottom:14px;color:var(--text)}
+ul,ol{font-size:14px;line-height:1.8;margin-bottom:14px;padding-left:24px;color:var(--text)}
+li{margin-bottom:6px}
+strong{color:var(--text)}
+
+.callout{background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius);padding:16px 20px;margin:20px 0;font-size:13px;line-height:1.7}
+.callout strong{color:var(--accent)}
+.callout-warn{background:rgba(217,119,6,0.06);border-color:rgba(217,119,6,0.15)}
+.callout-warn strong{color:#D97706}
+.callout-green{background:rgba(22,163,74,0.06);border-color:rgba(22,163,74,0.15)}
+.callout-green strong{color:var(--bull)}
+
+.step-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:16px 0;box-shadow:var(--shadow)}
+.step-num{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:800;margin-right:8px}
+.step-title{font-size:15px;font-weight:700;display:inline}
+
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0}
+.metric{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}
+.metric-val{font-size:20px;font-weight:800}
+.metric-label{font-size:10px;color:var(--text3);text-transform:uppercase;margin-top:2px;font-weight:600}
+
+.strategy-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:10px 0;box-shadow:var(--shadow)}
+.strategy-card h4{font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.strategy-card p{font-size:12px;color:var(--text2);margin-bottom:6px}
+.strategy-card .tag{font-size:9px;padding:2px 8px;border-radius:4px;font-weight:600;display:inline-block}
+.tag-momentum{background:rgba(37,99,235,0.08);color:var(--accent)}
+.tag-trend{background:rgba(22,163,74,0.08);color:var(--bull)}
+.tag-reversion{background:rgba(217,119,6,0.08);color:#D97706}
+.tag-breakout{background:rgba(168,85,247,0.08);color:#A855F7}
+.tag-conservative{background:rgba(107,114,128,0.08);color:var(--text2)}
+
+table{width:100%;border-collapse:collapse;font-size:12px;margin:16px 0}
+th{background:var(--bg);color:var(--text2);font-weight:600;text-align:left;padding:10px;border-bottom:2px solid var(--border);text-transform:uppercase;font-size:10px;letter-spacing:0.3px}
+td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text)}
+tr:hover{background:var(--bg)}
+
+.screenshot{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin:16px 0;text-align:center;color:var(--text3);font-size:11px;min-height:80px;display:flex;align-items:center;justify-content:center}
+
+.cta-box{background:linear-gradient(135deg,var(--accent-bg),rgba(79,70,229,0.04));border:1px solid var(--accent-border);border-radius:var(--radius);padding:28px;text-align:center;margin:32px 0}
+.cta-box h3{font-size:18px;font-weight:800;color:var(--accent);margin-bottom:8px}
+.cta-box p{font-size:13px;color:var(--text2);margin-bottom:16px;max-width:500px;margin-left:auto;margin-right:auto}
+.cta-btn{display:inline-block;padding:12px 32px;background:var(--accent);color:#fff;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;transition:all 0.2s;box-shadow:0 4px 12px rgba(37,99,235,0.3)}
+.cta-btn:hover{background:#1D4ED8;text-decoration:none;transform:translateY(-1px)}
+
+.toc{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:18px 24px;margin:20px 0}
+.toc h3{font-size:13px;font-weight:700;margin-bottom:10px;color:var(--text)}
+.toc ol{font-size:12px;line-height:2;padding-left:18px;margin:0}
+.toc a{color:var(--text2)}
+.toc a:hover{color:var(--accent)}
+
+.share-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:24px 0;text-align:center}
+.share-box p{font-size:12px;color:var(--text2);margin-bottom:10px}
+.share-btn{display:inline-block;padding:6px 16px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;color:var(--text);margin:0 4px;transition:all 0.2s;text-decoration:none}
+.share-btn:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+
+.ftr{background:var(--white);border-top:1px solid var(--border);padding:20px 24px 12px;margin-top:40px;text-align:center}
+.ftr-suggest{max-width:600px;margin:0 auto 14px;background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius);padding:14px 18px;text-align:left}
+.ftr-suggest strong{font-size:12px;color:var(--accent)}
+.ftr-suggest p{font-size:11px;color:#4B5563;line-height:1.7;margin-top:4px}
+.ftr-suggest a{font-weight:600;color:var(--accent)}
+.ftr-links{font-size:10px;color:var(--text2);line-height:1.8;margin-top:6px}
+.ftr-links a{color:var(--accent);margin:0 2px}
+.ftr-copy{font-size:9px;color:var(--text3);margin-top:8px;line-height:1.6}
+
+@media(max-width:600px){article{padding:24px 14px}h1{font-size:22px}h2{font-size:17px}.metric-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <a href="/" class="logo">x<span>chart</span>.in<span class="ver">BETA</span></a>
+  <div class="nav">
+    <a href="/">Backtest</a>
+    <a href="/strategies.html">My Strategies</a>
+    <a href="/blog/" class="active">Blog</a>
+    <a href="/disclaimer.html">Disclaimer</a>
+  </div>
+</div>
+
+<article>
+  <div class="breadcrumb"><a href="/">Home</a> / <a href="/blog/">Blog</a> / How to Backtest</div>
+
+  <div class="post-tag">📊 Backtesting Guide</div>
+  <h1>How to Backtest a Trading Strategy on Indian Stocks — Free Step-by-Step Guide</h1>
+
+  <div class="post-meta">
+    <span>📅 June 15, 2026</span>
+    <span>⏱️ 12 min read</span>
+    <span>🏷️ Beginner Friendly</span>
+  </div>
+
+  <p class="lead">Would you drive a car without testing the brakes first? Then why trade with a strategy you've never tested? This guide shows you how to backtest any trading strategy on 500+ Indian stocks — for free, in under 5 minutes, with no coding required.</p>
+
+  <!-- Table of Contents -->
+  <div class="toc">
+    <h3>📋 In This Guide</h3>
+    <ol>
+      <li><a href="#what-is">What is Backtesting?</a></li>
+      <li><a href="#what-you-need">What You Need to Backtest</a></li>
+      <li><a href="#step-by-step">Step-by-Step: Your First Backtest</a></li>
+      <li><a href="#read-results">How to Read Your Results</a></li>
+      <li><a href="#5-strategies">5 Beginner Strategies to Try</a></li>
+      <li><a href="#mistakes">Common Mistakes to Avoid</a></li>
+      <li><a href="#next-steps">Next Steps</a></li>
+    </ol>
+  </div>
+
+  <!-- Section 1 -->
+  <h2 id="what-is">📌 What is Backtesting?</h2>
+
+  <p>Backtesting is the process of testing a trading strategy on <strong>historical data</strong> to see how it would have performed in the past. Instead of risking real money on an untested idea, you run it against years of actual market data and measure the results.</p>
+
+  <p>Think of it like a flight simulator for traders — you experience the market without the risk.</p>
+
+  <div class="callout">
+    <strong>💡 Why it matters:</strong> Studies show that <strong>90% of retail traders in India lose money</strong>. The #1 reason? They trade on tips, emotions, and untested ideas. Backtesting removes the guesswork. If your strategy doesn't work on 3 years of historical data, it probably won't work tomorrow.
+  </div>
+
+  <h3>What Backtesting Tells You</h3>
+  <div class="metric-grid">
+    <div class="metric"><div class="metric-val">Win %</div><div class="metric-label">How often you win</div></div>
+    <div class="metric"><div class="metric-val">PF</div><div class="metric-label">Profit Factor</div></div>
+    <div class="metric"><div class="metric-val">DD %</div><div class="metric-label">Max Drawdown</div></div>
+    <div class="metric"><div class="metric-val">Avg Days</div><div class="metric-label">Holding Period</div></div>
+  </div>
+
+  <!-- Section 2 -->
+  <h2 id="what-you-need">🧰 What You Need to Backtest</h2>
+
+  <table>
+    <thead><tr><th>Component</th><th>Description</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Historical Data</strong></td><td>OHLCV (Open, High, Low, Close, Volume) prices</td><td>3 years of RELIANCE daily data</td></tr>
+      <tr><td><strong>Indicators</strong></td><td>Technical signals that identify patterns</td><td>RSI, MACD, Bollinger Bands</td></tr>
+      <tr><td><strong>Entry Rules</strong></td><td>When to buy — conditions that must be true</td><td>"Buy when RSI crosses above 30"</td></tr>
+      <tr><td><strong>Exit Rules</strong></td><td>When to sell — conditions or risk limits</td><td>"Sell at 3% stop loss or 14-day max hold"</td></tr>
+      <tr><td><strong>A Tool</strong></td><td>Software that runs the simulation</td><td><a href="/">xchart.in</a> — free, no coding</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout-green callout">
+    <strong>✅ Good news:</strong> <a href="/">xchart.in</a> gives you all 5 components in one place — 500+ Indian stocks, 20 indicators, configurable rules, and downloadable reports. No account needed to start.
+  </div>
+
+  <!-- Section 3 -->
+  <h2 id="step-by-step">🎯 Step-by-Step: Your First Backtest</h2>
+
+  <p>Let's build and test a simple strategy: <strong>"Buy RELIANCE when RSI recovers from oversold + Bollinger Bands confirm the bounce."</strong> This takes about 3 minutes.</p>
+
+  <div class="step-box">
+    <div><span class="step-num">1</span><div class="step-title">Go to xchart.in</div></div>
+    <p style="margin-top:8px;font-size:13px;color:var(--text2)">Open <a href="/" target="_blank">xchart.in</a> in your browser. No login needed — the entire tool is free to use.</p>
+  </div>
+
+  <div class="step-box">
+    <div><span class="step-num">2</span><div class="step-title">Select a Stock</div></div>
+    <p style="margin-top:8px;font-size:13px;color:var(--text2)">In the "Select Stock" section, type <strong>RELIANCE</strong> (or any stock from the Nifty 500). The tool loads 3 years of historical daily data automatically.</p>
+    <div class="screenshot">📸 Screenshot: Search for RELIANCE in the ticker search box</div>
+  </div>
+
+  <div class="step-box">
+    <div><span class="step-num">3</span><div class="step-title">Add RSI Indicator</div></div>
+    <p style="margin-top:8px;font-size:13px;color:var(--text2)">Click <strong>"+ Add Indicator"</strong> and select <strong>RSI</strong>. Set:</p>
+    <ul style="font-size:12px;margin-top:6px">
+      <li><strong>Period:</strong> 14 (standard)</li>
+      <li><strong>Oversold:</strong> 30 (buy zone)</li>
+      <li><strong>Overbought:</strong> 70 (sell zone)</li>
+      <li><strong>Entry:</strong> RSI crosses ABOVE oversold (recovery signal)</li>
+      <li><strong>Exit:</strong> RSI crosses ABOVE overbought</li>
+      <li><strong>Weight:</strong> 50%</li>
+    </ul>
+    <div class="screenshot">📸 Screenshot: RSI indicator configured with parameters</div>
+  </div>
+
+  <div class="step-box">
+    <div><span class="step-num">4</span><div class="step-title">Add Bollinger Bands</div></div>
+    <p style="margin-top:8px;font-size:13px;color:var(--text2)">Click <strong>"+ Add Indicator"</strong> again and select <strong>Bollinger Bands</strong>. Set:</p>
+    <ul style="font-size:12px;margin-top:6px">
+      <li><strong>SMA Period:</strong> 20</li>
+      <li><strong>Upper/Lower σ:</strong> 2</li>
+      <li><strong>Entry:</strong> Price bounces FROM lower band (reversal)</li>
+      <li><strong>Exit:</strong> Price crosses ABOVE mid line (target reached)</li>
+      <li><strong>Weight:</strong> 50%</li>
+    </ul>
+  </div>
+
+  <div class="step-box">
+    <div><span class="step-num">5</span><div class="step-title">Set Exit Rules (Risk Management)</div></div>
+    <p style="margin-top:8px;font-size:13px;color:var(--text2)">In the Exit Rules section, enable:</p>
+    <ul style="font-size:12px;margin-top:6px">
+      <li>✅ <strong>Stop Loss:</strong> 3% — limits your downside per trade</li>
+      <li>✅ <strong>Max Hold:</strong> 14 days — prevents capital from being stuck</li>
+    </ul>
+    <div class="callout-warn callout" style="margin-top:10px">
+      <strong>⚠️ Never backtest without a stop loss.</strong> Without it, a single bad trade can wipe out months of gains. Always include risk management in your rules.
+    </div>
+  </div>
+
+  <div class="step-box">
+    <div><span class="step-num">6</span><div class="step-title">Click "Run Backtest"</div></div>
+    <p style="margin-top:8px;font-size:13px;color:var(--text2)">Hit the <strong>▶ Run Backtest</strong> button. In 1-2 seconds, you'll see:</p>
+    <ul style="font-size:12px;margin-top:6px">
+      <li>📊 Performance KPIs (win rate, profit factor, total return)</li>
+      <li>📈 Price chart with entry/exit markers</li>
+      <li>📉 Equity curve</li>
+      <li>📋 Complete trade log with dates and P&L</li>
+      <li>🎯 Per-indicator contribution analysis</li>
+    </ul>
+    <div class="screenshot">📸 Screenshot: Backtest results showing KPIs and chart</div>
+  </div>
+
+  <div class="step-box">
+    <div><span class="step-num">7</span><div class="step-title">Download Your Report</div></div>
+    <p style="margin-top:8px;font-size:13px;color:var(--text2)">Click <strong>"📄 Download Backtest Report"</strong> to get a beautiful HTML report you can save, print, or share. It includes every trade, every signal, and per-indicator accuracy.</p>
+  </div>
+
+  <div class="cta-box">
+    <h3>🚀 Try It Now — Takes 3 Minutes</h3>
+    <p>Follow the exact steps above on any Indian stock. Free, no login, no limits.</p>
+    <a href="/" class="cta-btn">Open xchart.in — Start Backtesting</a>
+  </div>
+
+  <!-- Section 4 -->
+  <h2 id="read-results">📊 How to Read Your Backtest Results</h2>
+
+  <p>After running your backtest, you'll see several key metrics. Here's what they mean and what to look for:</p>
+
+  <table>
+    <thead><tr><th>Metric</th><th>What It Means</th><th>Good Value</th><th>Bad Value</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Win Rate</strong></td><td>% of trades that were profitable</td><td style="color:var(--bull)">≥ 50%</td><td style="color:var(--bear)">< 40%</td></tr>
+      <tr><td><strong>Profit Factor</strong></td><td>Total wins ÷ total losses</td><td style="color:var(--bull)">≥ 1.5</td><td style="color:var(--bear)">< 1.0</td></tr>
+      <tr><td><strong>Total Return</strong></td><td>Hypothetical portfolio gain/loss</td><td style="color:var(--bull)">Positive</td><td style="color:var(--bear)">Negative</td></tr>
+      <tr><td><strong>Max Drawdown</strong></td><td>Worst peak-to-trough decline</td><td style="color:var(--bull)">< 15%</td><td style="color:var(--bear)">> 30%</td></tr>
+      <tr><td><strong>Avg Hold</strong></td><td>Average days per trade</td><td>Matches your style</td><td>Too long/short for you</td></tr>
+      <tr><td><strong>SL Exits</strong></td><td>How many trades hit stop loss</td><td style="color:var(--bull)">< 30%</td><td style="color:var(--bear)">> 50%</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>💡 The #1 metric is Profit Factor (PF).</strong> If PF > 1.0, your strategy made more than it lost. If PF > 1.5, it's a strong strategy. If PF < 1.0, your strategy loses money — go back and adjust.
+  </div>
+
+  <h3>Understanding Per-Indicator Contribution</h3>
+  <p>One of xchart.in's unique features is the <strong>indicator contribution table</strong> in every report. It shows which indicator actually helped your strategy and which ones are dead weight:</p>
+
+  <table>
+    <thead><tr><th>Indicator</th><th>Entry Triggers</th><th>Led to Wins</th><th>Accuracy</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>RSI</td><td>12</td><td>8</td><td style="color:var(--bull)">66.7%</td><td>✅ Keep</td></tr>
+      <tr><td>Bollinger Bands</td><td>15</td><td>6</td><td style="color:var(--bear)">40.0%</td><td>⚠️ Adjust params</td></tr>
+    </tbody>
+  </table>
+
+  <p>If an indicator's accuracy is below 50%, it's performing <strong>worse than random</strong>. Consider removing it or changing its parameters.</p>
+
+  <!-- Section 5 -->
+  <h2 id="5-strategies">🏆 5 Beginner-Friendly Strategies to Try</h2>
+
+  <p>Not sure where to start? xchart.in comes with <strong>15 preset strategies</strong> across 5 categories. Here are the 5 best ones for beginners — click any preset name on xchart.in to auto-load it:</p>
+
+  <div class="strategy-card">
+    <h4>1. RSI Recovery <span class="tag tag-momentum">Momentum</span></h4>
+    <p><strong>Idea:</strong> Buy when a stock recovers from oversold territory with volume confirmation.</p>
+    <p><strong>Indicators:</strong> RSI(14) oversold at 30 + Volume Spike</p>
+    <p><strong>Best for:</strong> Catching bounces after sharp sell-offs in large-cap stocks</p>
+  </div>
+
+  <div class="strategy-card">
+    <h4>2. Golden Cross <span class="tag tag-trend">Trend</span></h4>
+    <p><strong>Idea:</strong> Buy when the 50-day SMA crosses above the 200-day SMA — the most famous trend signal.</p>
+    <p><strong>Indicators:</strong> SMA(50,200) crossover + Volume + ADX</p>
+    <p><strong>Best for:</strong> Long-term trend following on blue-chip stocks</p>
+  </div>
+
+  <div class="strategy-card">
+    <h4>3. BB Bounce <span class="tag tag-reversion">Mean Reversion</span></h4>
+    <p><strong>Idea:</strong> Buy when price touches the lower Bollinger Band and RSI confirms oversold.</p>
+    <p><strong>Indicators:</strong> Bollinger Bands(20,2) + RSI(14) + OBV</p>
+    <p><strong>Best for:</strong> Range-bound markets and stocks that tend to revert to the mean</p>
+  </div>
+
+  <div class="strategy-card">
+    <h4>4. Donchian Breakout <span class="tag tag-breakout">Breakout</span></h4>
+    <p><strong>Idea:</strong> Buy when price breaks above the 20-day high with strong momentum.</p>
+    <p><strong>Indicators:</strong> Donchian Channel(20) + ADX(14) + Volume Spike</p>
+    <p><strong>Best for:</strong> Catching the start of new trends in mid-cap stocks</p>
+  </div>
+
+  <div class="strategy-card">
+    <h4>5. Triple Confirmation <span class="tag tag-conservative">Conservative</span></h4>
+    <p><strong>Idea:</strong> Only buy when ALL three indicators agree — fewer trades but higher conviction.</p>
+    <p><strong>Indicators:</strong> RSI(14) + MACD(12,26,9) + SMA Cross(9,22) — AND mode</p>
+    <p><strong>Best for:</strong> Conservative traders who want quality over quantity</p>
+  </div>
+
+  <div class="callout-green callout">
+    <strong>✅ Try all 15 presets:</strong> Go to <a href="/">xchart.in</a>, scroll to the Presets section, and click any strategy name. It auto-loads the indicators, parameters, and weights. Just pick a stock and click Run.
+  </div>
+
+  <!-- Section 6 -->
+  <h2 id="mistakes">⚠️ 6 Common Backtesting Mistakes</h2>
+
+  <ol>
+    <li><strong>Over-fitting (Too Many Indicators)</strong><br>Using 8-10 indicators makes your strategy look amazing on historical data but fail in live trading. Stick to 2-4 indicators maximum. More isn't better.</li>
+
+    <li><strong>No Stop Loss</strong><br>Every professional trader uses a stop loss. If your backtest doesn't include one, the results are meaningless. A strategy with 80% win rate but no SL can still blow up your account on the 20%.</li>
+
+    <li><strong>Ignoring Slippage & Fees</strong><br>Backtests assume perfect execution at closing prices. In reality, you'll face slippage (0.1-0.5%), brokerage (₹20/trade on discount brokers), and STT/taxes. A strategy with PF 1.1 might actually lose money after costs.</li>
+
+    <li><strong>Testing Only on Winners</strong><br>Don't just backtest RELIANCE and TCS. Test on stocks that went sideways or down too. A good strategy should work across different market conditions.</li>
+
+    <li><strong>Too Short a Period</strong><br>Testing on 3 months of data is meaningless. Use at least 1 year (xchart.in provides 3 years). Your strategy should survive bull markets, bear markets, and sideways markets.</li>
+
+    <li><strong>Curve-Fitting to Past Data</strong><br>If you keep tweaking parameters until the backtest looks perfect, you've probably curve-fitted to the past. A robust strategy should work with reasonable parameter ranges, not one magic number.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>💡 Pro tip:</strong> The best way to avoid over-fitting is to test your strategy on a stock you DIDN'T optimize it for. If your RSI strategy works on RELIANCE, test it on INFY, TCS, and HDFC too. If it only works on one stock, it's curve-fitted.
+  </div>
+
+  <!-- Section 7 -->
+  <h2 id="next-steps">🚀 Next Steps</h2>
+
+  <p>Now that you know how to backtest, here's your action plan:</p>
+
+  <ol>
+    <li><strong>Run your first backtest</strong> — Pick any stock, use the RSI Recovery preset, hit Run. Takes 2 minutes.</li>
+    <li><strong>Download the report</strong> — Study the trade log. Understand why each trade won or lost.</li>
+    <li><strong>Try 3 different presets</strong> — Compare RSI Recovery, Golden Cross, and BB Bounce on the same stock. Which one fits your style?</li>
+    <li><strong>Build your own strategy</strong> — Mix indicators, adjust parameters, find what works for YOU.</li>
+    <li><strong>Save your best strategies</strong> — <a href="/strategies.html">Login</a> to save and reload your winning configurations anytime.</li>
+  </ol>
+
+  <div class="cta-box">
+    <h3>🎯 Start Backtesting Now — It's Free</h3>
+    <p>500+ Indian stocks. 20 indicators. 3 years of data. Downloadable reports. No login required. No limits.</p>
+    <a href="/" class="cta-btn">Open xchart.in — Free Forever</a>
+  </div>
+
+  <!-- Share -->
+  <div class="share-box">
+    <p>Found this useful? Share it with fellow traders:</p>
+    <a href="https://twitter.com/intent/tweet?text=How%20to%20Backtest%20Trading%20Strategies%20on%20Indian%20Stocks%20%E2%80%94%20Free%20Guide&url=https://xchart.in/blog/how-to-backtest-trading-strategy.html" target="_blank" class="share-btn">🐦 Twitter</a>
+    <a href="https://www.reddit.com/submit?url=https://xchart.in/blog/how-to-backtest-trading-strategy.html&title=How%20to%20Backtest%20Trading%20Strategies%20on%20Indian%20Stocks%20%E2%80%94%20Free%20Guide" target="_blank" class="share-btn">🔗 Reddit</a>
+    <a href="https://wa.me/?text=How%20to%20Backtest%20Trading%20Strategies%20on%20Indian%20Stocks%20%E2%80%94%20Free%20Guide%20https://xchart.in/blog/how-to-backtest-trading-strategy.html" target="_blank" class="share-btn">💬 WhatsApp</a>
+    <a href="https://t.me/share/url?url=https://xchart.in/blog/how-to-backtest-trading-strategy.html&text=How%20to%20Backtest%20Trading%20Strategies%20on%20Indian%20Stocks" target="_blank" class="share-btn">✈️ Telegram</a>
+  </div>
+
+  <!-- Disclaimer -->
+  <div class="callout-warn callout" style="margin-top:24px">
+    <strong>⚠️ Disclaimer:</strong> This article is for educational purposes only. xchart.in is an analytical tool — not a financial advisor. All backtest results are based on historical data and do not guarantee future performance. Not SEBI registered. Always consult a SEBI-registered investment adviser before making investment decisions.
+  </div>
+
+</article>
+
+<div class="ftr">
+  <div class="ftr-suggest">
+    <strong>💡 Have a Suggestion?</strong>
+    <p>Got an idea for a blog topic, indicator, or feature? We read every suggestion.</p>
+    <p style="margin-top:6px">📧 <a href="mailto:info@xchart.in?subject=Feature%20Request%20%E2%80%94%20xchart.in&body=Hi%20xchart%20team%2C%0A%0AI%20have%20a%20suggestion%3A%0A%0A">info@xchart.in</a> — Subject: <strong>"Feature Request"</strong></p>
+  </div>
+  <div class="ftr-links">
+    <a href="/">Backtest</a> · <a href="/strategies.html">My Strategies</a> · <a href="/blog/">Blog</a> · <a href="/disclaimer.html">Disclaimer</a> · <a href="mailto:info@xchart.in">Contact</a>
+  </div>
+  <div class="ftr-copy">
+    ⚠️ xchart.in is an analytical tool for educational purposes. Not SEBI registered. Not investment advice. Past performance ≠ future results.<br>
+    © 2026 xchart.in
+  </div>
+</div>
+
+<!-- Cloudflare Web Analytics -->
+<script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "da96bc47f0254c1a841a4f10e94b0bdc"}'></script>
+
+</body>
+</html>"""
+    Path("blog/how-to-backtest-trading-strategy.html").write_text(content, encoding="utf-8")
+    print("  ✅ blog/how-to-backtest-trading-strategy.html created")
+
+# ══════════════════════════════════════════════════════════════
+# UPDATE NAV IN ALL PAGES
+# ══════════════════════════════════════════════════════════════
+
+def update_nav():
+    pages = ["index.html", "strategies.html", "disclaimer.html"]
+    for page in pages:
+        fp = Path(page)
+        if not fp.exists():
+            print(f"  SKIP: {page} not found")
+            continue
+
+        c = fp.read_text(encoding="utf-8")
+        if '/blog/' in c:
+            print(f"  {page} — blog link already exists")
+            continue
+
+        # Add blog link before Disclaimer
+        if 'disclaimer.html' in c:
+            c = c.replace(
+                '<a href="disclaimer.html"',
+                '<a href="/blog/">Blog</a>\n    <a href="disclaimer.html"'
+            )
+            # Also try with /disclaimer.html
+            c = c.replace(
+                '<a href="/disclaimer.html"',
+                '<a href="/blog/">Blog</a>\n    <a href="/disclaimer.html"'
+            )
+            # Avoid duplicates
+            c = c.replace(
+                '<a href="/blog/">Blog</a>\n    <a href="/blog/">Blog</a>',
+                '<a href="/blog/">Blog</a>'
+            )
+            fp.write_text(c, encoding="utf-8")
+            print(f"  ✅ {page} — added blog nav link")
+        else:
+            print(f"  {page} — disclaimer link not found, skipping")
+
+
+# ══════════════════════════════════════════════════════════════
+# UPDATE SITEMAP
+# ══════════════════════════════════════════════════════════════
+
+def update_sitemap():
+    fp = Path("sitemap.xml")
+    if not fp.exists():
+        print("  SKIP: sitemap.xml not found")
+        return
+
+    c = fp.read_text(encoding="utf-8")
+
+    if 'blog' in c:
+        print("  sitemap.xml — blog URLs already exist")
+        return
+
+    new_urls = """  <url>
+    <loc>https://xchart.in/blog/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://xchart.in/blog/how-to-backtest-trading-strategy.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+"""
+    c = c.replace('</urlset>', new_urls + '</urlset>')
+    fp.write_text(c, encoding="utf-8")
+    print("  ✅ sitemap.xml — added 2 blog URLs")
+
+
+# ══════════════════════════════════════════════════════════════
+# UPDATE BUILD.SH
+# ══════════════════════════════════════════════════════════════
+
+def update_build():
+    fp = Path("build.sh")
+    if not fp.exists():
+        print("  SKIP: build.sh not found")
+        return
+
+    c = fp.read_text(encoding="utf-8")
+
+    if 'blog' in c:
+        print("  build.sh — blog copy already exists")
+        return
+
+    # Add blog copy before the echo lines
+    blog_copy = 'cp -r blog dist/ 2>/dev/null || true\n'
+    c = c.replace(
+        'echo "Files in dist/"',
+        blog_copy + 'echo "Files in dist/"'
+    )
+    fp.write_text(c, encoding="utf-8")
+    print("  ✅ build.sh — added blog/ copy")
+
+
+if __name__ == "__main__":
+    main()
