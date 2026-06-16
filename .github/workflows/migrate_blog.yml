@@ -1,11 +1,11 @@
-name: Migrate Engine to Private Repo
+name: Blog Migration
 on:
   workflow_dispatch:
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -15,16 +15,14 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run engine migration
-        env:
-          ENGINE_TOKEN: ${{ secrets.ENGINE_REPO_TOKEN }}
-        run: python migrate_engine.py
+      - name: Run blog migration
+        run: python migrate_blog.py
 
-      - name: Commit removal of engine files
+      - name: Commit and push
         run: |
           git config user.name "GitHub Actions Automation"
           git config user.email "actions@github.com"
           git add -A
-          git diff --staged --quiet || git commit -m "Remove engine files (moved to private repo)"
+          git diff --staged --quiet || git commit -m "Blog: first post — How to Backtest Trading Strategies"
           git pull --rebase origin master
           git push
