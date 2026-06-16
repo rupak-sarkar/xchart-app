@@ -1,4 +1,5 @@
 #!/bin/bash
+# v2 — includes blog
 echo "Building xchart.in static site..."
 mkdir -p dist
 
