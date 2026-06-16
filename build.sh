@@ -18,6 +18,7 @@ cp *.svg dist/ 2>/dev/null || true
 cp -r screener_data dist/ 2>/dev/null || true
 cp -r charts dist/ 2>/dev/null || true
 cp -r output dist/ 2>/dev/null || true
+cp -r blog dist/ 2>/dev/null || true
 
 echo "Files in dist/:"
 ls dist/
