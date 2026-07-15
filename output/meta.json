@@ -1,17 +1,17 @@
 {
-  "date": "2026-07-14",
+  "date": "2026-07-15",
   "version": "7.4",
   "tickers": 54,
   "total_tickers": 54,
   "regime": "CHOPPY",
   "breadth": 64,
-  "nifty_5d": -0.1,
+  "nifty_5d": 0.2,
   "avg_accuracy": 68.9,
   "direction_accuracy": 68.9,
-  "avg_profit_factor": 6.58,
-  "avg_pf": 6.58,
+  "avg_profit_factor": 5.95,
+  "avg_pf": 5.95,
   "bulls": 1,
-  "bears": 3,
-  "neutral momentums": 50,
-  "same_day_accuracy": 0.0
+  "bears": 4,
+  "neutral momentums": 49,
+  "same_day_accuracy": 40.0
 }
