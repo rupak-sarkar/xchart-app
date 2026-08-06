@@ -30,7 +30,10 @@ jobs:
         run: pip install pandas numpy yfinance feedparser
 
       - name: Smart data sync
-        run: python -c "from engine.data_fetcher import ensure_data_exists; ensure_data_exists()"
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/engine
+          python -c "from engine.data_fetcher import ensure_data_exists; ensure_data_exists()"
+
 
       - name: Commit and push
         run: |
