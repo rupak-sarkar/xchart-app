@@ -14,11 +14,12 @@ jobs:
       - name: Checkout app
         uses: actions/checkout@v4
 
-      - name: Checkout engine
+      - name: Checkout engine (private repo)
         uses: actions/checkout@v4
         with:
-          repository: your-username/xchart-engine   # replace with your GitHub handle
-          path: engine                              # makes engine/ available
+          repository: rupak-sarkar/xchart-engine   # replace with your repo path
+          path: engine
+          token: ${{ secrets.ENGINE_TOKEN }}       # use your secret PAT
 
       - name: Setup Python
         uses: actions/setup-python@v5
