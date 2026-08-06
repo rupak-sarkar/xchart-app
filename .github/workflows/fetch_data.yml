@@ -2,7 +2,7 @@ name: Fetch Stock Data
 
 on:
   schedule:
-    - cron: '0 12 * * 1-5'
+    - cron: '0 12 * * 1-5'   # Run at 12:00 UTC, Mon–Fri
   workflow_dispatch:
 
 jobs:
@@ -11,8 +11,14 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout app
         uses: actions/checkout@v4
+
+      - name: Checkout engine
+        uses: actions/checkout@v4
+        with:
+          repository: your-username/xchart-engine   # replace with your GitHub handle
+          path: engine                              # makes engine/ available
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -32,5 +38,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --staged --quiet || git commit -m "📊 Data sync $(date -u +%Y-%m-%d)"
-          git pull --rebase origin master || git pull origin master
+          git pull --rebase origin main || git pull origin main   # switched from master to main
           git push
