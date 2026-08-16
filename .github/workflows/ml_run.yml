@@ -11,8 +11,15 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Checkout
+      - name: Checkout app
         uses: actions/checkout@v4
+
+      - name: Checkout engine (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: rupak-sarkar/xchart-engine
+          path: engine
+          token: ${{ secrets.ENGINE_REPO_TOKEN || github.token }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -23,7 +30,9 @@ jobs:
         run: pip install pandas numpy yfinance feedparser requests beautifulsoup4 lightgbm scikit-learn
 
       - name: Run ML pipeline
-        run: python ml_run.py
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/engine
+          python ml_run.py
 
       - name: Commit and push
         run: |
