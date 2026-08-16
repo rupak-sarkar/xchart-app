@@ -22,7 +22,7 @@ jobs:
         with:
           repository: rupak-sarkar/xchart-engine
           path: engine
-          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          token: ${{ secrets.ENGINE_REPO_TOKEN || github.token }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
