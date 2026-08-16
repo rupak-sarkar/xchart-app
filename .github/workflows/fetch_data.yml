@@ -17,9 +17,9 @@ jobs:
       - name: Checkout engine (private repo)
         uses: actions/checkout@v4
         with:
-          repository: rupak-sarkar/xchart-engine   # replace with your repo path
+          repository: rupak-sarkar/xchart-engine
           path: engine
-          token: ${{ secrets.ENGINE_TOKEN }}       # use your secret PAT
+          token: ${{ secrets.ENGINE_REPO_TOKEN || github.token }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -42,5 +42,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --staged --quiet || git commit -m "📊 Data sync $(date -u +%Y-%m-%d)"
-          git pull --rebase origin main || git pull origin main   # switched from master to main
+          git pull --rebase origin master || git pull origin master
           git push
