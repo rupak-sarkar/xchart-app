@@ -14,8 +14,15 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Checkout app
         uses: actions/checkout@v4
+
+      - name: Checkout engine (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: rupak-sarkar/xchart-engine
+          path: engine
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -26,7 +33,9 @@ jobs:
         run: pip install pandas requests beautifulsoup4
 
       - name: Update tickers
-        run: python -c "from engine.tickers import update_tickers; update_tickers()"
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/engine
+          python -c "from engine.tickers import update_tickers; update_tickers()"
 
       - name: Commit and push
         run: |
@@ -34,5 +43,5 @@ jobs:
           git config user.email "actions@github.com"
           git add output/tickers.csv
           git diff --staged --quiet || git commit -m "Tickers update $(date -u +%Y-%m-%d)"
-          git pull --rebase origin master
+          git pull --rebase origin master || git pull origin master
           git push
