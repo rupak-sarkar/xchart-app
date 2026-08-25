@@ -1,17 +1,17 @@
 {
-  "date": "2026-08-24",
+  "date": "2026-08-25",
   "version": "7.4",
   "tickers": 54,
   "total_tickers": 54,
   "regime": "CHOPPY",
-  "breadth": 46,
-  "nifty_5d": -0.7,
-  "avg_accuracy": 66.3,
-  "direction_accuracy": 66.3,
-  "avg_profit_factor": 1.12,
-  "avg_pf": 1.12,
-  "bulls": 0,
-  "bears": 0,
-  "neutral momentums": 54,
-  "same_day_accuracy": 0
+  "breadth": 44,
+  "nifty_5d": -0.0,
+  "avg_accuracy": 66.5,
+  "direction_accuracy": 66.5,
+  "avg_profit_factor": 1.1,
+  "avg_pf": 1.1,
+  "bulls": 1,
+  "bears": 4,
+  "neutral momentums": 49,
+  "same_day_accuracy": 20.0
 }
