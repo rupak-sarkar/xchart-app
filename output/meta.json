@@ -1,5 +1,5 @@
 {
-  "date": "2026-09-11",
+  "date": "2026-09-14",
   "version": "7.4",
   "tickers": 54,
   "total_tickers": 54,
@@ -10,8 +10,8 @@
   "direction_accuracy": 66.6,
   "avg_profit_factor": 1.0,
   "avg_pf": 1.0,
-  "bulls": 1,
+  "bulls": 0,
   "bears": 3,
-  "neutral momentums": 50,
-  "same_day_accuracy": 25.0
+  "neutral momentums": 51,
+  "same_day_accuracy": 0.0
 }
