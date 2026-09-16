@@ -1,8 +1,8 @@
 {
-  "last_sync_date": "2026-09-15",
-  "tickers_synced": 500,
+  "last_sync_date": "2026-09-16",
+  "tickers_synced": 499,
   "tickers_total": 504,
-  "tickers_failed": 4,
-  "tickers_updated": 500,
-  "rows_total": 350238
+  "tickers_failed": 5,
+  "tickers_updated": 499,
+  "rows_total": 350591
 }
