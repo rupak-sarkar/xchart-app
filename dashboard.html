@@ -490,7 +490,7 @@ function openChart(tk){
   });
   document.getElementById('chartModal').classList.add('show');
   destroyAllCharts();
-  fetch('output/charts/'+tk+'.json')
+  fetch('/charts/'+tk+'.json')
     .then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})
     .then(function(data){CD=data;buildMainChart()})
     .catch(function(){
