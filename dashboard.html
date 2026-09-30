@@ -197,9 +197,57 @@ var sc=function(v,n){return pf(v).toFixed(n||0)};
 var sC=function(v){return v>0?'var(--bull)':v<0?'var(--bear)':'var(--text2)'};
 var sn=function(v){v=parseFloat(v);return v>0?'+'+v:v};
 var gCat=function(r){return r.Category||r.BT_Category||'MID'};
-var gd=function(r){var d=parseInt(r.Composite_Direction||r.Forecast_Direction||0);return d===1?'bull':d===-1?'bear':'neut'};
 var dl=function(d){return d==='bull'?'POSITIVE':d==='bear'?'NEGATIVE':d==='hold_bull'?'H-POSITIVE':d==='hold_bear'?'H-NEGATIVE':'NEUT'};
 var cleanSector=function(s){return(s&&s!=='Other'&&s!=='0'&&s!=='nan'&&String(s)!=='0'&&s!=='')?s:'\u2014'};
+// P0-11 chart request guards
+var chartAbortController=null;      // AbortController for the active chart fetch
+var chartReqSeq=0;                  // monotonically increasing request id for stale-response protection
+// P0-12 dashboard bootstrap state
+var dataLoadOk=false;               // set true only when output/data.csv yields at least one valid row
+
+// ══════════════════════════════════════════════════════════════════
+// P0-3 — TRUTHFUL VALUE FORMATTING
+// A cell that is absent / empty / NaN / null must never be rendered as 0.
+// Absent data is shown as an em dash, so a missing engine column can never
+// masquerade as a real measurement.
+// ══════════════════════════════════════════════════════════════════
+var DASH='\u2014';
+var isBlank=function(v){
+  if(v===undefined||v===null)return true;
+  var s=String(v).trim();
+  if(s==='')return true;
+  var l=s.toLowerCase();
+  return l==='nan'||l==='null'||l==='undefined';
+};
+var hasField=function(r,k){return !!r&&!isBlank(r[k])};
+var fvNum=function(r,k,n){return hasField(r,k)?sc(r[k],n):DASH};
+var fvPct=function(r,k,n){return hasField(r,k)?pf(r[k]).toFixed(n||0)+'%':DASH};
+var fvBand=function(r,k,n){return hasField(r,k)?'\u00b1'+pf(r[k]).toFixed(n||0)+'%':DASH};
+
+// ══════════════════════════════════════════════════════════════════
+// P0-4 — EXPLICIT DIRECTION SOURCE (no silent fallback)
+// output/data.csv carries no Composite_Direction column, so the previous
+// `r.Composite_Direction||r.Forecast_Direction` chain silently relabelled
+// the Forecast direction as the Composite direction. The source is now
+// resolved explicitly and reported back to the UI.
+// ══════════════════════════════════════════════════════════════════
+var DIR_FIELDS=[{k:'Composite_Direction',n:'Composite'},{k:'Forecast_Direction',n:'Forecast'}];
+function dirInfo(r){
+  for(var i=0;i<DIR_FIELDS.length;i++){
+    var f=DIR_FIELDS[i];
+    if(hasField(r,f.k)){
+      var v=parseInt(r[f.k],10);
+      if(!isNaN(v))return{v:v,src:f.n,key:f.k};
+    }
+  }
+  return {v:0,src:null,key:null};
+}
+var gd=function(r){var v=dirInfo(r).v;return v===1?'bull':v===-1?'bear':'neut'};
+var gds=function(r){return dirInfo(r).src};
+var dirTitle=function(r){
+  var s=gds(r);
+  return s?('Direction source: '+s+'_Direction'):'Direction unavailable \u2014 no direction column in output/data.csv';
+};
 
 // Effective direction: considers active holds
 function gde(r){
@@ -246,42 +294,112 @@ function enrichActiveMomentum(){
   if(hb||hbe)console.log('Active holds: '+hb+' bull, '+hbe+' bear');
 }
 
+// ══════════════════════════════════════════════════════════════════
+// P0-2 — STREAK
+// The previous implementation read history.Composite_Direction and counted
+// consecutive rows equal to it. That column is empty in every row, so the
+// "streak" silently degenerated into "number of history rows" and rendered
+// values such as 1d / 64d / 65d. A streak is now reported only when a
+// direction column is actually populated and currently non-neutral.
+// Returns {text,days,dir,src} or null (null renders as an em dash).
+// ══════════════════════════════════════════════════════════════════
+var HIST_DIR_FIELDS=['Composite_Direction','Momentum_Direction'];
 function computeStreak(tk){
-  if(!H.length)return '0d';
-  var rows=H.filter(function(r){return String(r.Ticker).trim()===tk}).sort(function(a,b){return(b.Date||'').localeCompare(a.Date||'')});
-  if(!rows.length)return '0d';
-  var cd=parseInt(rows[0].Composite_Direction||0);
-  var cnt=0;
-  for(var i=0;i<rows.length;i++){
-    if(parseInt(rows[i].Composite_Direction||0)===cd)cnt++;
-    else break;
+  if(!H.length)return null;
+  var rows=H.filter(function(r){return String(r.Ticker).trim()===tk&&!isBlank(r.Date)});
+  if(!rows.length)return null;
+
+  // history.csv contains duplicate (Ticker,Date) rows — collapse them first.
+  var byDate={};
+  rows.forEach(function(r){byDate[String(r.Date).substring(0,10)]=r});
+  var dates=Object.keys(byDate).sort().reverse();
+
+  // A direction column is usable only if it holds at least one non-zero value.
+  var col=null;
+  for(var i=0;i<HIST_DIR_FIELDS.length;i++){
+    var k=HIST_DIR_FIELDS[i];
+    for(var j=0;j<dates.length;j++){
+      var probe=hasField(byDate[dates[j]],k)?parseInt(byDate[dates[j]][k],10):0;
+      if(!isNaN(probe)&&probe!==0){col=k;break}
+    }
+    if(col)break;
   }
+  if(!col)return null;                                  // no populated direction history
+
+  var cd=hasField(byDate[dates[0]],col)?parseInt(byDate[dates[0]][col],10):NaN;
+  if(isNaN(cd)||cd===0)return null;                     // no *active* directional streak
+
+  var cnt=0;
+  for(var m=0;m<dates.length;m++){
+    var v=hasField(byDate[dates[m]],col)?parseInt(byDate[dates[m]][col],10):NaN;
+    if(isNaN(v)||v!==cd)break;
+    cnt++;
+  }
+  if(cnt<1)return null;
+
   var icon=cd===1?'\uD83D\uDFE2 ':cd===-1?'\uD83D\uDD34 ':'';
-  return icon+cnt+'d';
+  // P0-4/P0-2: mark streaks that come from the fallback column, so a value read
+  // from Momentum_Direction is never mistaken for a Composite_Direction streak.
+  var fallback=(col!=='Composite_Direction');
+  return {text:icon+cnt+'d'+(fallback?'*':''),days:cnt,dir:cd,src:col,fallback:fallback};
 }
 
 function init(){
+  // P0-12: show a visible loading state before any network work begins
+  var main=document.getElementById('mainContent');
+  main.innerHTML='<div style="padding:16px;text-align:center;color:var(--text2);font-size:12px">Loading dashboard data...</div>';
+
   var mp=fetch('output/meta.json').then(function(r){return r.json()}).then(function(m){M=m}).catch(function(){M={}});
+
   var dp=new Promise(function(resolve){
-    Papa.parse('output/data.csv',{download:true,header:true,complete:function(r){
-      D=r.data.filter(function(r){return r.Ticker&&String(r.Ticker).trim()});
-      resolve();
-    }});
+    // P0-12: guard data.csv with proper failure handling so the dashboard never
+    // stays permanently blank when the file is missing or malformed.
+    Papa.parse('output/data.csv',{
+      download:true,header:true,
+      complete:function(r){
+        try{
+          D=(r&&r.data?r.data:[]).filter(function(row){return row&&row.Ticker&&String(row.Ticker).trim()});
+          dataLoadOk=Array.isArray(D)&&D.length>0;
+        }catch(e){
+          console.error('dashboard init: failed to parse output/data.csv',e&&e.message?e.message:e);
+          D=[];dataLoadOk=false;
+        }
+        resolve();
+      },
+      error:function(err){
+        console.error('dashboard init: error while fetching/parsing output/data.csv',err&&err.message?err.message:err);
+        D=[];dataLoadOk=false;resolve();
+      }
+    });
   });
+
   var hp=new Promise(function(resolve){
-    Papa.parse('output/history.csv',{download:true,header:true,complete:function(r){
-      H=r.data.filter(function(r){return r.Ticker&&String(r.Ticker).trim()});
-      resolve();
-    },error:function(){H=[];resolve()}});
+    Papa.parse('output/history.csv',{
+      download:true,header:true,
+      complete:function(r){
+        H=(r&&r.data?r.data:[]).filter(function(row){return row&&row.Ticker&&String(row.Ticker).trim()});
+        resolve();
+      },
+      error:function(){H=[];resolve();}
+    });
   });
-  Promise.all([mp,dp,hp]).then(function(){
+
+  Promise.allSettled([mp,dp,hp]).then(function(){
+    // P0-12: meta/history can still fall back as before; data.csv governs
+    // whether the dashboard can show any real content.
+    if(!dataLoadOk){
+      document.getElementById('mainContent').innerHTML='<div style="padding:20px;text-align:center;color:var(--text2);font-size:12px">Dashboard data is currently unavailable. Please try again later.</div>';
+      return;
+    }
+
     var dt=document.getElementById('hDate');
     dt.textContent=(M.date||'\u2014')+' \u00b7 '+(M.regime||'');
     if((M.regime||'').indexOf('POSITIVE')>=0)dt.style.color='var(--bull)';
     else if((M.regime||'').indexOf('NEGATIVE')>=0)dt.style.color='var(--bear)';
     else dt.style.color='var(--neut)';
     enrichActiveMomentum();
-    buildList();showDashboard();
+    buildList();
+    showDashboard();
   });
 }
 
@@ -336,7 +454,7 @@ function buildList(){
     var holdInfo='';
     if(r._holdDir&&r._holdDays!==undefined)holdInfo=' <span style="font-size:8px;color:var(--text2)">'+r._holdDays+'d</span>';
 
-    el.innerHTML='<span class="ti-name">'+tk+'</span><span class="ti-score" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(0)+'<span class="badge '+badgeClass+'">'+badgeText+'</span>'+holdInfo+'</span>';
+    el.innerHTML='<span class="ti-name">'+tk+'</span><span class="ti-score" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(0)+'<span class="badge '+badgeClass+'" title="'+dirTitle(r)+'">'+badgeText+'</span>'+holdInfo+'</span>';
     el.onclick=function(){selTk=tk;buildList();showTicker(r);closeSb()};
     list.appendChild(el);
   });
@@ -365,6 +483,9 @@ function showDashboard(){
   var neuts=D.filter(function(r){return gd(r)==='neut'});
   var hBulls=D.filter(function(r){return r._holdDir==='hold_bull'});
   var hBears=D.filter(function(r){return r._holdDir==='hold_bear'});
+  // P0-4: report which column actually produced the directions on screen.
+  var dirSrcSet={};D.forEach(function(r){var s=gds(r);if(s)dirSrcSet[s]=1});
+  var dirSrcStr=Object.keys(dirSrcSet).join('/')||'unavailable';
   var byPF=D.slice().filter(function(r){return pf(r.TR_total_trades||r.BT_Trades)>=5}).sort(function(a,b){return pf(b.TR_profit_factor||b.BT_PF)-pf(a.TR_profit_factor||a.BT_PF)});
   var topBull=D.slice().filter(function(r){return gd(r)==='bull'}).sort(function(a,b){return pf(b.Composite_Score)-pf(a.Composite_Score)}).slice(0,10);
   var topBear=D.slice().filter(function(r){return gd(r)==='bear'}).sort(function(a,b){return pf(a.Composite_Score)-pf(b.Composite_Score)}).slice(0,10);
@@ -382,7 +503,7 @@ function showDashboard(){
   var holdStr='';
   if(hBulls.length||hBears.length)holdStr=' \u00b7 Hold: <span style="color:var(--bull)">'+hBulls.length+'\u25B2</span> <span style="color:var(--bear)">'+hBears.length+'\u25BC</span>';
   document.getElementById('mainContent').innerHTML='<div class="grid">'+
-    '<div class="card"><div class="card-t">\uD83D\uDCCA Signal Summary</div><div style="display:flex;gap:14px;margin-bottom:8px"><div><div class="big" style="color:var(--bull)">'+bulls.length+'</div><div class="sub">Bullish</div></div><div><div class="big" style="color:var(--bear)">'+bears.length+'</div><div class="sub">Bearish</div></div><div><div class="big" style="color:var(--neut)">'+neuts.length+'</div><div class="sub">Neutral</div></div></div><div class="prog"><div class="prog-f" style="width:'+(D.length?bulls.length/D.length*100:0)+'%;background:var(--bull)"></div></div><div style="font-size:9px;color:var(--text2);margin-top:3px">Bull '+(D.length?(bulls.length/D.length*100).toFixed(0):0)+'% \u00b7 Bear '+(D.length?(bears.length/D.length*100).toFixed(0):0)+'% \u00b7 Neut '+(D.length?(neuts.length/D.length*100).toFixed(0):0)+'%'+holdStr+'</div></div>'+
+    '<div class="card"><div class="card-t">\uD83D\uDCCA Signal Summary</div><div style="display:flex;gap:14px;margin-bottom:8px"><div><div class="big" style="color:var(--bull)">'+bulls.length+'</div><div class="sub">Bullish</div></div><div><div class="big" style="color:var(--bear)">'+bears.length+'</div><div class="sub">Bearish</div></div><div><div class="big" style="color:var(--neut)">'+neuts.length+'</div><div class="sub">Neutral</div></div></div><div class="prog"><div class="prog-f" style="width:'+(D.length?bulls.length/D.length*100:0)+'%;background:var(--bull)"></div></div><div style="font-size:9px;color:var(--text2);margin-top:3px">Bull '+(D.length?(bulls.length/D.length*100).toFixed(0):0)+'% \u00b7 Bear '+(D.length?(bears.length/D.length*100).toFixed(0):0)+'% \u00b7 Neut '+(D.length?(neuts.length/D.length*100).toFixed(0):0)+'%'+holdStr+' \u00b7 dir: '+dirSrcStr+'</div></div>'+
     '<div class="card"><div class="card-t">\uD83C\uDF0D Market Regime</div><div class="big" style="color:'+regimeColor+'">'+(M.regime||'\u2014')+'</div><div class="sub">breadth='+(M.breadth||50)+'% nifty='+(M.nifty_5d||0)+'%</div><div style="margin-top:8px"><div class="row"><span class="l">Dir Hist. Alignment</span><span class="v">'+(M.avg_accuracy||M.direction_accuracy||0)+'%</span></div><div class="row"><span class="l">Avg Trade PF</span><span class="v">'+(M.avg_profit_factor||M.avg_pf||0)+'</span></div><div class="row"><span class="l">Tickers</span><span class="v">'+(M.tickers||M.total_tickers||D.length)+'</span></div></div></div>'+
     '<div class="card" style="grid-column:span 2"><div class="card-t">\uD83D\uDCC8 Category Performance</div><table class="tbl"><tr><th>Cat</th><th>N</th><th>Acc</th><th>WR</th><th>PF</th></tr>'+catRows+'</table></div>'+
     '<div class="card"><div class="card-t">\uD83D\uDFE2 Top Bullish Stocks</div><table class="tbl"><tr><th>Ticker</th><th>Cat</th><th>Score</th><th>Acc</th><th>PF</th></tr>'+topBull.map(mkRow).join('')+'</table></div>'+
@@ -400,16 +521,23 @@ function showTicker(r){
   var fund=pf(r.Fund_Score||r.Fundamental_Score);
   var news=pf(r.News_Score||r.Forecast_Score);
   var nCat=pf(r.N_Catalysts);
-  var newsDir=r.News_Direction||'';
-  var newsStr=nCat>0?news.toFixed(1)+' ('+parseInt(nCat)+'\uD83D\uDCF0 '+newsDir+')':news.toFixed(1);
-  var severity=r.Direction_Label||r.Composite_Severity||r.Severity||'\u2014';
+  var newsDir=hasField(r,'News_Direction')?String(r.News_Direction).trim():'';   // P0-3: never print an empty direction tag
+  var newsStr=nCat>0?news.toFixed(1)+' ('+parseInt(nCat)+'\uD83D\uDCF0'+(newsDir?' '+newsDir:'')+')':news.toFixed(1);
+  var severity=hasField(r,'Direction_Label')?r.Direction_Label:(hasField(r,'Composite_Severity')?r.Composite_Severity:(hasField(r,'Severity')?r.Severity:DASH));
   var sector=cleanSector(r.Sector);
+  // P0-2: computeStreak now returns a real streak object or null — never a row count.
   var streak=computeStreak(tk);
+  var streakStr=streak?streak.text:DASH;
+  var streakTitle=streak?('Consecutive '+streak.days+' session(s) \u2014 source: '+streak.src+(streak.fallback?' (fallback column: Composite_Direction is empty in output/history.csv)':'')+' \u2014 * marks a fallback-sourced streak'):'No populated direction history for this ticker in output/history.csv';
   var mom=pf(r.Actual_Return_Pct);
-  var momStr=mom!==0?(mom>0?'+':'')+mom.toFixed(2)+'%':'\u2014';
-  var catStr=nCat>0?parseInt(nCat)+' catalyst'+(nCat>1?'s':'')+' ('+newsDir+')':'None';
+  var momStr=mom!==0?(mom>0?'+':'')+mom.toFixed(2)+'%':DASH;
+  var catStr=nCat>0?parseInt(nCat)+' catalyst'+(nCat>1?'s':'')+(newsDir?' ('+newsDir+')':''):'None';
   var btAcc=pf(r.BT_6M||r.BT_Accuracy);
   var trPF=pf(r.TR_profit_factor||r.BT_PF);
+  // P0-3: headline figures are only rendered when their source column exists.
+  var btAccStr=hasField(r,'BT_6M')?sc(r.BT_6M,0)+'%':(hasField(r,'BT_Accuracy')?sc(r.BT_Accuracy,0)+'%':DASH);
+  var trPFStr=(hasField(r,'TR_profit_factor')||hasField(r,'BT_PF'))?trPF.toFixed(2):DASH;
+  var horizonStr=hasField(r,'BT_Forward_Days')?r.BT_Forward_Days+'d':(hasField(r,'Horizon')?r.Horizon+'d':DASH);
 
   // Position info
   var posInfo='';
@@ -424,16 +552,16 @@ function showTicker(r){
   document.getElementById('mainContent').innerHTML=
     '<div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
       '<span style="font-size:18px;font-weight:700;color:var(--white)">'+tk+'</span>'+
-      '<span class="badge '+badgeClass+'" style="font-size:11px;padding:2px 8px">'+badgeText+'</span>'+
-      '<span style="font-size:12px;color:var(--text2)">'+gCat(r)+' \u00b7 '+sector+'</span>'+
+      '<span class="badge '+badgeClass+'" style="font-size:11px;padding:2px 8px" title="'+dirTitle(r)+'">'+badgeText+'</span>'+
+      '<span style="font-size:12px;color:var(--text2)">'+gCat(r)+' \u00b7 '+sector+' \u00b7 dir src: '+(gds(r)||'n/a')+'</span>'+
       '<button onclick="openChart(\''+tk+'\')" style="margin-left:auto;padding:5px 14px;border-radius:5px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:11px;font-weight:600">\uD83D\uDCC8 Chart</button>'+
       '<button onclick="showDashboard()" style="padding:5px 10px;border-radius:5px;background:var(--card2);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:11px">\u2190 Back</button>'+
     '</div>'+
     '<div class="grid">'+
       '<div class="card"><div class="card-t">\uD83D\uDCCA Score Breakdown</div><div class="big" style="color:'+sC(cs)+'">'+(cs>0?'+':'')+cs.toFixed(1)+'</div><div class="sub">Composite</div><div style="margin-top:8px"><div class="row"><span class="l">Technical</span><span class="v" style="color:'+sC(tech)+'">'+sn(tech.toFixed(0))+'</span></div><div class="row"><span class="l">Macro/Sector</span><span class="v" style="color:'+sC(macro)+'">'+sn(macro.toFixed(0))+'</span></div><div class="row"><span class="l">Fundamental</span><span class="v" style="color:'+sC(fund)+'">'+sn(fund.toFixed(0))+'</span></div><div class="row"><span class="l">News</span><span class="v" style="color:'+sC(news)+'">'+newsStr+'</span></div><div class="row"><span class="l">Severity</span><span class="v">'+severity+'</span></div></div></div>'+
-      '<div class="card"><div class="card-t">\uD83C\uDFAF Backtest</div><div class="big">'+btAcc.toFixed(0)+'%</div><div class="sub">All-Time Hist. Alignment</div><div style="margin-top:8px"><div class="row"><span class="l">1M</span><span class="v">'+sc(r.BT_1M,0)+'%</span></div><div class="row"><span class="l">3M</span><span class="v">'+sc(r.BT_3M,0)+'%</span></div><div class="row"><span class="l">Horizon</span><span class="v">'+(r.BT_Forward_Days||r.Horizon||'\u2014')+'d</span></div><div class="row"><span class="l">Band</span><span class="v">\u00b1'+sc(r.BT_Threshold,2)+'%</span></div><div class="row"><span class="l">ATR</span><span class="v">'+sc(r.BT_ATR_Pct,1)+'%</span></div></div></div>'+
-      '<div class="card"><div class="card-t">\uD83D\uDCB0 Trade Sim</div><div class="big" style="color:'+(trPF>=1.1?'var(--bull)':trPF<0.9?'var(--bear)':'var(--white)')+'">'+trPF.toFixed(2)+'</div><div class="sub">Profit Factor</div><div style="margin-top:8px"><div class="row"><span class="l">Trades</span><span class="v">'+sc(r.TR_total_trades||r.BT_Trades,0)+'</span></div><div class="row"><span class="l">Favorable Rate</span><span class="v">'+sc(r.TR_win_rate,0)+'%</span></div><div class="row"><span class="l">Avg Win</span><span class="v" style="color:var(--bull)">+'+sc(r.TR_avg_win_pct,1)+'%</span></div><div class="row"><span class="l">Avg Loss</span><span class="v" style="color:var(--bear)">-'+sc(r.TR_avg_loss_pct,1)+'%</span></div><div class="row"><span class="l">Return</span><span class="v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</span></div><div class="row"><span class="l">Hold</span><span class="v">'+sc(r.TR_avg_holding_days,0)+'d</span></div><div class="row"><span class="l">SL</span><span class="v">'+sc(r.BT_SL_Level,1)+'%</span></div></div></div>'+
-      '<div class="card"><div class="card-t">\uD83D\uDCC8 Context</div>'+posInfo+'<div class="row"><span class="l">Sector</span><span class="v">'+sector+'</span></div><div class="row"><span class="l">Streak</span><span class="v">'+streak+'</span></div><div class="row"><span class="l">Momentum</span><span class="v" style="color:'+sC(mom)+'">'+momStr+'</span></div><div class="row"><span class="l">Long WR</span><span class="v">'+sc(r.TR_long_win_rate,0)+'%</span></div><div class="row"><span class="l">Short WR</span><span class="v">'+sc(r.TR_short_win_rate,0)+'%</span></div><div class="row"><span class="l">Catalysts</span><span class="v">'+catStr+'</span></div></div>'+
+      '<div class="card"><div class="card-t">\uD83C\uDFAF Backtest</div><div class="big">'+btAccStr+'</div><div class="sub">All-Time Hist. Alignment</div><div style="margin-top:8px"><div class="row"><span class="l">1M</span><span class="v">'+fvPct(r,'BT_1M',0)+'</span></div><div class="row"><span class="l">3M</span><span class="v">'+fvPct(r,'BT_3M',0)+'</span></div><div class="row"><span class="l">Horizon</span><span class="v">'+horizonStr+'</span></div><div class="row"><span class="l">Band</span><span class="v">'+fvBand(r,'BT_Threshold',2)+'</span></div><div class="row"><span class="l">ATR</span><span class="v">'+fvPct(r,'BT_ATR_Pct',1)+'</span></div></div></div>'+
+      '<div class="card"><div class="card-t">\uD83D\uDCB0 Trade Sim</div><div class="big" style="color:'+(trPF>=1.1?'var(--bull)':trPF<0.9?'var(--bear)':'var(--white)')+'">'+trPFStr+'</div><div class="sub">Profit Factor</div><div style="margin-top:8px"><div class="row"><span class="l">Trades</span><span class="v">'+sc(r.TR_total_trades||r.BT_Trades,0)+'</span></div><div class="row"><span class="l">Favorable Rate</span><span class="v">'+sc(r.TR_win_rate,0)+'%</span></div><div class="row"><span class="l">Avg Win</span><span class="v" style="color:var(--bull)">+'+sc(r.TR_avg_win_pct,1)+'%</span></div><div class="row"><span class="l">Avg Loss</span><span class="v" style="color:var(--bear)">-'+sc(r.TR_avg_loss_pct,1)+'%</span></div><div class="row"><span class="l">Return</span><span class="v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</span></div><div class="row"><span class="l">Hold</span><span class="v">'+sc(r.TR_avg_holding_days,0)+'d</span></div><div class="row"><span class="l">SL</span><span class="v">'+fvPct(r,'BT_SL_Level',1)+'</span></div></div></div>'+
+      '<div class="card"><div class="card-t">\uD83D\uDCC8 Context</div>'+posInfo+'<div class="row"><span class="l">Sector</span><span class="v">'+sector+'</span></div><div class="row"><span class="l">Streak</span><span class="v" title="'+streakTitle+'">'+streakStr+'</span></div><div class="row"><span class="l">Momentum</span><span class="v" style="color:'+sC(mom)+'">'+momStr+'</span></div><div class="row"><span class="l">Long WR</span><span class="v">'+fvPct(r,'TR_long_win_rate',0)+'</span></div><div class="row"><span class="l">Short WR</span><span class="v">'+fvPct(r,'TR_short_win_rate',0)+'</span></div><div class="row"><span class="l">Catalysts</span><span class="v">'+catStr+'</span></div></div>'+
     '</div>';
 }
 
@@ -453,12 +581,95 @@ function destroyAllCharts(){
   ['mRsi','mMacd','mAdx'].forEach(function(id){
     var el=document.getElementById(id);el.style.display='none';el.innerHTML='';
   });
+  // P0-11/P0-12: defensive cleanup for the chart area itself so that no stale
+  // chart remains visible while another ticker is loading.
+  var mc=document.getElementById('mChart');
+  if(mc)mc.innerHTML='';
 }
 function remS(k){if(S[k]&&mainChart){try{mainChart.removeSeries(S[k])}catch(e){}delete S[k]}}
 function addL(k,data,color,w,st){
   if(!mainChart||!data||!data.length)return;
   var s=mainChart.addLineSeries({color:color,lineWidth:w||1,lineStyle:st||0,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
   s.setData(data);S[k]=s;
+}
+// Compute the maximum time across one or more lightweight-charts data series
+// arrays. Each array is expected to hold objects with a `.time` field.
+function getMaxTime(arrays){
+  var maxTime=null;
+  for(var i=0;i<arrays.length;i++){
+    var arr=arrays[i];
+    if(!arr||!arr.length)continue;
+    for(var j=0;j<arr.length;j++){
+      var p=arr[j];
+      if(!p||p.time===undefined||p.time===null)continue;
+      var t=p.time;
+      // Support both string dates and numeric times; comparison is stable
+      // within a given type and we only use this to detect strictly later
+      // values vs the OHLC max, not for ordering the arrays themselves.
+      if(maxTime===null){
+        maxTime=t;
+      }else if(typeof t==='number' && typeof maxTime==='number'){
+        if(t>maxTime)maxTime=t;
+      }else if(typeof t==='string' && typeof maxTime==='string'){
+        if(t>maxTime)maxTime=t;
+      }
+    }
+  }
+  return maxTime;
+}
+// Expand the visible chart range to include any future-dated points from
+// Ichimoku spans and SuperTrend projection, without resetting the user's
+// zoom if everything already lies within the OHLC window.
+function expandRangeForFutureIndicators(){
+  if(!mainChart||!CD||!CD.ohlc||!CD.ohlc.length)return;
+  var ohlc=CD.ohlc;
+  var firstOhlcTime=null,lastOhlcTime=null;
+  for(var i=0;i<ohlc.length;i++){
+    var p=ohlc[i];
+    if(!p||p.time===undefined||p.time===null)continue;
+    var t=p.time;
+    if(firstOhlcTime===null)firstOhlcTime=t;
+    lastOhlcTime=t;
+  }
+  if(firstOhlcTime===null||lastOhlcTime===null)return;
+
+  // Look for any indicator points that extend beyond the OHLC window.
+  var indicatorMax=getMaxTime([
+    CD.ichi_spanA||[],
+    CD.ichi_spanB||[],
+    CD.st_projection||[]
+  ]);
+
+  if(indicatorMax===null)return;
+
+  var extendsBeyond=false;
+  if(typeof indicatorMax==='number' && typeof lastOhlcTime==='number'){
+    extendsBeyond=indicatorMax>lastOhlcTime;
+  }else if(typeof indicatorMax==='string' && typeof lastOhlcTime==='string'){
+    extendsBeyond=indicatorMax>lastOhlcTime;
+  }
+
+  if(!extendsBeyond)return;
+
+  try{
+    var ts=mainChart.timeScale();
+    var range=null;
+    try{range=ts.getVisibleRange?ts.getVisibleRange():null;}catch(e){}
+    var from=firstOhlcTime,to=indicatorMax;
+    if(range&&range.from!=null&&range.to!=null){
+      from=range.from;
+      to=range.to;
+      // Only expand the right boundary so user zoom/scroll on the left side is
+      // preserved. If the projection/cloud already fits within the current
+      // view there is nothing to do.
+      if(typeof indicatorMax==='number' && typeof to==='number'){
+        if(indicatorMax>to)to=indicatorMax;else return;
+      }else if(typeof indicatorMax==='string' && typeof to==='string'){
+        if(indicatorMax>to)to=indicatorMax;else return;
+      }
+    }
+    ts.setVisibleRange({from:from,to:to});
+  }catch(e){}
 }
 function syncTimeScales(){
   if(!mainChart)return;
@@ -473,29 +684,223 @@ function syncTimeScales(){
   });
 }
 
+// ══════════════════════════════════════════════════════════════════
+// P0-5 — INDICATOR AVAILABILITY
+// A toggle must never claim an indicator is "on" when the loaded payload
+// holds no series for it: vwap / ichi_spanA / ichi_spanB are empty arrays in
+// every published chart, and short-history tickers have no sma200 / adx /
+// ichi_kijun. Availability is derived from the payload actually loaded.
+// No indicator computation or rendering path is modified here — only
+// whether the toggle can be pressed at all.
+// ══════════════════════════════════════════════════════════════════
+var IND_REQ={
+  momentum:  {label:'Momentum Readings',need:['markers'],allowEmpty:true},
+  volume:    {label:'Vol',              need:['volume']},
+  sma9:      {label:'SMA9',             need:['sma9']},
+  sma22:     {label:'SMA22',            need:['sma22']},
+  sma200:    {label:'SMA200',           need:['sma200']},
+  ema9:      {label:'EMA9',             need:['ema9']},
+  ema21:     {label:'EMA21',            need:['ema21']},
+  bb:        {label:'Bollinger',        need:['bb_upper','bb_lower']},
+  supertrend:{label:'SuperTrend',       need:['st_bull','st_bear'],any:true},
+  ichimoku:  {label:'Ichimoku',         need:['ichi_tenkan','ichi_kijun'],optional:['ichi_spanA','ichi_spanB']},
+  vwap:      {label:'VWAP',             need:['vwap']},
+  rsi:       {label:'RSI',              need:['rsi']},
+  macd:      {label:'MACD',             need:['macd_line','macd_signal']},
+  adx:       {label:'ADX',              need:['adx']}
+};
+var IND_AVAIL={};
+var mSubBase='';
+
+function seriesOk(cd,k,allowEmpty){
+  if(!cd||!Object.prototype.hasOwnProperty.call(cd,k))return false;
+  var arr=cd[k];
+  if(!arr||typeof arr.length!=='number')return false;
+  return arr.length>0||!!allowEmpty;
+}
+function computeIndicatorAvailability(){
+  var out={};
+  Object.keys(IND_REQ).forEach(function(id){
+    var spec=IND_REQ[id],okCount=0,notes=[];
+    spec.need.forEach(function(k){if(seriesOk(CD,k,spec.allowEmpty))okCount++});
+    var ok=spec.any?okCount>0:okCount===spec.need.length;
+    if(ok&&spec.any&&okCount<spec.need.length)notes.push('only one side present');
+    if(ok&&spec.optional){
+      var gone=spec.optional.filter(function(k){return !seriesOk(CD,k,false)});
+      if(gone.length)notes.push(gone.join(', ')+' empty \u2014 no cloud');
+    }
+    if(ok&&spec.allowEmpty&&spec.need.some(function(k){return !CD||!CD[k]||!CD[k].length}))notes.push('no signals in loaded window');
+    out[id]={ok:ok,note:notes.join(' \u00b7 ')};
+  });
+  return out;
+}
+// setDefaults=true re-asserts the two default-on toggles once real data is present.
+function applyIndicatorAvailability(tk,noData,setDefaults){
+  IND_AVAIL=noData?{}:computeIndicatorAvailability();
+  var naList=[];
+  document.querySelectorAll('#indBar .ib').forEach(function(b){
+    var id=b.dataset.i,spec=IND_REQ[id]||{},info=IND_AVAIL[id];
+    var label=spec.label||(b.textContent||'').trim();
+    var ok=!noData&&!!(info&&info.ok);
+    b.disabled=!ok;
+    b.setAttribute('aria-disabled',ok?'false':'true');
+    b.classList.toggle('active',!!(ok&&setDefaults&&(id==='momentum'||id==='volume')));
+    if(ok){
+      b.title=info&&info.note?(label+' \u2014 '+info.note):('Show '+label);
+    }else{
+      b.title=label+' unavailable for '+tk+(noData?' \u2014 no chart data':' \u2014 series missing in charts/'+tk+'.json');
+    }
+    b.style.opacity=ok?'':'0.35';
+    b.style.cursor=ok?'':'not-allowed';
+    if(!ok&&id!=='momentum'&&id!=='volume')naList.push(label);
+  });
+  if(mSubBase){
+    document.getElementById('mSub').textContent=mSubBase+(naList.length?(' \u00b7 n/a: '+naList.join(', ')):'');
+  }
+}
+
 function openChart(tk){
+  // P0-11: bump the chart request sequence and abort any in-flight request so
+  // that rapid ticker switching cannot render stale data under a new header.
+  chartReqSeq++;
+  var reqId=chartReqSeq;
+  if(chartAbortController){
+    try{chartAbortController.abort()}catch(e){}
+  }
+  chartAbortController=null;
+
   var r=D.find(function(x){return String(x.Ticker).trim()===tk})||{};
   var d=gd(r),ed=gde(r);
   document.getElementById('mTitle').textContent=tk;
-  document.getElementById('mSub').textContent=gCat(r)+' \u00b7 '+cleanSector(r.Sector)+' \u00b7 '+dl(ed)+' \u00b7 Comp: '+sn(sc(r.Composite_Score,1));
+  // P0-4: the direction source is stated explicitly instead of being implied.
+  mSubBase=gCat(r)+' \u00b7 '+cleanSector(r.Sector)+' \u00b7 '+dl(ed)+(gds(r)?' ('+gds(r)+')':' (src n/a)')+' \u00b7 Comp: '+sn(sc(r.Composite_Score,1));
+  document.getElementById('mSub').textContent=mSubBase;
   document.getElementById('mKpis').innerHTML=
-    '<div class="mk"><div class="mk-v" style="color:var(--'+(ed.indexOf('bull')>=0?'bull':ed.indexOf('bear')>=0?'bear':'neut')+')">'+dl(ed)+'</div><div class="mk-l">Signal</div></div>'+
-    '<div class="mk"><div class="mk-v">'+sc(r.BT_6M||r.BT_Accuracy,0)+'%</div><div class="mk-l">Acc</div></div>'+
-    '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':'var(--white)')+'">'+sc(r.TR_profit_factor||r.BT_PF,2)+'</div><div class="mk-l">PF</div></div>'+
-    '<div class="mk"><div class="mk-v">'+sc(r.TR_win_rate,0)+'%</div><div class="mk-l">WR</div></div>'+
-    '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(pf(r.TR_total_return_pct)>0?'+':'')+sc(r.TR_total_return_pct,1)+'%</div><div class="mk-l">Ret</div></div>'+
-    '<div class="mk"><div class="mk-v">'+sc(r.BT_ATR_Pct,1)+'%</div><div class="mk-l">ATR</div></div>';
+    '<div class="mk" title="'+dirTitle(r)+'"><div class="mk-v" style="color:var(--'+(ed.indexOf('bull')>=0?'bull':ed.indexOf('bear')>=0?'bear':'neut')+')">'+dl(ed)+'</div><div class="mk-l">Signal</div></div>'+
+    '<div class="mk"><div class="mk-v">'+(hasField(r,'BT_6M')?fvPct(r,'BT_6M',0):(hasField(r,'BT_Accuracy')?fvPct(r,'BT_Accuracy',0):DASH))+'</div><div class="mk-l">Acc</div></div>'+
+    '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_profit_factor||r.BT_PF)>=1.1?'var(--bull)':'var(--white)')+'">'+((hasField(r,'TR_profit_factor')||hasField(r,'BT_PF'))?pf(r.TR_profit_factor||r.BT_PF).toFixed(2):DASH)+'</div><div class="mk-l">PF</div></div>'+
+    '<div class="mk"><div class="mk-v">'+fvPct(r,'TR_win_rate',0)+'</div><div class="mk-l">WR</div></div>'+
+    '<div class="mk"><div class="mk-v" style="color:'+(pf(r.TR_total_return_pct)>0?'var(--bull)':'var(--bear)')+'">'+(hasField(r,'TR_total_return_pct')?((pf(r.TR_total_return_pct)>0?'+':'')+pf(r.TR_total_return_pct).toFixed(1)+'%'):DASH)+'</div><div class="mk-l">Ret</div></div>'+
+    '<div class="mk"><div class="mk-v">'+fvPct(r,'BT_ATR_Pct',1)+'</div><div class="mk-l">ATR</div></div>';
+
+  // P0-11/P0-12: reset indicator buttons to a disabled, inactive state until
+  // valid chart JSON has been loaded for this ticker.
   document.querySelectorAll('#indBar .ib').forEach(function(b){
-    var i=b.dataset.i;b.classList.toggle('active',i==='momentum'||i==='volume');
+    b.classList.remove('active');
+    b.disabled=true;
+    b.setAttribute('aria-disabled','true');
+    b.style.opacity='0.35';
+    b.style.cursor='not-allowed';
   });
+
   document.getElementById('chartModal').classList.add('show');
   destroyAllCharts();
-  fetch('/charts/'+encodeURIComponent(tk)+'.json')
-    .then(function(r){if(!r.ok)throw new Error(r.status);return r.json()})
-    .then(function(data){CD=data;buildMainChart()})
-    .catch(function(){
-      document.getElementById('mChart').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2)">No chart data \u00b7 Run engine & push charts/</div>';
+
+  // P0-12: show an explicit loading state instead of leaving an old chart
+  // visible while the new request is in flight.
+  var mChartEl=document.getElementById('mChart');
+  mChartEl.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:12px">Loading chart data for '+tk+'...</div>';
+
+  // P0-11: issue a guarded fetch bound to an AbortController so that the
+  // response can never render under the wrong ticker header.
+  var ac=new AbortController();
+  chartAbortController=ac;
+  var url='/charts/'+encodeURIComponent(tk)+'.json';
+  fetch(url,{signal:ac.signal})
+    .then(function(r){
+      if(reqId!==chartReqSeq)throw new Error('stale');
+      if(!r.ok){
+        var err=new Error('http-'+r.status);
+        err.status=r.status;
+        throw err;
+      }
+      return r.json();
+    })
+    .then(function(data){
+      if(reqId!==chartReqSeq)return; // guard against late arrivals
+      CD=data;
+      applyIndicatorAvailability(tk,false,true); // P0-5: recompute + restore defaults when real data exists
+      buildMainChart();
+    })
+    .catch(function(err){
+      if(reqId!==chartReqSeq)return; // ignore errors from superseded requests
+      // Treat aborts and explicit stale rejections as expected behaviour.
+      if(err && (err.name==='AbortError' || err.message==='stale'))return;
+
+      // Ensure all toggles stay disabled for this ticker after a failure.
+      applyIndicatorAvailability(tk,true);
+
+      var msg;
+      if(err && typeof err.status==='number' && err.status===404){
+        // P0-11: user-facing missing-chart state, no internal engine hints.
+        msg='Chart data is not currently available for '+tk+'.';
+      }else{
+        // P0-11: general failure state with a retry hint.
+        msg='Chart data could not be loaded. Please try again.';
+        var statusInfo=(err && typeof err.status==='number')?(' status='+err.status):'';
+        console.error('chart load error for ticker '+tk+statusInfo,err && err.message?err.message:err);
+      }
+      mChartEl.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:12px">'+msg+'</div>';
     });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P1-2 — BOLLINGER MID LINE
+// If the engine provides bb_mid we respect it. Otherwise we synthesise a
+// centre line from (upper+lower)/2 using matching timestamps. This keeps
+// the JSON schema backwards compatible while making the band visually
+// complete on older payloads.
+// ─────────────────────────────────────────────────────────────────────────────
+function getBollMidSeries(){
+  if(!CD)return[];
+  if(CD.bb_mid&&CD.bb_mid.length)return CD.bb_mid;
+  var upper=CD.bb_upper||[],lower=CD.bb_lower||[];
+  if(!upper.length||!lower.length)return[];
+  var lowerByTime={};
+  lower.forEach(function(p){
+    if(!p||p.time===undefined||p.time===null)return;
+    if(typeof p.value!=='number')return;
+    lowerByTime[p.time]=p.value;
+  });
+  var mid=[];
+  upper.forEach(function(p){
+    if(!p||p.time===undefined||p.time===null)return;
+    if(typeof p.value!=='number')return;
+    var lv=lowerByTime[p.time];
+    if(typeof lv==='number')mid.push({time:p.time,value:(p.value+lv)/2});
+  });
+  return mid;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P1-4 — SUPERTREND MERGE
+// Older payloads expose st_bull / st_bear as two separate series. To remove
+// visual gaps while preserving colour by source we build a merged series
+// where each point is coloured according to the originating side. The
+// indicator availability contract (st_bull/st_bear) remains unchanged.
+// ─────────────────────────────────────────────────────────────────────────────
+function buildMergedSupertrendSeries(){
+  if(!CD)return[];
+  var map={};
+  function ingest(arr,color){
+    if(!arr||!arr.length)return;
+    for(var i=0;i<arr.length;i++){
+      var p=arr[i];
+      if(!p||p.time===undefined||p.time===null)continue;
+      if(typeof p.value!=='number')continue;
+      map[p.time]={time:p.time,value:p.value,color:color};
+    }
+  }
+  ingest(CD.st_bull,'#22c55e');
+  ingest(CD.st_bear,'#ef4444');
+  var keys=Object.keys(map);
+  if(!keys.length)return[];
+  keys.sort(function(a,b){
+    var na=+a,nb=+b;
+    if(!isNaN(na)&&!isNaN(nb))return na-nb;
+    return a<b?-1:a>b?1:0;
+  });
+  return keys.map(function(t){return map[t]});
 }
 
 function buildMainChart(){
@@ -522,8 +927,12 @@ function showRsi(){
   rs.setData(CD.rsi);rsiSeries['rsi']=rs;
   if(CD.rsi.length>=2){
     var t1=CD.rsi[0].time,t2=CD.rsi[CD.rsi.length-1].time;
-    rsiChart.addLineSeries({color:'rgba(239,68,68,0.4)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}).setData([{time:t1,value:30},{time:t2,value:30}]);
-    rsiChart.addLineSeries({color:'rgba(34,197,94,0.4)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}).setData([{time:t1,value:70},{time:t2,value:70}]);
+    // 30 / 70 boundaries: make the zones visually clearer while keeping
+    // the underlying RSI computation unchanged.
+    rsiChart.addLineSeries({color:'rgba(34,197,94,0.55)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}).setData([{time:t1,value:30},{time:t2,value:30}]);
+    rsiChart.addLineSeries({color:'rgba(239,68,68,0.55)',lineWidth:1,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}).setData([{time:t1,value:70},{time:t2,value:70}]);
+    // 50 midline: neutral reference to help judge RSI balance.
+    rsiChart.addLineSeries({color:'rgba(148,163,184,0.5)',lineWidth:1,lineStyle:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false}).setData([{time:t1,value:50},{time:t2,value:50}]);
   }
   syncTimeScales();
   try{rsiChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
@@ -531,13 +940,47 @@ function showRsi(){
 }
 function hideRsi(){if(rsiChart)try{rsiChart.remove()}catch(e){}rsiChart=null;rsiSeries={};var el=document.getElementById('mRsi');el.style.display='none';el.innerHTML=''}
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P1-8 — MACD PRECISION
+// Instead of assuming a fixed 4-decimal format, infer precision from the
+// current instrument's OHLC / MACD values so axis labelling stays honest
+// across different price regimes.
+// ─────────────────────────────────────────────────────────────────────────────
+function inferMacdPrecision(){
+  if(!CD)return 2;
+  var maxDec=0;
+  function scan(arr,field){
+    if(!arr||!arr.length)return;
+    for(var i=0;i<arr.length;i++){
+      var p=arr[i];
+      if(!p)continue;
+      var v=field?p[field]:p.value;
+      if(typeof v!=='number'||!isFinite(v))continue;
+      var s=String(v);
+      var idx=s.indexOf('.');
+      if(idx===-1)continue;
+      var dec=s.length-idx-1;
+      if(dec>maxDec)maxDec=dec;
+    }
+  }
+  scan(CD.ohlc,'close');
+  scan(CD.macd_line);
+  scan(CD.macd_signal);
+  scan(CD.macd_hist);
+  if(maxDec<=0)return 0;
+  if(maxDec>6)maxDec=6;
+  return maxDec;
+}
+
 function showMacd(){
   var el=document.getElementById('mMacd');el.style.display='block';el.innerHTML='';
   macdChart=LightweightCharts.createChart(el,mkChartOpts(el,100));
   macdChart.timeScale().applyOptions({visible:false});
-  if(CD.macd_line&&CD.macd_line.length){var ml=macdChart.addLineSeries({color:'#3b82f6',lineWidth:1,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false});ml.setData(CD.macd_line);macdSeries['ml']=ml}
-  if(CD.macd_signal&&CD.macd_signal.length){var ms=macdChart.addLineSeries({color:'#f97316',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});ms.setData(CD.macd_signal);macdSeries['ms']=ms}
-  if(CD.macd_hist&&CD.macd_hist.length){var mh=macdChart.addHistogramSeries({priceFormat:{type:'price',precision:4,minMove:0.0001}});mh.setData(CD.macd_hist);macdSeries['mh']=mh}
+  var prec=inferMacdPrecision();
+  var priceFmt={type:'price',precision:prec,minMove:prec?Math.pow(10,-prec):1};
+  if(CD.macd_line&&CD.macd_line.length){var ml=macdChart.addLineSeries({color:'#3b82f6',lineWidth:1,priceLineVisible:false,lastValueVisible:true,crosshairMarkerVisible:false,priceFormat:priceFmt});ml.setData(CD.macd_line);macdSeries['ml']=ml}
+  if(CD.macd_signal&&CD.macd_signal.length){var ms=macdChart.addLineSeries({color:'#f97316',lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,priceFormat:priceFmt});ms.setData(CD.macd_signal);macdSeries['ms']=ms}
+  if(CD.macd_hist&&CD.macd_hist.length){var mh=macdChart.addHistogramSeries({priceFormat:priceFmt});mh.setData(CD.macd_hist);macdSeries['mh']=mh}
   syncTimeScales();
   try{macdChart.timeScale().setVisibleLogicalRange(mainChart.timeScale().getVisibleLogicalRange())}catch(e){}
   new ResizeObserver(function(){if(macdChart)macdChart.applyOptions({width:el.clientWidth})}).observe(el);
@@ -562,18 +1005,86 @@ function toggleInd(ind){
   if(ind==='volume'){var on2=document.querySelector('[data-i="volume"]').classList.toggle('active');if(on2&&CD.volume&&CD.volume.length){var v=mainChart.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol'});mainChart.priceScale('vol').applyOptions({scaleMargins:{top:0.85,bottom:0}});v.setData(CD.volume);S['volume']=v}else{remS('volume')}return}
   var lines={sma9:{k:'sma9',c:'#f59e0b'},sma22:{k:'sma22',c:'#8b5cf6'},sma200:{k:'sma200',c:'#ec4899'},ema9:{k:'ema9',c:'#06b6d4'},ema21:{k:'ema21',c:'#14b8a6'},vwap:{k:'vwap',c:'#fbbf24'}};
   if(lines[ind]){var cfg=lines[ind];var on3=document.querySelector('[data-i="'+ind+'"]').classList.toggle('active');on3?addL(ind,CD[cfg.k],cfg.c,1):remS(ind);return}
-  if(ind==='bb'){var on4=document.querySelector('[data-i="bb"]').classList.toggle('active');if(on4){addL('bb_u',CD.bb_upper,'rgba(167,139,250,0.6)',1,2);addL('bb_l',CD.bb_lower,'rgba(167,139,250,0.6)',1,2)}else{remS('bb_u');remS('bb_l')}return}
-  if(ind==='supertrend'){var on5=document.querySelector('[data-i="supertrend"]').classList.toggle('active');if(on5){addL('st_b',CD.st_bull,'#22c55e',2);addL('st_r',CD.st_bear,'#ef4444',2)}else{remS('st_b');remS('st_r')}return}
-  if(ind==='ichimoku'){var on6=document.querySelector('[data-i="ichimoku"]').classList.toggle('active');if(on6){addL('i_t',CD.ichi_tenkan,'#2563eb',1);addL('i_k',CD.ichi_kijun,'#dc2626',1);addL('i_a',CD.ichi_spanA,'rgba(34,197,94,0.4)',1);addL('i_b',CD.ichi_spanB,'rgba(239,68,68,0.4)',1)}else{remS('i_t');remS('i_k');remS('i_a');remS('i_b')}return}
+  if(ind==='bb'){
+    var on4=document.querySelector('[data-i="bb"]').classList.toggle('active');
+    if(on4){
+      addL('bb_u',CD.bb_upper,'rgba(167,139,250,0.6)',1,2);
+      addL('bb_l',CD.bb_lower,'rgba(167,139,250,0.6)',1,2);
+      var mid=getBollMidSeries();
+      if(mid&&mid.length)addL('bb_m',mid,'rgba(167,139,250,0.8)',1,2);
+    }else{
+      remS('bb_u');remS('bb_l');remS('bb_m');
+    }
+    return;
+  }
+  if(ind==='supertrend'){
+    var on5=document.querySelector('[data-i="supertrend"]').classList.toggle('active');
+    if(on5){
+      var merged=buildMergedSupertrendSeries();
+      if(merged&&merged.length&&mainChart){
+        var st=mainChart.addLineSeries({color:'#22c55e',lineWidth:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});
+        st.setData(merged);
+        S['supertrend']=st;
+      }
+      // Render SuperTrend projection as a dashed line when available.
+      if(CD.st_projection&&CD.st_projection.length&&mainChart){
+        var stp=mainChart.addLineSeries({
+          color:'#22c55e', // match SuperTrend bull colour for projection
+          lineWidth:2,
+          lineStyle:2,    // dashed line to differentiate projection
+          priceLineVisible:false,
+          lastValueVisible:false,
+          crosshairMarkerVisible:false
+        });
+        stp.setData(CD.st_projection);
+        S['st_projection']=stp;
+      }
+      // Ensure any future-dated projection points are brought into view.
+      expandRangeForFutureIndicators();
+    }else{
+      remS('supertrend');
+      remS('st_projection');
+    }
+    return;
+  }
+  if(ind==='ichimoku'){
+    var on6=document.querySelector('[data-i="ichimoku"]').classList.toggle('active');
+    if(on6){
+      addL('i_t',CD.ichi_tenkan,'#2563eb',1);
+      addL('i_k',CD.ichi_kijun,'#dc2626',1);
+      addL('i_a',CD.ichi_spanA,'rgba(34,197,94,0.4)',1);
+      addL('i_b',CD.ichi_spanB,'rgba(239,68,68,0.4)',1);
+      // Expand the visible range *only* when Ichimoku introduces future
+      // points beyond the OHLC window. This avoids resetting user zoom
+      // when the cloud is entirely within the existing view.
+      expandRangeForFutureIndicators();
+    }else{
+      remS('i_t');
+      remS('i_k');
+      remS('i_a');
+      remS('i_b');
+    }
+    return;
+  }
   if(ind==='rsi'){var on7=document.querySelector('[data-i="rsi"]').classList.toggle('active');on7&&CD.rsi&&CD.rsi.length?showRsi():hideRsi();return}
   if(ind==='macd'){var on8=document.querySelector('[data-i="macd"]').classList.toggle('active');on8?showMacd():hideMacd();return}
   if(ind==='adx'){var on9=document.querySelector('[data-i="adx"]').classList.toggle('active');on9&&CD.adx&&CD.adx.length?showAdx():hideAdx();return}
 }
 
 document.getElementById('indBar').addEventListener('click',function(e){
-  var b=e.target.closest('.ib');if(b)toggleInd(b.dataset.i);
+  var b=e.target.closest('.ib');if(b&&!b.disabled)toggleInd(b.dataset.i);
 });
-function closeModal(){document.getElementById('chartModal').classList.remove('show');destroyAllCharts()}
+function closeModal(){
+  document.getElementById('chartModal').classList.remove('show');
+  // P0-11: abort any active chart request and invalidate the sequence so that
+  // no late-arriving response can redraw the chart after the modal closes.
+  if(chartAbortController){
+    try{chartAbortController.abort()}catch(e){}
+    chartAbortController=null;
+  }
+  chartReqSeq++;
+  destroyAllCharts();
+}
 document.getElementById('mClose').addEventListener('click',closeModal);
 document.getElementById('chartModal').addEventListener('click',function(e){if(e.target.id==='chartModal')closeModal()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closeModal()});
