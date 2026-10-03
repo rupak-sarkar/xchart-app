@@ -1,0 +1,1279 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tessera — agentic IDE prototype</title>
+<!--
+  Tessera: a learning prototype of an agentic IDE.
+  One file, no dependencies. Everything is simulated in the browser:
+  the "agent" picks a canned scenario, the terminal understands a few
+  commands, and nothing is saved between page loads.
+
+  Structure of this file
+    1. CSS   — design tokens, layout, components
+    2. HTML  — static shell (title bar, editor view, manager view, status bar)
+    3. JS    — data, renderers, simulated agent, event wiring
+-->
+<style>
+/* ---------- 1. Design tokens ---------- */
+:root {
+  --bg: #111318;      /* editor surface */
+  --bg-2: #171a20;    /* side panels, bars */
+  --bg-3: #1d2129;    /* raised cards, inputs */
+  --bg-4: #272c36;    /* hover */
+  --line: #2a2f3a;
+  --tx: #e4e7ec;
+  --tx-2: #a3abb8;
+  --tx-3: #6f7785;
+  --ac: #ff8f5e;
+  --ac-ink: #1c0f08;
+  --ac-soft: rgba(255, 143, 94, .14);
+  --ok: #4cc38a;
+  --warn: #e5b454;
+  --err: #f2777a;
+  --add: rgba(76, 195, 138, .15);
+  --del: rgba(242, 119, 122, .15);
+  --s-kw: #c39bff; --s-str: #8fd694; --s-num: #f0b866; --s-com: #6f7785;
+  --s-fn: #7cb7ff; --s-prop: #5fd0c5; --s-tag: #ff9d7a;
+  --shadow: 0 18px 50px rgba(0, 0, 0, .5);
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, Menlo, monospace;
+  --code-size: 12.5px;
+  --sb-w: 240px;      /* sidebar width  (resizable) */
+  --ag-w: 360px;      /* agent width    (resizable) */
+  --pn-h: 190px;      /* panel height   (resizable) */
+}
+:root[data-theme="light"] {
+  --bg: #ffffff; --bg-2: #f5f4f1; --bg-3: #ffffff; --bg-4: #e9e7e1;
+  --line: #dedbd3;
+  --tx: #1d1f24; --tx-2: #555b66; --tx-3: #8a8f99;
+  --ac: #cf4f1b; --ac-ink: #ffffff; --ac-soft: rgba(207, 79, 27, .10);
+  --ok: #1f8f5c; --warn: #a06f08; --err: #c93b40;
+  --add: rgba(31, 143, 92, .13); --del: rgba(201, 59, 64, .12);
+  --s-kw: #7a3fd0; --s-str: #2a7d3f; --s-num: #a9620a; --s-com: #8a8f99;
+  --s-fn: #1f5fc4; --s-prop: #0f7f78; --s-tag: #c2481a;
+  --shadow: 0 18px 50px rgba(30, 25, 15, .18);
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--tx); font: 13px/1.45 var(--sans); overflow: hidden; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ac); outline-offset: -2px; }
+.ic { flex: none; display: block; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+kbd { font: 11px var(--mono); padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--tx-3); }
+
+#app { display: grid; grid-template-rows: 40px minmax(0, 1fr) 24px; height: 100vh; }
+
+/* ---------- Title bar ---------- */
+.titlebar { display: flex; align-items: center; gap: 10px; padding: 0 10px; background: var(--bg-2); border-bottom: 1px solid var(--line); min-width: 0; }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 650; letter-spacing: .01em; }
+.menus { display: flex; }
+.menus button { padding: 4px 8px; border-radius: 5px; color: var(--tx-2); }
+.menus button:hover { background: var(--bg-4); color: var(--tx); }
+.cmdbox { flex: 1; max-width: 440px; margin: 0 auto; display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg-3); color: var(--tx-3); min-width: 0; }
+.cmdbox span { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdbox:hover { border-color: var(--tx-3); }
+.seg { display: flex; padding: 2px; border-radius: 7px; background: var(--bg-3); border: 1px solid var(--line); }
+.seg button { padding: 2px 12px; border-radius: 5px; color: var(--tx-2); }
+.seg button[aria-pressed="true"] { background: var(--ac-soft); color: var(--ac); font-weight: 600; }
+.tb-actions { display: flex; gap: 2px; }
+.ib { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--tx-2); }
+.ib:hover { background: var(--bg-4); color: var(--tx); }
+
+/* ---------- Editor view layout ---------- */
+.view { min-height: 0; min-width: 0; }
+#editorView { display: flex; }
+.activity { width: 48px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; background: var(--bg-2); border-right: 1px solid var(--line); }
+.activity button { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 8px; color: var(--tx-3); position: relative; }
+.activity button:hover { color: var(--tx); }
+.activity button[aria-pressed="true"] { color: var(--ac); background: var(--ac-soft); }
+.activity .sp { flex: 1; }
+.badge { position: absolute; top: 3px; right: 3px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px; background: var(--ac); color: var(--ac-ink); font: 600 10px/15px var(--sans); }
+
+.sidebar { width: var(--sb-w); flex: none; display: flex; flex-direction: column; background: var(--bg-2); min-width: 0; }
+.pane-head { display: flex; align-items: center; gap: 4px; height: 34px; padding: 0 6px 0 12px; flex: none; }
+.ph-title { flex: 1; font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--tx-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-body { flex: 1; overflow: auto; padding-bottom: 10px; }
+.row { display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; padding: 0 10px; text-align: left; color: var(--tx-2); white-space: nowrap; }
+.row:hover { background: var(--bg-4); color: var(--tx); }
+.row.on { background: var(--ac-soft); color: var(--tx); }
+.row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.row .chev { transition: transform .12s; }
+.row.open .chev { transform: rotate(90deg); }
+.ft { flex: none; width: 20px; text-align: center; font: 700 9px var(--mono); }
+.ft.js { color: var(--s-num); } .ft.css { color: var(--s-fn); } .ft.html { color: var(--s-tag); }
+.ft.json { color: var(--s-str); } .ft.md { color: var(--s-kw); }
+.mark { font: 600 11px var(--mono); }
+.mark.m { color: var(--warn); } .mark.r { color: var(--ac); }
+.side-pad { padding: 4px 12px; }
+.field { width: 100%; height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-3); }
+.field:focus { outline: none; border-color: var(--ac); }
+textarea.field { height: auto; padding: 7px 9px; resize: none; }
+.hint { color: var(--tx-3); font-size: 12px; padding: 8px 12px; }
+.sub { padding: 10px 12px 4px; font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--tx-3); }
+.res { display: block; width: 100%; padding: 4px 12px; text-align: left; }
+.res:hover { background: var(--bg-4); }
+.res b { display: block; font-weight: 500; font-size: 12px; color: var(--tx-2); }
+.res code { display: block; font: 11.5px var(--mono); color: var(--tx-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ext { display: flex; gap: 10px; align-items: center; padding: 8px 12px; }
+.ext .sq { width: 30px; height: 30px; border-radius: 8px; background: var(--bg-4); display: grid; place-items: center; color: var(--tx-2); flex: none; }
+.ext div { flex: 1; min-width: 0; } .ext small { display: block; color: var(--tx-3); }
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; }
+
+.btn { height: 26px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg-3); white-space: nowrap; }
+.btn:hover { border-color: var(--tx-3); }
+.btn.primary { background: var(--ac); border-color: var(--ac); color: var(--ac-ink); font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.sm { height: 22px; padding: 0 8px; font-size: 12px; }
+.btn.block { width: 100%; }
+
+.resizer { flex: none; background: var(--line); z-index: 2; touch-action: none; }
+.resizer.v { width: 1px; cursor: col-resize; position: relative; }
+.resizer.v::after { content: ""; position: absolute; inset: 0 -3px; }
+.resizer.h { height: 1px; cursor: row-resize; position: relative; }
+.resizer.h::after { content: ""; position: absolute; inset: -3px 0; }
+.resizer:hover, .resizer.on { background: var(--ac); }
+
+.center { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tabs { display: flex; height: 34px; flex: none; background: var(--bg-2); overflow-x: auto; scrollbar-width: none; }
+.tab { display: flex; align-items: center; gap: 6px; padding: 0 6px 0 12px; border-right: 1px solid var(--line); color: var(--tx-3); cursor: pointer; white-space: nowrap; border-top: 2px solid transparent; }
+.tab:hover { color: var(--tx); }
+.tab.on { background: var(--bg); color: var(--tx); border-top-color: var(--ac); }
+.tab .x { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 4px; color: var(--tx-3); visibility: hidden; }
+.tab:hover .x, .tab.on .x { visibility: visible; }
+.tab .x:hover { background: var(--bg-4); color: var(--tx); }
+.tabs-fill { flex: 1; border-bottom: 0; }
+.crumbs { height: 24px; flex: none; display: flex; align-items: center; gap: 5px; padding: 0 14px; color: var(--tx-3); font-size: 12px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+.crumbs b { color: var(--tx-2); font-weight: 500; }
+
+.editor { flex: 1; min-height: 0; overflow: auto; position: relative; }
+.code { font: var(--code-size)/1.6 var(--mono); padding: 8px 0 40px; min-width: max-content; }
+.code.wrap { min-width: 0; }
+.code.wrap .tx { white-space: pre-wrap; word-break: break-word; }
+.ln { display: flex; }
+.ln .no { flex: none; width: 48px; padding-right: 14px; text-align: right; color: var(--tx-3); user-select: none; }
+.ln .sg { flex: none; width: 16px; text-align: center; color: var(--tx-3); user-select: none; }
+.ln .tx { flex: 1; white-space: pre; padding-right: 24px; }
+.ln.cur { background: var(--bg-2); }
+.ln.cur .no { color: var(--tx); }
+.ln.add { background: var(--add); } .ln.add .sg { color: var(--ok); }
+.ln.del { background: var(--del); } .ln.del .sg { color: var(--err); } .ln.del .tx { opacity: .7; }
+.t-kw { color: var(--s-kw); } .t-str { color: var(--s-str); } .t-num { color: var(--s-num); }
+.t-com { color: var(--s-com); font-style: italic; } .t-fn { color: var(--s-fn); }
+.t-prop { color: var(--s-prop); } .t-tag { color: var(--s-tag); }
+.reviewbar { position: sticky; top: 0; left: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-3); border-bottom: 1px solid var(--line); }
+.reviewbar .sp { flex: 1; }
+.plus { color: var(--ok); } .minus { color: var(--err); }
+.empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--tx-3); text-align: center; padding: 20px; }
+.empty p { margin: 0; }
+.doc { max-width: 720px; margin: 0 auto; padding: 28px 28px 60px; line-height: 1.6; font-size: 14px; }
+.doc h1 { font-size: 22px; margin: 0 0 12px; } .doc h2 { font-size: 16px; margin: 22px 0 6px; } .doc h3 { font-size: 14px; margin: 16px 0 4px; }
+.doc p { margin: 6px 0; color: var(--tx-2); } .doc ul { margin: 6px 0; padding-left: 20px; color: var(--tx-2); }
+.doc code, .msg code { font: 12px var(--mono); padding: 1px 5px; border-radius: 4px; background: var(--bg-4); }
+.doc li.chk { list-style: none; margin-left: -20px; padding-left: 24px; position: relative; }
+.doc li.chk::before { content: ""; position: absolute; left: 0; top: 5px; width: 13px; height: 13px; border: 1.5px solid var(--tx-3); border-radius: 4px; }
+.doc li.chk.on::before { background: var(--ok); border-color: var(--ok); }
+
+/* Preview tab: a mock browser showing the sample app */
+.browser { height: 100%; display: flex; flex-direction: column; }
+.bbar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+.url { flex: 1; height: 24px; display: flex; align-items: center; padding: 0 10px; border-radius: 12px; background: var(--bg-3); border: 1px solid var(--line); color: var(--tx-2); font-size: 12px; }
+.bpage { flex: 1; overflow: auto; background: #f4f5f7; color: #1c1f26; --pv: #3b6cf6; --pv-r: 8px; }
+.bpage.green { --pv: #0f9d7a; --pv-r: 999px; }
+.pv-card { max-width: 420px; margin: 40px auto; padding: 24px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.pv-card h1 { margin: 0 0 14px; font-size: 22px; }
+.pv-card input { width: 100%; height: 34px; padding: 0 10px; border: 1px solid #d5d8de; border-radius: 8px; background: #fff; color: #1c1f26; }
+.pv-card form { display: flex; gap: 8px; margin-top: 10px; }
+.pv-card form button { background: var(--pv); color: #fff; padding: 0 16px; border-radius: var(--pv-r); font-weight: 600; }
+.pv-card ul { list-style: none; margin: 14px 0 0; padding: 0; }
+.pv-card li { padding: 9px 2px; border-top: 1px solid #eceef1; }
+.pv-card li.none { color: #8a8f99; }
+
+/* ---------- Bottom panel ---------- */
+.panel { height: var(--pn-h); flex: none; display: flex; flex-direction: column; min-height: 0; }
+.ptabs { display: flex; align-items: center; gap: 2px; height: 30px; padding: 0 8px; flex: none; }
+.ptabs button.pt { padding: 3px 9px; border-radius: 5px; color: var(--tx-3); font-size: 12px; }
+.ptabs button.pt:hover { color: var(--tx); }
+.ptabs button.pt[aria-pressed="true"] { color: var(--tx); background: var(--bg-4); }
+.ptabs .sp { flex: 1; }
+.pbody { flex: 1; min-height: 0; overflow: auto; font: 12px/1.6 var(--mono); padding: 2px 14px 8px; }
+.tl { white-space: pre-wrap; } .tl.cmd { color: var(--tx); } .tl.dim { color: var(--tx-3); } .tl.ok { color: var(--ok); } .tl.err { color: var(--err); }
+.tl.cmd::before, .tin::before { content: "notes-app $ "; color: var(--ac); }
+.tin { display: flex; }
+.tin input { flex: 1; background: none; border: 0; outline: 0; font: inherit; padding: 0; min-width: 0; }
+.prob { display: flex; gap: 8px; align-items: center; width: 100%; padding: 3px 0; text-align: left; font-family: var(--sans); }
+.prob:hover { color: var(--ac); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--tx-3); }
+.dot.warn { background: var(--warn); } .dot.ok { background: var(--ok); } .dot.run { background: var(--ac); }
+
+/* ---------- Agent panel and conversations ---------- */
+.agent-pane { width: var(--ag-w); flex: none; display: flex; flex-direction: column; background: var(--bg-2); min-width: 0; }
+.chat { flex: 1; min-height: 0; overflow: auto; padding: 6px 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+.msg.user { align-self: flex-end; max-width: 90%; padding: 8px 12px; border-radius: 12px 12px 3px 12px; background: var(--bg-3); border: 1px solid var(--line); white-space: pre-wrap; }
+.msg.agent .who { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; color: var(--ac); }
+.msg.agent p { margin: 6px 0; color: var(--tx-2); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.steps li { display: flex; align-items: center; gap: 8px; color: var(--tx-3); }
+.steps li.done { color: var(--tx-2); }
+.steps .st { width: 14px; height: 14px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--line); color: var(--ok); }
+.steps li.done .st { border-color: transparent; }
+.steps li.now .st { border-color: var(--ac); border-top-color: transparent; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .steps li.now .st { animation: none; } }
+.arts { display: grid; gap: 6px; margin-top: 8px; }
+.art { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; text-align: left; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-3); }
+.art:hover { border-color: var(--ac); }
+.art .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.art small { color: var(--tx-3); font-family: var(--mono); }
+.art .state { font-size: 11px; color: var(--tx-3); font-family: var(--sans); }
+.welcome { margin: auto 0; display: grid; gap: 10px; justify-items: start; padding: 10px 0; }
+.welcome h3 { margin: 0; font-size: 15px; } .welcome p { margin: 0; color: var(--tx-3); }
+.chip { padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-3); color: var(--tx-2); text-align: left; }
+.chip:hover { border-color: var(--ac); color: var(--tx); }
+.composer { margin: 0 12px 12px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-3); flex: none; }
+.composer:focus-within { border-color: var(--ac); }
+.composer textarea { display: block; width: 100%; border: 0; outline: 0; background: none; resize: none; padding: 2px 4px 6px; }
+.comp-row { display: flex; align-items: center; gap: 6px; }
+.comp-row select { height: 24px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-2); color: var(--tx-2); font-size: 12px; padding: 0 4px; }
+.comp-row .sp { flex: 1; }
+.send { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--ac); color: var(--ac-ink); }
+.send:hover { filter: brightness(1.08); }
+
+/* ---------- Manager view ---------- */
+#managerView { display: grid; grid-template-columns: 270px minmax(0, 1fr) 290px; background: var(--bg); }
+.mgr-list { background: var(--bg-2); border-right: 1px solid var(--line); padding: 12px; overflow: auto; }
+.ws { margin: 12px 0 2px; color: var(--tx-3); font-size: 12px; } .ws b { color: var(--tx-2); font-weight: 600; }
+.mgr-list .sub { padding: 14px 2px 5px; }
+.task { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 9px; border-radius: 8px; text-align: left; color: var(--tx-2); }
+.task:hover { background: var(--bg-4); } .task.on { background: var(--ac-soft); color: var(--tx); }
+.task .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task small { color: var(--tx-3); }
+.mgr-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.mgr-head { display: flex; align-items: center; gap: 10px; padding: 14px 24px; border-bottom: 1px solid var(--line); flex: none; }
+.mgr-head h2 { margin: 0; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--bg-4); color: var(--tx-2); white-space: nowrap; }
+.pill.run { background: var(--ac-soft); color: var(--ac); } .pill.review { color: var(--warn); } .pill.done { color: var(--ok); }
+.chat.wide { padding: 18px max(24px, calc(50% - 340px)) 18px; }
+.composer.wide { margin: 0 max(24px, calc(50% - 340px)) 20px; }
+.mgr-side { border-left: 1px solid var(--line); background: var(--bg-2); padding: 4px 12px 12px; overflow: auto; }
+.mgr-side .sub { padding: 14px 2px 6px; }
+
+/* ---------- Status bar ---------- */
+.statusbar { display: flex; align-items: center; gap: 14px; padding: 0 10px; font-size: 11.5px; color: var(--tx-2); background: var(--bg-2); border-top: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
+.statusbar span, .statusbar button { display: flex; align-items: center; gap: 5px; }
+.statusbar button:hover { color: var(--tx); }
+.statusbar .sp { flex: 1; }
+
+/* ---------- Overlays ---------- */
+.overlay { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .35); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 0; }
+.pal { width: min(560px, 100%); background: var(--bg-3); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.pal input { width: 100%; height: 44px; padding: 0 16px; border: 0; outline: 0; background: none; border-bottom: 1px solid var(--line); font-size: 14px; }
+.pal-list { max-height: 320px; overflow: auto; padding: 6px; }
+.pal-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px; border-radius: 7px; text-align: left; }
+.pal-item small { margin-left: auto; color: var(--tx-3); }
+.pal-item.on { background: var(--ac-soft); }
+.menupop { position: fixed; z-index: 30; min-width: 210px; padding: 5px; background: var(--bg-3); border: 1px solid var(--line); border-radius: 9px; box-shadow: var(--shadow); }
+.menupop button { display: flex; justify-content: space-between; gap: 20px; width: 100%; padding: 6px 10px; border-radius: 6px; text-align: left; }
+.menupop button:hover { background: var(--ac-soft); }
+.menupop small { color: var(--tx-3); }
+
+/* ---------- Toggled regions and small screens ---------- */
+#app.no-sidebar .sidebar, #app.no-sidebar [data-resize="sidebar"] { display: none; }
+#app.no-panel .panel, #app.no-panel [data-resize="panel"] { display: none; }
+#app.no-agent .agent-pane, #app.no-agent [data-resize="agent"] { display: none; }
+@media (max-width: 1100px) { #managerView { grid-template-columns: 240px minmax(0, 1fr); } .mgr-side { display: none; } }
+@media (max-width: 860px) {
+  .menus, .cmdbox span, .cmdbox kbd { display: none; }
+  .cmdbox { flex: none; margin: 0 0 0 auto; }
+  #managerView { grid-template-columns: 1fr; } .mgr-list { display: none; }
+  .statusbar .opt { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ---------- 2. Static shell ---------- -->
+<div id="app">
+  <header class="titlebar">
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+        <rect x="1" y="1" width="8" height="8" rx="2.2" fill="var(--ac)"/>
+        <rect x="11" y="1" width="8" height="8" rx="2.2" fill="var(--tx-3)"/>
+        <rect x="1" y="11" width="8" height="8" rx="2.2" fill="var(--tx-3)"/>
+        <rect x="11" y="11" width="8" height="8" rx="2.2" fill="var(--tx-2)"/>
+      </svg>
+      Tessera
+    </div>
+    <nav class="menus" aria-label="Application menu">
+      <button data-act="menu" data-menu="File">File</button>
+      <button data-act="menu" data-menu="Edit">Edit</button>
+      <button data-act="menu" data-menu="View">View</button>
+      <button data-act="menu" data-menu="Run">Run</button>
+      <button data-act="menu" data-menu="Help">Help</button>
+    </nav>
+    <button class="cmdbox" data-act="palette" title="Search files and commands">
+      <i data-ic="search" data-size="14"></i><span>Search files and commands</span><kbd>Ctrl K</kbd>
+    </button>
+    <div class="seg" role="group" aria-label="Workspace view">
+      <button data-act="view" data-view="editor" aria-pressed="true">Editor</button>
+      <button data-act="view" data-view="manager" aria-pressed="false">Manager</button>
+    </div>
+    <div class="tb-actions">
+      <button class="ib" data-act="toggle" data-what="sidebar" title="Toggle sidebar (Ctrl B)"><i data-ic="panelLeft"></i></button>
+      <button class="ib" data-act="toggle" data-what="panel" title="Toggle panel (Ctrl J)"><i data-ic="panelBottom"></i></button>
+      <button class="ib" data-act="toggle" data-what="agent" title="Toggle agent panel"><i data-ic="panelRight"></i></button>
+      <button class="ib" data-act="theme" id="themeBtn" title="Switch theme"></button>
+    </div>
+  </header>
+
+  <!-- Editor view: activity bar | sidebar | editor + panel | agent -->
+  <main id="editorView" class="view">
+    <nav class="activity" aria-label="Sidebar views">
+      <button data-act="side" data-side="explorer" title="Explorer"><i data-ic="files" data-size="20"></i></button>
+      <button data-act="side" data-side="search" title="Search"><i data-ic="search" data-size="20"></i></button>
+      <button data-act="side" data-side="scm" title="Source control"><i data-ic="branch" data-size="20"></i><span class="badge" id="scmBadge" hidden></span></button>
+      <button data-act="side" data-side="ext" title="Extensions"><i data-ic="blocks" data-size="20"></i></button>
+      <span class="sp"></span>
+      <button data-act="side" data-side="settings" title="Settings"><i data-ic="sliders" data-size="20"></i></button>
+    </nav>
+    <aside class="sidebar">
+      <div class="pane-head"><span class="ph-title" id="sideTitle"></span></div>
+      <div class="side-body" id="sideBody"></div>
+    </aside>
+    <div class="resizer v" data-resize="sidebar"></div>
+
+    <section class="center">
+      <div class="tabs" id="tabs" role="tablist"></div>
+      <div class="crumbs" id="crumbs"></div>
+      <div class="editor" id="editor"></div>
+      <div class="resizer h" data-resize="panel"></div>
+      <div class="panel">
+        <div class="ptabs">
+          <button class="pt" data-act="ptab" data-tab="terminal">Terminal</button>
+          <button class="pt" data-act="ptab" data-tab="problems">Problems</button>
+          <button class="pt" data-act="ptab" data-tab="output">Output</button>
+          <span class="sp"></span>
+          <button class="ib" data-act="toggle" data-what="panel" title="Close panel"><i data-ic="close" data-size="14"></i></button>
+        </div>
+        <div class="pbody" id="pbody"></div>
+      </div>
+    </section>
+
+    <div class="resizer v" data-resize="agent"></div>
+    <aside class="agent-pane">
+      <div class="pane-head">
+        <span class="ph-title" id="chatTitle">New conversation</span>
+        <button class="ib" data-act="task-new" title="New conversation"><i data-ic="plus"></i></button>
+        <button class="ib" data-act="view" data-view="manager" title="All tasks"><i data-ic="inbox"></i></button>
+      </div>
+      <div class="chat" id="chatBody"></div>
+      <div class="composer" data-composer>
+        <textarea rows="2" placeholder="Ask the agent to build or change something" aria-label="Message the agent"></textarea>
+        <div class="comp-row">
+          <select data-mode aria-label="Agent mode"><option value="plan">Planning</option><option value="fast">Fast</option></select>
+          <select aria-label="Model"><option>Tessera Large</option><option>Tessera Mini</option></select>
+          <span class="sp"></span>
+          <button class="send" data-act="send" title="Send (Enter)"><i data-ic="send"></i></button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Manager view: task list | conversation | artefacts -->
+  <main id="managerView" class="view" hidden>
+    <aside class="mgr-list">
+      <button class="btn primary block" data-act="task-new">New task</button>
+      <div class="ws">Workspace <b>notes-app</b></div>
+      <div id="mgrList"></div>
+    </aside>
+    <section class="mgr-main">
+      <div class="mgr-head" id="mgrHead"></div>
+      <div class="chat wide" id="mgrBody"></div>
+      <div class="composer wide" data-composer>
+        <textarea rows="2" placeholder="Describe a task for the agent" aria-label="Describe a task"></textarea>
+        <div class="comp-row">
+          <select data-mode aria-label="Agent mode"><option value="plan">Planning</option><option value="fast">Fast</option></select>
+          <select aria-label="Model"><option>Tessera Large</option><option>Tessera Mini</option></select>
+          <span class="sp"></span>
+          <button class="send" data-act="send" title="Send (Enter)"><i data-ic="send"></i></button>
+        </div>
+      </div>
+    </section>
+    <aside class="mgr-side" id="mgrSide"></aside>
+  </main>
+
+  <footer class="statusbar" id="status"></footer>
+</div>
+
+<div class="overlay" id="palette" hidden>
+  <div class="pal" role="dialog" aria-label="Command palette">
+    <input id="palInput" placeholder="Type a file name or command" autocomplete="off">
+    <div class="pal-list" id="palList"></div>
+  </div>
+</div>
+<div class="menupop" id="menuPop" hidden></div>
+
+<!-- ---------- 3. Behaviour ---------- -->
+<script>
+'use strict';
+
+/* ===== Helpers ===== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+/* ===== Icons (inline SVG paths, 24px grid) ===== */
+const ICON = {
+  files: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/>',
+  branch: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10"/><path d="M18 10v1a4 4 0 0 1-4 4H6"/>',
+  blocks: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 4v7M13 7.5h7"/>',
+  sliders: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+  panelLeft: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
+  panelBottom: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/>',
+  panelRight: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',
+  send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  check: '<path d="m5 12 5 5 9-10"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  doc: '<path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+  diff: '<path d="M12 4v8M8 8h8M8 18h8"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>',
+  spark: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16v4M17 18h4"/>',
+  inbox: '<path d="M4 13 6.5 5h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13h5a3 3 0 0 0 6 0h5"/>',
+  refresh: '<path d="M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"/>',
+  warn: '<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17v.5"/>'
+};
+const ic = (name, size = 16) =>
+  `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
+
+/* ===== Sample project (the "workspace") ===== */
+const files = {
+  'index.html': { lang: 'html', text: `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Notes</title>
+    <link rel="stylesheet" href="src/styles.css">
+  </head>
+  <body>
+    <main class="card">
+      <h1>Notes</h1>
+      <form id="new-note">
+        <input name="title" placeholder="New note title">
+        <button>Add</button>
+      </form>
+      <ul id="notes"></ul>
+    </main>
+    <script type="module" src="src/app.js"><\/script>
+  </body>
+</html>` },
+  'src/app.js': { lang: 'js', text: `import { loadNotes, saveNote } from "./api.js";
+
+const list = document.querySelector("#notes");
+const form = document.querySelector("#new-note");
+
+let notes = [];
+
+function render(items) {
+  list.innerHTML = "";
+  for (const note of items) {
+    const li = document.createElement("li");
+    li.textContent = note.title;
+    list.appendChild(li);
+  }
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const title = form.elements.title.value.trim();
+  if (!title) return;
+  notes.push(await saveNote({ title }));
+  form.reset();
+  render(notes);
+});
+
+async function start() {
+  notes = await loadNotes();
+  render(notes);
+}
+
+start();` },
+  'src/api.js': { lang: 'js', text: `const KEY = "notes";
+
+// Notes are kept in the browser, so there is no server to run.
+export async function loadNotes() {
+  const raw = localStorage.getItem(KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function saveNote(note) {
+  const notes = await loadNotes();
+  const saved = { id: Date.now(), ...note };
+  localStorage.setItem(KEY, JSON.stringify([...notes, saved]));
+  return saved;
+}` },
+  'src/styles.css': { lang: 'css', text: `:root {
+  --accent: #3b6cf6;
+  --ink: #1c1f26;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  color: var(--ink);
+  background: #f4f5f7;
+}
+
+.card {
+  max-width: 420px;
+  margin: 48px auto;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+}
+
+button {
+  color: #ffffff;
+  background: var(--accent);
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 14px;
+}` },
+  'tests/app.test.js': { lang: 'js', text: `import { test, expect } from "./runner.js";
+import { loadNotes, saveNote } from "../src/api.js";
+
+test("starts with an empty list", async () => {
+  expect(await loadNotes()).toEqual([]);
+});
+
+test("returns saved notes in order", async () => {
+  const notes = await loadNotes();
+  expect(notes.map((note) => note.title)).toEqual(["First", "Second"]);
+});` },
+  'package.json': { lang: 'json', text: `{
+  "name": "notes-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "serve . --port 5173",
+    "test": "node tests/app.test.js"
+  }
+}` },
+  'README.md': { lang: 'md', text: `# Notes app
+
+A tiny note-taking page used as the sample project in this prototype.
+
+## Scripts
+
+- \`npm run dev\` starts the dev server on port 5173
+- \`npm test\` runs the test file` }
+};
+
+/* Documents the agent produces (plans, walkthroughs). Opened as read-only tabs. */
+const docs = {
+  about: { title: 'About this prototype', md: `# About this prototype
+
+Tessera is a single HTML file that imitates how an agentic IDE works. It is meant for studying the layout and the wiring, so everything is simulated.
+
+## What is real
+
+- The layout: resizable sidebar, editor, bottom panel and agent panel
+- Tabs, file tree, search across files, command palette, themes
+- The review flow: the agent proposes a change, you accept or reject it
+- The preview, which reacts to changes you accept
+
+## What is simulated
+
+- The agent picks one of four canned scenarios based on keywords in your prompt
+- The terminal understands \`help\`, \`ls\`, \`npm run dev\`, \`npm test\`, \`git status\` and \`clear\`
+- The editor is read-only and nothing is saved when you reload
+
+## Things to try
+
+- [ ] Ask the agent to add a search box
+- [ ] Accept the change, then run \`npm run dev\` and open the preview
+- [ ] Ask for a green accent colour and watch the preview update
+- [ ] Open the Manager view and start a second task` },
+  'walk-1': { title: 'Walkthrough: project scaffold', md: `# Walkthrough: project scaffold
+
+## What was built
+
+- \`index.html\` with the note form and list
+- \`src/app.js\` for rendering and form handling
+- \`src/api.js\` for reading and writing notes
+- \`tests/app.test.js\` with two starter tests
+
+## Verified
+
+- [x] Page loads without console errors
+- [x] Adding a note appends it to the list
+- [x] Both tests pass` }
+};
+
+/* ===== Application state (in memory only) ===== */
+const state = {
+  view: 'editor',
+  side: 'explorer',
+  open: { src: true, tests: true },                 // expanded folders
+  tabs: [{ id: 'file:src/app.js', kind: 'file', path: 'src/app.js' }, { id: 'file:index.html', kind: 'file', path: 'index.html' }],
+  active: 'file:src/app.js',
+  cursor: {},                                        // path -> selected line
+  ptab: 'terminal',
+  modified: new Set(),                               // accepted but uncommitted files
+  server: false,
+  wrap: false,
+  activeTask: null,
+  term: [{ c: 'dim', t: 'Simulated terminal. Type "help" to see what it understands.' }],
+  out: ['[workspace] notes-app opened'],
+  pvNotes: ['Buy oat milk', 'Email the landlord', 'Plan the weekend hike'],
+  pvQuery: ''
+};
+let seq = 1;
+const tasks = [{
+  id: 1, title: 'Set up project scaffold', status: 'done', when: '2h ago',
+  msgs: [
+    { role: 'user', text: 'Create a minimal notes app with a form, a list and two tests.' },
+    { role: 'agent', text: 'The scaffold is in place and both tests pass. The walkthrough lists what was built and how it was checked.',
+      steps: [{ label: 'Create the page and styles', done: true }, { label: 'Add storage helpers', done: true }, { label: 'Write starter tests', done: true }],
+      artifacts: [{ kind: 'doc', id: 'walk-1', label: 'Walkthrough' }] }
+  ]
+}];
+const curTask = () => tasks.find(t => t.id === state.activeTask) || null;
+const log = line => { state.out.push(line); if (state.ptab === 'output') renderPanel(); };
+
+/* ===== Syntax highlighting: one regex per language, one line at a time ===== */
+const RX = {
+  js: [/(\/\/.*$)|("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\b(const|let|var|function|return|if|else|for|while|import|from|export|default|async|await|new|class|try|catch|throw|of|in|null|undefined|true|false)\b|\b(\d+(?:\.\d+)?)\b|([A-Za-z_$][\w$]*)(?=\s*\()/g,
+    ['com', 'str', 'kw', 'num', 'fn']],
+  css: [/(\/\*.*?\*\/)|("[^"]*"|'[^']*')|(#[0-9a-fA-F]{3,8}\b|\b\d+(?:\.\d+)?(?:px|rem|em|%|ms|s|fr|vh|vw)?)|(--[\w-]+|[\w-]+)(?=\s*:)|([.#:]?[\w-]+)(?=\s*\{)/g,
+    ['com', 'str', 'num', 'prop', 'tag']],
+  html: [/(<!--.*?-->)|(<!?\/?[\w-]+|\/?>)|([\w-]+)(?==)|("[^"]*")/g, ['com', 'tag', 'prop', 'str']],
+  json: [/("(?:\\.|[^"\\])*")(?=\s*:)|("(?:\\.|[^"\\])*")|\b(true|false|null)\b|(-?\d+(?:\.\d+)?)/g, ['prop', 'str', 'kw', 'num']],
+  md: [/^(#{1,6} .*)$|(`[^`]+`)|^(\s*- )/g, ['kw', 'str', 'num']]
+};
+function hl(line, lang) {
+  const rule = RX[lang];
+  if (!rule) return esc(line);
+  const [re, cls] = rule;
+  re.lastIndex = 0;
+  let out = '', last = 0, m;
+  while ((m = re.exec(line))) {
+    if (!m[0]) { re.lastIndex++; continue; }
+    let g = 1;
+    while (g < m.length && m[g] === undefined) g++;
+    out += esc(line.slice(last, m.index)) + `<span class="t-${cls[g - 1]}">${esc(m[0])}</span>`;
+    last = m.index + m[0].length;
+  }
+  return out + esc(line.slice(last));
+}
+
+/* Small Markdown renderer for agent documents: headings, lists, checkboxes, inline code. */
+function md(src) {
+  const inline = s => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  let html = '', list = false;
+  for (const line of src.split('\n')) {
+    const li = /^- (\[( |x)\] )?(.*)$/.exec(line);
+    if (li) {
+      if (!list) { html += '<ul>'; list = true; }
+      html += li[1] ? `<li class="chk${li[2] === 'x' ? ' on' : ''}">${inline(li[3])}</li>` : `<li>${inline(li[3])}</li>`;
+      continue;
+    }
+    if (list) { html += '</ul>'; list = false; }
+    const h = /^(#{1,3}) (.*)$/.exec(line);
+    if (h) html += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;
+    else if (line.trim()) html += `<p>${inline(line)}</p>`;
+  }
+  return html + (list ? '</ul>' : '');
+}
+
+/* Line diff (longest common subsequence). Fine for small files. */
+function diffLines(a, b) {
+  const A = a.split('\n'), B = b.split('\n'), n = A.length, m = B.length;
+  const t = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--)
+    t[i][j] = A[i] === B[j] ? t[i + 1][j + 1] + 1 : Math.max(t[i + 1][j], t[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (A[i] === B[j]) { out.push({ t: ' ', s: A[i] }); i++; j++; }
+    else if (t[i + 1][j] >= t[i][j + 1]) out.push({ t: '-', s: A[i++] });
+    else out.push({ t: '+', s: B[j++] });
+  }
+  while (i < n) out.push({ t: '-', s: A[i++] });
+  while (j < m) out.push({ t: '+', s: B[j++] });
+  return out;
+}
+const diffStat = d => ({ add: d.filter(x => x.t === '+').length, del: d.filter(x => x.t === '-').length });
+
+/* ===== Things derived from file contents ===== */
+const hasSearch = () => files['src/app.js'].text.includes('#search') && files['index.html'].text.includes('id="search"');
+const isGreen = () => files['src/styles.css'].text.includes('#0f9d7a');
+const testNames = () => [...files['tests/app.test.js'].text.matchAll(/test\("([^"]+)"/g)].map(m => m[1]);
+const problems = () => /saveNote\(/.test(files['tests/app.test.js'].text) ? [] :
+  [{ path: 'tests/app.test.js', line: 2, text: "'saveNote' is imported but never used" }];
+const pendingPaths = () => Object.keys(files).filter(p => files[p].pending);
+
+/* ===== Renderers ===== */
+const ftBadge = { js: 'JS', css: '#', html: '<>', json: '{}', md: 'M↓' };
+function fileRow(path, depth) {
+  const f = files[path], name = path.split('/').pop();
+  const mark = f.pending ? '<span class="mark r" title="Awaiting review">●</span>' : state.modified.has(path) ? '<span class="mark m" title="Modified">M</span>' : '';
+  return `<button class="row${state.active === 'file:' + path ? ' on' : ''}" style="padding-left:${12 + depth * 16}px" data-act="open-file" data-path="${path}">
+    <span class="ft ${f.lang}">${ftBadge[f.lang]}</span><span class="nm">${name}</span>${mark}</button>`;
+}
+
+function renderSide() {
+  const titles = { explorer: 'Explorer', search: 'Search', scm: 'Source control', ext: 'Extensions', settings: 'Settings' };
+  $('#sideTitle').textContent = titles[state.side];
+  $$('.activity [data-side]').forEach(b => b.setAttribute('aria-pressed', b.dataset.side === state.side));
+  const body = $('#sideBody');
+  if (state.side === 'explorer') {
+    const dirs = {}, root = [];
+    for (const p of Object.keys(files)) { const i = p.indexOf('/'); i < 0 ? root.push(p) : (dirs[p.slice(0, i)] ||= []).push(p); }
+    let h = '<div class="sub">notes-app</div>';
+    for (const d of Object.keys(dirs).sort()) {
+      h += `<button class="row dir${state.open[d] ? ' open' : ''}" data-act="dir" data-dir="${d}"><span class="chev">${ic('chevron', 12)}</span>${ic('folder', 14)}<span class="nm">${d}</span></button>`;
+      if (state.open[d]) h += dirs[d].map(p => fileRow(p, 1)).join('');
+    }
+    body.innerHTML = h + root.sort().map(p => fileRow(p, 0)).join('');
+  } else if (state.side === 'search') {
+    body.innerHTML = '<div class="side-pad"><input class="field" id="searchInput" placeholder="Search in files"></div><div id="searchRes"><p class="hint">Type to search every file in the workspace.</p></div>';
+    $('#searchInput').focus();
+  } else if (state.side === 'scm') {
+    const pend = pendingPaths(), mod = [...state.modified];
+    body.innerHTML = `<div class="side-pad"><textarea class="field" id="commitMsg" rows="2" placeholder="Commit message"></textarea>
+      <button class="btn primary block" style="margin-top:6px" data-act="commit"${mod.length ? '' : ' disabled'}>Commit ${mod.length || ''}</button></div>
+      <div class="sub">Changes</div>${mod.map(p => fileRow(p, 0)).join('') || '<p class="hint">No uncommitted changes.</p>'}
+      ${pend.length ? '<div class="sub">Awaiting review</div>' + pend.map(p => fileRow(p, 0)).join('') : ''}`;
+  } else if (state.side === 'ext') {
+    const list = [['Lint Helper', 'Flags unused imports'], ['Markdown Preview', 'Render .md files'], ['Test Runner', 'Run tests from the gutter'], ['Colour Picker', 'Edit CSS colours inline']];
+    body.innerHTML = '<p class="hint">Fictional extensions, here to show the list pattern.</p>' + list.map(([n, d]) =>
+      `<div class="ext"><span class="sq">${ic('blocks')}</span><div>${n}<small>${d}</small></div><button class="btn sm" data-act="install">Install</button></div>`).join('');
+  } else {
+    body.innerHTML = `<div class="setrow"><span>Theme</span><button class="btn sm" data-act="theme">Switch</button></div>
+      <div class="setrow"><label for="fontSize">Code size</label><input id="fontSize" type="range" min="11" max="16" step="0.5" value="${parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--code-size'))}"></div>
+      <div class="setrow"><label for="wrapToggle">Wrap long lines</label><input id="wrapToggle" type="checkbox"${state.wrap ? ' checked' : ''}></div>
+      <p class="hint">Settings apply immediately and reset on reload.</p>`;
+  }
+  const n = state.modified.size + pendingPaths().length, badge = $('#scmBadge');
+  badge.hidden = !n; badge.textContent = n;
+}
+
+function tabLabel(t) {
+  if (t.kind === 'file') return `<span class="ft ${files[t.path].lang}">${ftBadge[files[t.path].lang]}</span>${t.path.split('/').pop()}${files[t.path].pending ? ' <span class="mark r">●</span>' : ''}`;
+  if (t.kind === 'preview') return ic('globe', 14) + 'Preview';
+  return ic('doc', 14) + esc(docs[t.doc].title);
+}
+function renderTabs() {
+  $('#tabs').innerHTML = state.tabs.map(t =>
+    `<div class="tab${t.id === state.active ? ' on' : ''}" role="tab" tabindex="0" data-act="tab" data-id="${t.id}">${tabLabel(t)}
+      <button class="x" data-act="close-tab" data-id="${t.id}" aria-label="Close tab">${ic('close', 12)}</button></div>`).join('');
+}
+
+function renderEditor() {
+  const ed = $('#editor'), cr = $('#crumbs'), tab = state.tabs.find(t => t.id === state.active);
+  if (!tab) {
+    cr.innerHTML = '';
+    ed.innerHTML = `<div class="empty">${ic('files', 34)}<p>No file open</p><p>Pick a file from the explorer, or press <kbd>Ctrl K</kbd> to search.</p></div>`;
+  } else if (tab.kind === 'doc') {
+    cr.innerHTML = `Agent documents ${ic('chevron', 11)} <b>${esc(docs[tab.doc].title)}</b>`;
+    ed.innerHTML = `<article class="doc">${md(docs[tab.doc].md)}</article>`;
+  } else if (tab.kind === 'preview') {
+    cr.innerHTML = '<b>Preview</b>';
+    renderPreview(ed);
+  } else {
+    const f = files[tab.path], wrap = state.wrap ? ' wrap' : '';
+    cr.innerHTML = 'notes-app ' + tab.path.split('/').map((s, i, a) => ic('chevron', 11) + (i === a.length - 1 ? ` <b>${s}</b>` : ' ' + s + ' ')).join('');
+    if (f.pending) {                      // show the proposed change as a diff
+      const d = diffLines(f.text, f.pending.text), s = diffStat(d);
+      let a = 0, b = 0;
+      ed.innerHTML = `<div class="reviewbar">${ic('spark')}<span><b>Proposed by the agent</b> · <span class="plus">+${s.add}</span> <span class="minus">−${s.del}</span></span><span class="sp"></span>
+        <button class="btn sm" data-act="reject" data-path="${tab.path}">Reject</button><button class="btn sm primary" data-act="accept" data-path="${tab.path}">Accept</button></div>
+        <div class="code${wrap}">${d.map(x => {
+          const no = x.t === '-' ? ++a : (x.t === '+' ? ++b : (++a, ++b));
+          return `<div class="ln${x.t === '+' ? ' add' : x.t === '-' ? ' del' : ''}"><span class="no">${no}</span><span class="sg">${x.t === ' ' ? '' : x.t === '-' ? '−' : '+'}</span><span class="tx">${hl(x.s, f.lang) || ' '}</span></div>`;
+        }).join('')}</div>`;
+    } else {
+      const cur = state.cursor[tab.path] || 1;
+      ed.innerHTML = `<div class="code${wrap}">${f.text.split('\n').map((l, i) =>
+        `<div class="ln${i + 1 === cur ? ' cur' : ''}" data-n="${i + 1}"><span class="no">${i + 1}</span><span class="sg"></span><span class="tx">${hl(l, f.lang) || ' '}</span></div>`).join('')}</div>`;
+    }
+  }
+  renderStatus();
+}
+
+function pvList() {
+  const q = state.pvQuery.toLowerCase();
+  const items = state.pvNotes.filter(n => n.toLowerCase().includes(q));
+  return items.map(n => `<li>${esc(n)}</li>`).join('') || '<li class="none">No notes found</li>';
+}
+function renderPreview(ed) {
+  if (!state.server) {
+    ed.innerHTML = `<div class="empty">${ic('globe', 34)}<p>The dev server is not running</p><button class="btn primary" data-act="run" data-cmd="npm run dev">Start dev server</button></div>`;
+    return;
+  }
+  if (!hasSearch()) state.pvQuery = '';
+  ed.innerHTML = `<div class="browser"><div class="bbar"><button class="ib" data-act="pv-reload" title="Reload">${ic('refresh', 14)}</button><div class="url">localhost:5173</div></div>
+    <div class="bpage${isGreen() ? ' green' : ''}"><div class="pv-card"><h1>Notes</h1>
+      ${hasSearch() ? `<input id="pvSearch" type="search" placeholder="Search notes" value="${esc(state.pvQuery)}">` : ''}
+      <form id="pvForm"><input name="title" placeholder="New note title" autocomplete="off"><button>Add</button></form>
+      <ul id="pvList">${pvList()}</ul></div></div></div>`;
+}
+
+function renderPanel() {
+  $$('.ptabs .pt').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === state.ptab));
+  const el = $('#pbody');
+  if (state.ptab === 'terminal') {
+    el.innerHTML = state.term.map(l => `<div class="tl ${l.c}">${esc(l.t)}</div>`).join('') +
+      '<div class="tin"><input id="termIn" aria-label="Terminal input" autocomplete="off" spellcheck="false"></div>';
+    el.scrollTop = el.scrollHeight;
+  } else if (state.ptab === 'problems') {
+    const p = problems();
+    el.innerHTML = p.map(x => `<button class="prob" data-act="open-file" data-path="${x.path}" data-line="${x.line}"><span class="dot warn"></span>${esc(x.text)} <span class="tl dim">${x.path}:${x.line}</span></button>`).join('')
+      || '<div class="tl dim">No problems detected in the workspace.</div>';
+  } else {
+    el.innerHTML = state.out.map(l => `<div class="tl dim">${esc(l)}</div>`).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+/* A conversation, used by both the agent panel and the Manager view. */
+function artBtn(a) {
+  if (a.kind === 'doc') return `<button class="art" data-act="open-doc" data-doc="${a.id}">${ic('doc')}<span class="nm">${esc(a.label)}</span><small class="state">Open</small></button>`;
+  const st = a.state ? `<small class="state">${a.state}</small>` : `<small><span class="plus">+${a.add}</span> <span class="minus">−${a.del}</span></small>`;
+  return `<button class="art" data-act="open-file" data-path="${a.path}">${ic('diff')}<span class="nm">${a.path}</span>${st}</button>`;
+}
+function convHtml(t) {
+  return t.msgs.map(m => {
+    if (m.role === 'user') return `<div class="msg user">${esc(m.text)}</div>`;
+    const next = m.steps.findIndex(s => !s.done);
+    return `<div class="msg agent"><div class="who">${ic('spark')}Agent</div>
+      <ul class="steps">${m.steps.map((s, i) => `<li class="${s.done ? 'done' : i === next ? 'now' : ''}"><span class="st">${s.done ? ic('check', 12) : ''}</span>${esc(s.label)}</li>`).join('')}</ul>
+      ${m.text ? `<p>${esc(m.text).replace(/`([^`]+)`/g, '<code>$1</code>')}</p>` : ''}
+      ${m.artifacts.length ? `<div class="arts">${m.artifacts.map(artBtn).join('')}</div>` : ''}</div>`;
+  }).join('');
+}
+const SUGGEST = ['Add a search box to filter notes', 'Change the accent colour to green', 'Write a test for empty titles'];
+const welcomeHtml = () => `<div class="welcome"><h3>What should the agent do?</h3><p>Describe a change. The agent plans it, edits files and waits for your review.</p>
+  ${SUGGEST.map(s => `<button class="chip" data-act="chip">${s}</button>`).join('')}</div>`;
+const PILL = { running: ['run', 'Working'], review: ['review', 'Needs review'], done: ['done', 'Done'] };
+
+function renderTasks() {
+  const t = curTask(), html = t ? convHtml(t) : welcomeHtml();
+  $('#chatTitle').textContent = t ? t.title : 'New conversation';
+  for (const id of ['chatBody', 'mgrBody']) { const el = $('#' + id); el.innerHTML = html; el.scrollTop = el.scrollHeight; }
+
+  const groups = [['review', 'Needs review'], ['running', 'Running'], ['done', 'Done']];
+  $('#mgrList').innerHTML = groups.map(([k, label]) => {
+    const list = tasks.filter(x => x.status === k);
+    return list.length ? `<div class="sub">${label}</div>` + list.map(x =>
+      `<button class="task${x.id === state.activeTask ? ' on' : ''}" data-act="task" data-id="${x.id}"><span class="dot ${k === 'review' ? 'warn' : k === 'running' ? 'run' : 'ok'}"></span><span class="nm">${esc(x.title)}</span><small>${x.when}</small></button>`).join('') : '';
+  }).join('');
+
+  $('#mgrHead').innerHTML = t
+    ? `<h2>${esc(t.title)}</h2><span class="pill ${PILL[t.status][0]}">${PILL[t.status][1]}</span><button class="btn" data-act="view" data-view="editor">Open in editor</button>`
+    : '<h2>New task</h2>';
+  const arts = t ? t.msgs.flatMap(m => m.artifacts || []) : [];
+  $('#mgrSide').innerHTML = `<div class="sub">Artefacts</div>${arts.filter(a => a.kind === 'doc').map(artBtn).join('<div style="height:6px"></div>') || '<p class="hint" style="padding:0 2px">Plans and walkthroughs appear here.</p>'}
+    <div class="sub">Changed files</div>${arts.filter(a => a.kind === 'diff').map(artBtn).join('<div style="height:6px"></div>') || '<p class="hint" style="padding:0 2px">No file changes yet.</p>'}`;
+  renderStatus();
+}
+
+function renderStatus() {
+  const tab = state.tabs.find(t => t.id === state.active);
+  const running = tasks.filter(t => t.status === 'running').length, review = tasks.filter(t => t.status === 'review').length;
+  const agent = running ? 'Agent working' : review ? review + ' awaiting review' : 'Agent idle';
+  const p = problems().length;
+  let pos = '';
+  if (tab && tab.kind === 'file') pos = `<span class="opt">Ln ${state.cursor[tab.path] || 1}, Col 1</span><span class="opt">${files[tab.path].lang.toUpperCase()}</span>`;
+  $('#status').innerHTML = `<span>${ic('branch', 13)}main${state.modified.size ? '*' : ''}</span>
+    <button data-act="ptab" data-tab="problems">${ic('warn', 13)}${p}</button>
+    <span>${ic('spark', 13)}${agent}</span><span class="sp"></span>${pos}
+    <span class="opt">${state.server ? 'Server :5173' : 'Server stopped'}</span><span class="opt">Prototype</span>`;
+}
+function renderAll() { renderSide(); renderTabs(); renderEditor(); renderPanel(); renderTasks(); }
+
+/* ===== Navigation ===== */
+function openTab(tab) {
+  if (!state.tabs.some(t => t.id === tab.id)) state.tabs.push(tab);
+  state.active = tab.id;
+  renderSide(); renderTabs(); renderEditor();
+}
+function openFile(path, line) {
+  if (line) state.cursor[path] = +line;
+  setView('editor');
+  openTab({ id: 'file:' + path, kind: 'file', path });
+  if (line) { const el = $(`#editor .ln[data-n="${line}"]`); if (el) el.scrollIntoView({ block: 'center' }); }
+}
+const openDoc = id => { setView('editor'); openTab({ id: 'doc:' + id, kind: 'doc', doc: id }); };
+const openPreview = () => { setView('editor'); openTab({ id: 'preview', kind: 'preview' }); };
+function closeTab(id) {
+  const i = state.tabs.findIndex(t => t.id === id);
+  if (i < 0) return;
+  state.tabs.splice(i, 1);
+  if (state.active === id) state.active = (state.tabs[i] || state.tabs[i - 1] || {}).id || null;
+  renderSide(); renderTabs(); renderEditor();
+}
+function setView(v) {
+  if (state.view === v) return;
+  state.view = v;
+  $('#editorView').hidden = v !== 'editor';
+  $('#managerView').hidden = v !== 'manager';
+  $$('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === v));
+  renderTasks();
+}
+const toggle = what => $('#app').classList.toggle('no-' + what);
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  const btn = $('#themeBtn');
+  btn.innerHTML = ic(t === 'dark' ? 'sun' : 'moon');
+  btn.title = t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
+}
+const flipTheme = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+/* ===== Simulated terminal ===== */
+function runCmd(cmd) {
+  const out = (t, c = '') => state.term.push({ c, t });
+  out(cmd, 'cmd');
+  const c = cmd.trim();
+  if (c === 'clear') state.term.length = 0;
+  else if (c === 'help') ['help            show this list', 'ls              list files', 'npm run dev     start the dev server', 'npm test        run the tests', 'git status      show changed files', 'clear           clear the terminal'].forEach(l => out(l, 'dim'));
+  else if (c === 'ls') out('README.md  index.html  package.json  src/  tests/');
+  else if (c === 'npm run dev') {
+    state.server = true;
+    out('> serve . --port 5173', 'dim'); out('Serving notes-app at http://localhost:5173', 'ok');
+    log('[server] listening on :5173');
+    openPreview();
+  } else if (c === 'npm test') {
+    const names = testNames();
+    out('> node tests/app.test.js', 'dim');
+    names.forEach(n => out('  ✓ ' + n, 'ok'));
+    out(`${names.length} passed, 0 failed`);
+  } else if (c === 'git status') {
+    out('On branch main');
+    if (state.modified.size) [...state.modified].forEach(p => out('  modified:   ' + p, 'err'));
+    else out('nothing to commit, working tree clean', 'dim');
+  } else if (c) out(`${c.split(' ')[0]}: command not found. Type "help".`, 'err');
+  state.ptab = 'terminal';
+  $('#app').classList.remove('no-panel');
+  renderPanel(); renderStatus();
+  const input = $('#termIn'); if (input) input.focus();
+}
+
+/* ===== Simulated agent =====
+   A scenario is chosen by keywords in the prompt. Each one lists the steps it
+   "performs" and the edits it proposes. Edits are pure functions of file text,
+   so several accepted changes compose naturally. */
+const SCENARIOS = [
+  { match: /\btests?\b/i, title: 'Test for empty titles',
+    steps: ['Read tests/app.test.js', 'Check how saveNote handles titles', 'Write the new test', 'Run the test file'],
+    summary: 'I added a test that saves a note with an empty title and checks the list did not grow. It also uses the `saveNote` import, which clears the unused-import warning.',
+    changes: [{ path: 'tests/app.test.js', apply: t => t.includes('empty title') ? t : t + `
+
+test("ignores notes with an empty title", async () => {
+  const before = (await loadNotes()).length;
+  await saveNote({ title: "" });
+  expect((await loadNotes()).length).toBe(before);
+});` }],
+    plan: `# Plan: test for empty titles
+
+## Goal
+
+Cover the case where a note is saved without a title.
+
+## Steps
+
+- [x] Read the existing tests to match their style
+- [x] Add one test to \`tests/app.test.js\`
+- [x] Run \`npm test\`
+
+## Risk
+
+Low. Only the test file changes.` },
+  { match: /search|filter|find/i, title: 'Search box for notes',
+    steps: ['Read index.html and src/app.js', 'Plan the search behaviour', 'Add the input to the page', 'Filter the list while typing'],
+    summary: 'I added a search input above the form and a listener that filters the list as you type. Two files changed. Accept both, then start the dev server to try it in the preview.',
+    changes: [
+      { path: 'index.html', apply: t => t.includes('id="search"') ? t : t.replace('      <form id="new-note">', '      <input id="search" type="search" placeholder="Search notes">\n      <form id="new-note">') },
+      { path: 'src/app.js', apply: t => t.includes('#search') ? t : t
+          .replace('const form = document.querySelector("#new-note");', 'const form = document.querySelector("#new-note");\nconst search = document.querySelector("#search");')
+          .replace('async function start() {', '// Filter the list as the user types\nsearch.addEventListener("input", () => {\n  const term = search.value.toLowerCase();\n  render(notes.filter((note) => note.title.toLowerCase().includes(term)));\n});\n\nasync function start() {') }
+    ],
+    plan: `# Plan: search box for notes
+
+## Goal
+
+Let people narrow the list by typing part of a title.
+
+## Steps
+
+- [x] Add \`<input id="search">\` above the form in \`index.html\`
+- [x] Listen for \`input\` events in \`src/app.js\`
+- [x] Re-render with only the matching notes
+
+## Risk
+
+Low. Rendering already accepts any list of notes.` },
+  { match: /colou?r|theme|style|accent|css|green|design/i, title: 'Green accent colour',
+    steps: ['Read src/styles.css', 'Find where the accent is defined', 'Update the colour and button shape'],
+    summary: 'I changed the accent variable to green and made the buttons pill-shaped. Because the colour is a CSS variable, one line covers every use.',
+    changes: [{ path: 'src/styles.css', apply: t => t.replace('#3b6cf6', '#0f9d7a').replace('border-radius: 8px;', 'border-radius: 999px;') }],
+    plan: `# Plan: green accent colour
+
+## Goal
+
+Switch the accent from blue to green.
+
+## Steps
+
+- [x] Update \`--accent\` in \`src/styles.css\`
+- [x] Round the buttons to match
+
+## Risk
+
+None. Styling only.` },
+  { match: /./, title: 'Note in the README',
+    steps: ['Read README.md', 'Decide where the note belongs', 'Update the README'],
+    summary: 'This prototype only knows a few scenarios, so I recorded your request in the README. Try asking for a search box, a green accent colour, or a new test.',
+    changes: [{ path: 'README.md', apply: (t, prompt) => (t.includes('## Requests') ? t : t + '\n\n## Requests\n') + '\n- ' + prompt.replace(/\s+/g, ' ') }],
+    plan: `# Plan: note in the README
+
+## Goal
+
+Record the request so it is not lost.
+
+## Steps
+
+- [x] Add a "Requests" section to \`README.md\`
+- [x] Append the request as a list item` }
+];
+
+function sendPrompt(text, mode) {
+  text = text.trim();
+  if (!text) return;
+  let task = curTask();
+  if (!task) {
+    task = { id: ++seq, title: text.length > 44 ? text.slice(0, 44) + '…' : text, status: 'running', when: 'now', msgs: [] };
+    tasks.unshift(task);
+    state.activeTask = task.id;
+  }
+  const sc = SCENARIOS.find(s => s.match.test(text));
+  const fast = mode === 'fast';
+  const msg = { role: 'agent', text: '', artifacts: [], steps: (fast ? sc.steps.slice(-2) : sc.steps).map(label => ({ label, done: false })) };
+  task.msgs.push({ role: 'user', text }, msg);
+  task.status = 'running';
+  log(`[agent] task ${task.id} started: ${sc.title}`);
+  renderTasks();
+
+  let i = 0;
+  const tick = () => {
+    if (i < msg.steps.length) { msg.steps[i++].done = true; renderTasks(); setTimeout(tick, 650); return; }
+    // All steps done: stage the proposed edits for review.
+    for (const ch of sc.changes) {
+      const f = files[ch.path], base = f.pending ? f.pending.text : f.text, next = ch.apply(base, text);
+      if (next === base) continue;
+      f.pending = { text: next };
+      msg.artifacts.push({ kind: 'diff', path: ch.path, ...diffStat(diffLines(f.text, next)) });
+    }
+    if (!msg.artifacts.length) {
+      msg.text = 'That change is already in the workspace, so there is nothing new to review.';
+      task.status = 'done';
+    } else {
+      if (!fast) {
+        const id = `plan-${task.id}-${task.msgs.length}`;
+        docs[id] = { title: 'Plan: ' + sc.title, md: sc.plan };
+        msg.artifacts.unshift({ kind: 'doc', id, label: 'Implementation plan' });
+      }
+      msg.text = sc.summary;
+      task.status = 'review';
+      if (state.view === 'editor') openFile(msg.artifacts.find(a => a.kind === 'diff').path);
+    }
+    log(`[agent] task ${task.id} ${task.status === 'review' ? 'is waiting for review' : 'finished'}`);
+    renderAll();
+  };
+  setTimeout(tick, 650);
+}
+
+/* Accept or reject a proposed change, then close any task with nothing left to review. */
+function resolve(path, accepted) {
+  const f = files[path];
+  if (!f.pending) return;
+  if (accepted) { f.text = f.pending.text; state.modified.add(path); }
+  delete f.pending;
+  for (const t of tasks) {
+    const diffs = t.msgs.flatMap(m => m.artifacts || []).filter(a => a.kind === 'diff');
+    diffs.filter(a => a.path === path && !a.state).forEach(a => a.state = accepted ? 'Accepted' : 'Rejected');
+    if (t.status === 'review' && diffs.every(a => a.state)) t.status = 'done';
+  }
+  log(`[review] ${accepted ? 'accepted' : 'rejected'} ${path}`);
+  renderAll();
+}
+
+/* ===== Command palette and menus ===== */
+const COMMANDS = [
+  ['New agent task', () => { state.activeTask = null; renderTasks(); focusComposer(); }],
+  ['Open preview', openPreview],
+  ['Start dev server', () => runCmd('npm run dev')],
+  ['Run tests', () => runCmd('npm test')],
+  ['Switch theme', flipTheme],
+  ['Show Editor view', () => setView('editor')],
+  ['Show Manager view', () => setView('manager')],
+  ['Toggle sidebar', () => toggle('sidebar')],
+  ['Toggle panel', () => toggle('panel')],
+  ['Toggle agent panel', () => toggle('agent')],
+  ['About this prototype', () => openDoc('about')]
+];
+let palSel = 0, palRows = [];
+function palRender() {
+  const q = $('#palInput').value.toLowerCase().trim();
+  palRows = [...Object.keys(files).map(p => ({ label: p, hint: 'File', run: () => openFile(p) })),
+             ...COMMANDS.map(([label, run]) => ({ label, hint: 'Command', run }))].filter(r => r.label.toLowerCase().includes(q));
+  palSel = clamp(palSel, 0, Math.max(0, palRows.length - 1));
+  $('#palList').innerHTML = palRows.map((r, i) => `<button class="pal-item${i === palSel ? ' on' : ''}" data-act="pal" data-i="${i}">${ic(r.hint === 'File' ? 'files' : 'chevron', 14)}${esc(r.label)}<small>${r.hint}</small></button>`).join('')
+    || '<p class="hint">Nothing matches.</p>';
+  const on = $('.pal-item.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+}
+function palOpen() { $('#palette').hidden = false; const i = $('#palInput'); i.value = ''; palSel = 0; palRender(); i.focus(); }
+function palClose() { $('#palette').hidden = true; }
+function palRun(i) { const r = palRows[i]; palClose(); if (r) r.run(); }
+
+const MENUS = {
+  File: [['New agent task', COMMANDS[0][1]], ['Open preview', openPreview], ['Close tab', () => state.active && closeTab(state.active)]],
+  Edit: [['Find in files', () => { state.side = 'search'; $('#app').classList.remove('no-sidebar'); setView('editor'); renderSide(); }], ['Command palette', palOpen, 'Ctrl K']],
+  View: [['Editor', () => setView('editor')], ['Manager', () => setView('manager')], ['Toggle sidebar', () => toggle('sidebar'), 'Ctrl B'], ['Toggle panel', () => toggle('panel'), 'Ctrl J'], ['Toggle agent panel', () => toggle('agent')], ['Switch theme', flipTheme]],
+  Run: [['Start dev server', () => runCmd('npm run dev')], ['Run tests', () => runCmd('npm test')]],
+  Help: [['About this prototype', () => openDoc('about')]]
+};
+let menuItems = [];
+function menuOpen(name, anchor) {
+  const pop = $('#menuPop'), r = anchor.getBoundingClientRect();
+  menuItems = MENUS[name];
+  pop.innerHTML = menuItems.map((m, i) => `<button data-act="menu-item" data-i="${i}">${m[0]}${m[2] ? `<small>${m[2]}</small>` : ''}</button>`).join('');
+  pop.style.left = r.left + 'px'; pop.style.top = r.bottom + 4 + 'px';
+  pop.hidden = false;
+}
+const focusComposer = () => { const t = $((state.view === 'editor' ? '.agent-pane' : '.mgr-main') + ' textarea'); if (t) t.focus(); };
+function submitComposer(box) {
+  const ta = $('textarea', box);
+  sendPrompt(ta.value, $('[data-mode]', box).value);
+  ta.value = '';
+}
+
+/* ===== Events: one delegated click handler keyed on data-act ===== */
+const ACT = {
+  menu: (d, el) => menuOpen(d.menu, el),
+  'menu-item': d => { $('#menuPop').hidden = true; menuItems[d.i][1](); },
+  palette: palOpen,
+  pal: d => palRun(+d.i),
+  view: d => setView(d.view),
+  toggle: d => toggle(d.what),
+  theme: flipTheme,
+  side: d => {
+    const app = $('#app');
+    if (state.side === d.side && !app.classList.contains('no-sidebar')) app.classList.add('no-sidebar');   // click the active icon to collapse
+    else { state.side = d.side; app.classList.remove('no-sidebar'); renderSide(); }
+  },
+  dir: d => { state.open[d.dir] = !state.open[d.dir]; renderSide(); },
+  'open-file': d => openFile(d.path, d.line),
+  'open-doc': d => openDoc(d.doc),
+  tab: d => { state.active = d.id; renderSide(); renderTabs(); renderEditor(); },
+  'close-tab': d => closeTab(d.id),
+  ptab: d => { state.ptab = d.tab; $('#app').classList.remove('no-panel'); renderPanel(); },
+  accept: d => resolve(d.path, true),
+  reject: d => resolve(d.path, false),
+  run: d => runCmd(d.cmd),
+  'pv-reload': () => renderEditor(),
+  task: d => { state.activeTask = +d.id; renderTasks(); },
+  'task-new': () => { state.activeTask = null; renderTasks(); focusComposer(); },
+  chip: (d, el) => sendPrompt(el.textContent, $((state.view === 'editor' ? '.agent-pane' : '.mgr-main') + ' [data-mode]').value),
+  send: (d, el) => submitComposer(el.closest('[data-composer]')),
+  commit: () => {
+    const n = state.modified.size, msg = $('#commitMsg').value.trim() || 'Update notes app';
+    state.modified.clear();
+    log(`[git] committed ${n} file${n === 1 ? '' : 's'}: ${msg}`);
+    renderSide(); renderStatus();
+  },
+  install: (d, el) => { el.textContent = el.textContent === 'Install' ? 'Installed' : 'Install'; }
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!$('#menuPop').hidden && !(el && el.dataset.act === 'menu')) $('#menuPop').hidden = true;
+  if (e.target.id === 'palette') palClose();
+  if (el && ACT[el.dataset.act]) ACT[el.dataset.act](el.dataset, el, e);
+});
+$('#editor').addEventListener('click', e => {          // click a line to move the cursor
+  const ln = e.target.closest('.ln[data-n]'), tab = state.tabs.find(t => t.id === state.active);
+  if (!ln || !tab || tab.kind !== 'file' || String(getSelection())) return;
+  state.cursor[tab.path] = +ln.dataset.n;
+  $$('#editor .ln.cur').forEach(x => x.classList.remove('cur'));
+  ln.classList.add('cur');
+  renderStatus();
+});
+$('#pbody').addEventListener('click', e => { if (state.ptab === 'terminal' && !String(getSelection()) && !e.target.closest('button')) $('#termIn').focus(); });
+
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'palInput') { palSel = 0; palRender(); }
+  else if (t.id === 'pvSearch') { state.pvQuery = t.value; $('#pvList').innerHTML = pvList(); }
+  else if (t.id === 'fontSize') document.documentElement.style.setProperty('--code-size', t.value + 'px');
+  else if (t.id === 'wrapToggle') { state.wrap = t.checked; renderEditor(); }
+  else if (t.id === 'searchInput') {
+    const q = t.value.toLowerCase(), hits = [];
+    if (q) for (const [path, f] of Object.entries(files)) f.text.split('\n').forEach((l, i) => { if (l.toLowerCase().includes(q)) hits.push({ path, n: i + 1, l: l.trim() }); });
+    $('#searchRes').innerHTML = !q ? '<p class="hint">Type to search every file in the workspace.</p>'
+      : hits.map(h => `<button class="res" data-act="open-file" data-path="${h.path}" data-line="${h.n}"><b>${h.path}:${h.n}</b><code>${esc(h.l)}</code></button>`).join('') || '<p class="hint">No results.</p>';
+  }
+});
+document.addEventListener('submit', e => {              // the form inside the preview
+  e.preventDefault();
+  if (e.target.id !== 'pvForm') return;
+  const v = e.target.elements.title.value.trim();
+  if (v) { state.pvNotes.push(v); e.target.reset(); $('#pvList').innerHTML = pvList(); }
+});
+document.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase(), t = e.target;
+  if (mod && (k === 'k' || k === 'p')) { e.preventDefault(); palOpen(); }
+  else if (mod && k === 'b') { e.preventDefault(); toggle('sidebar'); }
+  else if (mod && k === 'j') { e.preventDefault(); toggle('panel'); }
+  else if (k === 'escape') { palClose(); $('#menuPop').hidden = true; }
+  else if (t.id === 'palInput' && (k === 'arrowdown' || k === 'arrowup')) { e.preventDefault(); palSel += k === 'arrowdown' ? 1 : -1; palRender(); }
+  else if (t.id === 'palInput' && k === 'enter') palRun(palSel);
+  else if (t.id === 'termIn' && k === 'enter') runCmd(t.value);
+  else if (t.matches('[data-composer] textarea') && k === 'enter' && !e.shiftKey) { e.preventDefault(); submitComposer(t.closest('[data-composer]')); }
+  else if (t.matches('.tab') && (k === 'enter' || k === ' ')) { e.preventDefault(); t.click(); }
+});
+
+/* Drag the thin dividers to resize the sidebar, agent panel and bottom panel. */
+$$('.resizer').forEach(r => r.addEventListener('pointerdown', e => {
+  const app = $('#app'), kind = r.dataset.resize;
+  r.setPointerCapture(e.pointerId); r.classList.add('on');
+  const move = ev => {
+    if (kind === 'sidebar') app.style.setProperty('--sb-w', clamp(ev.clientX - 48, 160, 480) + 'px');
+    else if (kind === 'agent') app.style.setProperty('--ag-w', clamp(innerWidth - ev.clientX, 260, 640) + 'px');
+    else { const c = $('.center').getBoundingClientRect(); app.style.setProperty('--pn-h', clamp(c.bottom - ev.clientY, 70, c.height - 120) + 'px'); }
+  };
+  const up = () => { r.classList.remove('on'); r.removeEventListener('pointermove', move); r.removeEventListener('pointerup', up); };
+  r.addEventListener('pointermove', move); r.addEventListener('pointerup', up);
+}));
+
+/* ===== Start ===== */
+$$('i[data-ic]').forEach(i => { i.outerHTML = ic(i.dataset.ic, +i.dataset.size || 16); });
+setTheme(matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+if (innerWidth < 1000) $('#app').classList.add('no-sidebar');
+if (innerWidth < 760) $('#app').classList.add('no-agent');
+renderAll();
+</script>
+</body>
+</html>
